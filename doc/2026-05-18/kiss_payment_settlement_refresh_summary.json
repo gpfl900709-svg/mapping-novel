@@ -1,35 +1,35 @@
 {
-  "generated_at": "2026-05-18T00:01:17+09:00",
-  "source_rows": 142006,
+  "generated_at": "2026-05-18T12:01:06+09:00",
+  "source_rows": 142022,
   "cache_rows_before": 125008,
-  "cache_rows_after": 125008,
-  "s2_lookup_rows": 125008,
-  "s2_change_added": 0,
+  "cache_rows_after": 125019,
+  "s2_lookup_rows": 125019,
+  "s2_change_added": 11,
   "s2_change_deleted": 0,
   "s2_change_modified": 0,
   "output_cache": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "output_cache_parts": [],
   "output_s2_lookup": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "summary": {
-    "rows": 142006,
+    "rows": 142022,
     "columns": 11,
     "content_shape_counts": {
-      "소설": 142006
+      "소설": 142022
     },
     "approval_status_counts": {
-      "승인": 138121,
-      "미승인": 3873,
+      "승인": 138122,
+      "미승인": 3888,
       "승인취소": 12
     },
     "payment_settlement_status_counts": {
-      "운영중": 141215,
+      "운영중": 141231,
       "종료": 681,
       "콘텐츠확인필요": 99,
       "거래처확인필요": 11
     },
     "top_channel_counts": {
-      "봄툰KR(1068149784)": 13110,
-      "원스토어(소설)": 11292,
+      "봄툰KR(1068149784)": 13111,
+      "원스토어(소설)": 11307,
       "미스터블루(소설)": 10861,
       "판무림": 10538,
       "한아름(P000003716)": 8414,
@@ -49,19 +49,19 @@
       "스토린랩(원스토어)": 2405,
       "리디북스(소설)": 2304
     },
-    "content_id_nonblank": 142006,
-    "content_id_unique": 28309,
-    "sales_channel_content_id_nonblank": 141824,
-    "sales_channel_content_id_unique": 125008,
+    "content_id_nonblank": 142022,
+    "content_id_unique": 28310,
+    "sales_channel_content_id_nonblank": 141839,
+    "sales_channel_content_id_unique": 125019,
     "registered_at_min": "2024-12-31T12:00:00",
-    "registered_at_max": "2026-05-15T14:13:50",
-    "sales_channel_content_id_duplicate_keys": 12062,
+    "registered_at_max": "2026-05-18T11:28:27",
+    "sales_channel_content_id_duplicate_keys": 12065,
     "sales_channel_content_id_multiple_titles": 1,
-    "sales_channel_content_id_multiple_master_ids": 12062,
+    "sales_channel_content_id_multiple_master_ids": 12065,
     "sales_channel_content_id_multiple_content_ids": 1,
     "cache_mode": "lookup_only",
     "s2_change_summary": {
-      "added": 0,
+      "added": 11,
       "deleted": 0,
       "modified": 0
     }
