@@ -111,10 +111,14 @@ function Publish-RefreshArtifacts {
         (Join-Path $RepoRoot "data\s2_payment_missing_lookup.csv"),
         (Join-Path $RepoRoot "data\s2_billing_settlement_lookup.csv"),
         (Join-Path $RepoRoot "data\s2_sales_channel_content_lookup.csv"),
+        (Join-Path $RepoRoot "data\all_contents.xlsx"),
+        (Join-Path $RepoRoot "data\kidari_contents.xlsx"),
+        (Join-Path $RepoRoot "data\kidari_webtoon.xlsx"),
         (Join-Path $docDir "kiss_payment_settlement_refresh_summary.json"),
         (Join-Path $docDir "s2_reference_guards_refresh_summary.json"),
         (Join-Path $docDir "s2_sales_channel_contents_refresh_audit.csv"),
-        (Join-Path $docDir "s2_sales_channel_contents_refresh_summary.json")
+        (Join-Path $docDir "s2_sales_channel_contents_refresh_summary.json"),
+        (Join-Path $docDir "ips_auxiliary_refresh_summary.json")
     ) | Where-Object { Test-Path $_ }
 
     if (-not $artifactPaths -or $artifactPaths.Count -eq 0) {
@@ -186,6 +190,11 @@ try {
         "scripts\refresh_s2_sales_channel_contents.py",
         "--env-file", $envFile,
         "--content-style-code", "102"
+    )
+
+    Invoke-Step "IPS auxiliary content refresh" @(
+        "scripts\refresh_ips_auxiliary_data.py",
+        "--env-file", $envFile
     )
 
     Publish-RefreshArtifacts

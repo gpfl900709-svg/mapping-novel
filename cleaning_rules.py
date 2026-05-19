@@ -43,6 +43,10 @@ EXACT_CLEAN_TITLE_ALIASES = {
     "보이즈돈크라이": "boysdontcry",
     "sm클럽암캐가된여자들": "sm클럽",
     "고인물무림에가다": "고인물무림에가다갈드창작지원금",
+    "daysnights": "nights",
+    "비정혈판": "비정혈",
+    "그들의사정": "그들만의사정",
+    "포도청시하": "포도청시상하",
 }
 SQUARE_WRAPPER_TAGS = (
     "bl",

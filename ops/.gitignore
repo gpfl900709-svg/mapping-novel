@@ -1,0 +1,20 @@
+# Runtime credentials and generated artifacts for the absorbed operator layer.
+SIAAN Project/.env
+SIAAN Project/.env.*
+!SIAAN Project/.env.example
+SIAAN Project/config/*.local.*
+output/
+SIAAN Project/output/
+SIAAN Project/data/catalog/
+SIAAN Project/data/exports/
+SIAANE_v2/**/exports/
+SIAANE_v2/**/stage/
+SIAANE_v2/**/raw/
+SIAANE_v2/**/canonical/
+SIAANE_v2/담당작가_ssot/
+SIAANE_v2/담당자없는작품_재정리/
+SIAANE_v2/담당컨텐츠_분류/
+*.log
+*.err.log
+__pycache__/
+*.pyc

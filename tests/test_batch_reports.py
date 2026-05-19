@@ -99,6 +99,19 @@ class BatchReportsTest(unittest.TestCase):
         self.assertEqual(work_order.loc[0, "정산서 행 수"], 2)
         self.assertEqual(work_order.loc[0, "정제_상품명"], "없는작품")
         self.assertEqual(work_order.loc[0, "S2 검색어"], "없는작품")
+        self.assertEqual(
+            work_order.columns[:8].tolist(),
+            [
+                "작업상태",
+                "담당PD",
+                "S2 판매채널",
+                "S2 검색어",
+                "정제_상품명",
+                "정산서_대표콘텐츠명",
+                "S2_미매핑상세사유",
+                "권장액션",
+            ],
+        )
         self.assertIn("S2 판매채널", work_order.columns)
         self.assertIn("담당PD", work_order.columns)
         self.assertIn("S2_미매핑상세사유", combined.columns)

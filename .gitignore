@@ -15,10 +15,13 @@ venv/
 temp/
 ignore/
 igignore/
+판매채널-지급정산 불일치/
 *.local.env
 /*.csv
 /*.xlsx
 /*.zip
+doc/**/generated_id_gap_triage.csv
+doc/**/generated_id_gap_triage.json
 data/kiss_payment_settlement_cache*.csv
 !data/kiss_payment_settlement_cache.csv
 !data/kiss_payment_settlement_cache_part_*.csv

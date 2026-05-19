@@ -1,157 +1,106 @@
 # mapping-novel
 
-## Findings
+S2 지급정산 기준으로 플랫폼 정산서를 매핑하고, S2/IPS/admin/account 보조 조사를 운영하기 위한 Streamlit + operator repo입니다.
 
-1. 정산정보가 없는 판매채널코드
-2. `[사용안함]`, `[사용금지]`, `[정산정보없음]` 처리된 코드
+## What This Does
 
-위 항목은 매핑 시스템에서 처리되지 않도록 선 차단합니다.
-`[사용안함]_[정산정보없음]`처럼 여러 차단 표식이 함께 붙은 경우도 같은 방식으로 선 차단합니다.
+- 정산서 업로드 → S2 지급정산 기준 매핑
+- 검토필요/PD 작업지시 리포트 생성
+- S2 기준, 누락 guard, 청구 guard, 판매채널콘텐츠 lookup 최신화
+- IPS 콘텐츠 보조자료 최신화
+- `ops/` 아래에 IPS/admin/account 운영 스크립트 보관
 
-S2 소설 매핑 Streamlit 앱입니다. 운영 화면은 S2 지급정산 기준만 사용합니다.
-
-## 실행
+## Quick Start
 
 ```powershell
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
-## Streamlit Cloud 준비
+운영용 live 작업까지 할 때:
 
-Streamlit Cloud의 메인 파일은 `app.py`입니다.
-
-Streamlit Cloud 앱은 S2 API에 직접 로그인하거나 S2 기준을 직접 최신화하지 않습니다. Cloud는 repo에 배포된 `data/` 기준 파일을 읽어 매핑합니다.
-
-S2 기준은 사내망 PC의 자동 작업으로 매일 12:00, 24:00 KST 최신화한 뒤 repo에 커밋/푸시합니다. 사용자는 앱 사이드바의 `S2 기준 업데이트` 시각을 확인하고, 마지막 성공 업데이트가 12시간을 넘겼으면 관리자에게 요청하거나 앱 본문 `2. S2 기준`에서 수동 S2 파일 업로드를 사용합니다.
-
-S2 API 접속 정보는 Streamlit Cloud Secrets에 넣지 않습니다. 관리자 로컬 CLI에서만 `.env`를 사용합니다. 실제 접속 정보는 git에 올리지 않습니다.
-
-사이드바의 `관리자에게 S2 최신화 요청` 버튼은 ClickUp 태스크를 생성합니다. 사용자는 로그인 없이 버튼만 누르고, 관리자는 ClickUp 모바일 알림으로 요청을 받습니다. Streamlit Cloud Secrets에는 아래 값만 넣습니다.
-
-```toml
-[clickup]
-api_token = "..."
-list_id = "..."
-assignee_ids = "" # 비우면 토큰 소유자를 자동 조회해 담당자로 넣습니다.
-app_url = "https://mapping-novel-ascmdzm897irzyvzwn9kqo.streamlit.app/"
+```powershell
+pip install -r requirements.txt -r ops\requirements-ops.txt
+python -m playwright install chromium
+Copy-Item "ops\SIAAN Project\.env.example" "ops\SIAAN Project\.env"
 ```
 
-S2 API가 사내망, VPN, 방화벽 또는 IP 허용 목록으로 제한되어 있으면 Streamlit Cloud에서는 ID/PW가 맞아도 최신화가 실패할 수 있습니다. 이때 로그가 `ConnectTimeout`, `Max retries exceeded`, `timed out`이면 인증 문제가 아니라 Cloud 서버에서 S2 API까지 네트워크 연결이 되지 않는 상태입니다. 이 경우 사내망에서 실행 가능한 서버를 쓰거나, 개발팀에 조회 전용 API/스냅샷/허용 IP 정책을 별도로 요청해야 합니다.
+## Main Paths
 
-## 현재 동작
+```text
+app.py                         Streamlit 앱
+batch_reports.py               복수 정산서/PD 작업지시 리포트
+mapping_core.py                핵심 매핑 로직
+cleaning_rules.py              제목 정제 규칙
+matching_rules.py              S2 판매채널 필터
+scripts/                       최신화/운영 CLI
+data/                          앱이 읽는 기준 데이터
+ops/                           IPS/admin/account live 운영 레이어
+doc/OPERATIONS.md              상세 운영 설명
+doc/2026-05-19/                최신 인수인계/감리 문서
+```
 
-- S2 지급정산관리 기준을 중심으로 매핑합니다. 정산 정보가 붙지 않은 서비스 가능 판매채널 코드는 정산 매핑 기준으로 사용하지 않습니다.
-- 문자열 정제와 행 제외 규칙은 `cleaning_rules.py`의 `CleaningPolicy`에 모아둡니다.
-- 정산서 파일명에 들어 있는 실제 S2 `판매채널명`을 기준으로 S2 후보를 먼저 필터링한 뒤 매핑합니다.
-- S2 콘텐츠 상세 화면의 `서비스가능판매채널`에 `판매채널콘텐츠ID`가 보이더라도, 지급정산관리 목록에 없으면 정산용 매핑 ID로 채택하지 않습니다.
-- `서비스가능판매채널` 또는 `판매채널콘텐츠 검색` 목록은 진단용 보조자료로만 봅니다. 정산 계약, 지급정산 설정, 정산식이 붙었는지 보장하지 않으므로 S2 전송자료의 근거가 될 수 없습니다.
-- S2 기준 행에 `[사용안함]`, `(사용안함)`, `[사용금지]`, `(사용금지)`, `[정산정보없음]`, `(정산정보없음)` 표식이 있으면 해당 행은 매핑 기준에서 제외합니다. `[사용안함]_[정산정보없음]`처럼 복수 표식이 함께 붙어도 제외합니다.
-- S2 기준은 다음 중 하나를 사용합니다.
-  - 관리자가 repo에 배포한 S2 기준
-  - 수동 S2 리스트 업로드
-  - 수동 S2 원천 엑셀 업로드
-- 플랫폼별 정산서는 여러 개를 한 번에 업로드할 수 있습니다.
-- 복수 정산서 처리는 기본 2개 worker로 파일 단위 병렬 실행합니다. 결과 순서와 ZIP 산출물 순서는 업로드 순서를 유지합니다. Cloud 자원 문제가 있으면 `MAPPING_PARALLEL_WORKERS=1`로 즉시 순차 처리로 되돌릴 수 있습니다.
-- 플랫폼별 정산서는 어댑터를 거쳐 표준 재료로 변환한 뒤 행별 매핑 결과를 생성합니다.
-- 매핑 상태는 기본적으로 `matched`, `no_match`, `blank_key`로 분리합니다.
-- 같은 정제키에 여러 후보 ID가 있으면 S2 등록/생성일 최신 후보를 자동 선택하고 `matched`로 처리합니다. 날짜 컬럼이 없으면 입력 순서 첫 후보를 사용하며, 후보 목록과 자동선택 기준은 `중복후보` 시트에 남깁니다.
-- 결과 엑셀은 `요약`, `입력검증`, `행별매핑결과`, `검토필요`, `중복후보` 시트를 포함합니다.
-- 복수 처리 결과는 파일별 `{원본파일명}_매핑.xlsx`로 만들고 ZIP으로 묶어 다운로드합니다.
-- ZIP에는 `PD_작업지시_종합리포트.csv`와 `전체_행별매핑_종합.csv`를 함께 넣습니다. `PD_작업지시_종합리포트.csv`는 검토필요 행만 정제 제목 기준으로 묶어 구글시트에 붙여넣는 작업지시용입니다.
-- S2 최신화는 사내망 PC 자동 작업으로 매일 12:00, 24:00 KST 실행하며, 실행 이력은 로컬 DB와 repo 요약 파일에 남깁니다.
-- S2 최신화 기본 전략은 S2 화면 엑셀 다운로드가 아니라 JSON API 직접 조회입니다. `pageSize=1000000`, `ctnsStleCd=102`로 소설 지급정산관리 전체를 1회 호출하고, 원천 XLSX/대용량 CSV를 만들지 않은 채 `판매채널콘텐츠ID` 기준 compact lookup만 저장합니다.
-- S2 최신화는 항상 전체 교체입니다. 기존 관리자 배포 S2 기준과 새 S2 조회 결과를 누적 병합하지 않습니다.
-- 전체 교체 전에 `판매채널콘텐츠ID` 기준 변경 이력을 남깁니다.
-  - 신규, 삭제, 변경을 구분합니다.
-  - 콘텐츠명, S2 마스터ID, 콘텐츠ID, 작가정보 변경을 감리합니다.
-  - 최근 변경 요약과 상세는 앱 사이드바의 최신화 기록에서 확인합니다.
-- S2 전송자료 4컬럼은 금액 정책 잠금, S2 matched, S2 후보 1개, 분리사유 없음, 금액 후보 검증을 모두 통과한 경우에만 다운로드됩니다.
+## Daily Refresh
 
-## 테스트
+S2 기준은 사내망 PC에서 전체 교체 방식으로 최신화합니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run_daily_s2_refresh.ps1 -RepoRoot <repo-path> -Python <python.exe>
+```
+
+수동 실행:
+
+```powershell
+python scripts\refresh_kiss_payment_settlement.py --env-file .env --mode full-replace --lookup-only --page-size 1000000 --content-style-code 102
+python scripts\refresh_s2_reference_guards.py --env-file .env --page-size 1000000 --content-style-code 102
+python scripts\refresh_s2_sales_channel_contents.py --env-file .env --content-style-code 102
+python scripts\refresh_ips_auxiliary_data.py --env-file .env
+```
+
+## Generated ID Gap Triage
+
+Google Sheet의 `S2_판매채널콘텐츠ID` 빈 행은 먼저 S2 기준에서 진짜 부재인지 확인합니다.
+
+```powershell
+python scripts\triage_generated_id_gaps.py
+```
+
+공개 CSV export가 막혀 있으면 시트를 CSV로 내려받아:
+
+```powershell
+python scripts\triage_generated_id_gaps.py --input <sheet.csv>
+```
+
+결과는 기본적으로 `doc/YYYY-MM-DD/generated_id_gap_triage.csv`에 저장됩니다.
+
+판정 순서:
+
+1. S2 지급정산 기준 exact match
+2. S2 판매채널콘텐츠 lookup exact match
+3. S2 정산정보누락/청구정산 guard
+4. S2 fuzzy 후보
+5. IPS/admin/account 더미계약 조사
+
+## Operator Layer
+
+`ops/`는 포크 인수인계를 위해 SSOT/SIAANE 쪽 운영 코드를 흡수한 영역입니다.
+
+- [ops/README.md](ops/README.md)
+- [ops/INPUTS.md](ops/INPUTS.md)
+- [ops 흡수 적대적 감리](doc/2026-05-19/ops_absorption_adversarial_audit.md)
+- [운영 capability map](doc/2026-05-19/operator_handoff_capability_map.md)
+
+live write 도구는 기본적으로 dry-run/preview 우선으로 보정되어 있습니다. 실제 write는 각 스크립트의 `--write` 또는 명시 옵션을 확인하고 소량으로만 실행합니다.
+
+## Tests
 
 ```powershell
 python -m unittest discover -s tests -v
 python -m py_compile app.py mapping_core.py matching_rules.py parallel_mapping.py
 ```
 
-## S2 최신화
+## Notes
 
-사내망 PC의 자동 작업이 매일 12:00, 24:00 KST S2 기준을 갱신합니다. Cloud 앱에는 S2 로그인/최신화 버튼을 노출하지 않습니다.
-최신화가 끝나면 repo에 커밋/푸시하고, Streamlit Cloud는 repo에 배포된 최신 기준 파일을 읽습니다.
-앱은 마지막 성공 업데이트가 12시간 이내이면 `사용 가능`, 12시간을 넘기면 `확인 필요`로 표시합니다.
-기본 조회는 `1900-01-01`부터 실행 당일까지이며, `ctnsStleCd=102` 소설 지급정산 목록 전체를 가져옵니다.
-속도 우선 전략으로 S2 API를 `pageSize=1000000` 단일 페이지로 호출하고 JSON 응답에서 필요한 컬럼만 파싱합니다.
-기존 S2 기준은 새 조회 결과로 통째로 교체합니다.
-최신화가 끝나면 로컬 DB에 신규/삭제/변경 건수와 상세 변경 이력을 기록합니다.
-
-지급정산 기준 갱신 뒤 보조 guard도 함께 갱신합니다.
-
-- `data/s2_payment_missing_lookup.csv`: S2 `정산정보 누락 건`(`/stm/stm`) 소설 전체. 이 판매채널콘텐츠ID는 S2 매핑 후보에서 제외합니다.
-- `data/s2_billing_settlement_lookup.csv`: S2 `[5467] 정산정보(청구)관리`(`/mst/setl/req-setl`) 전체. 지급정산 no-match 행과 판매채널명+정제 제목이 맞으면 `청구정산 후보`로 리포트에 표시합니다.
-- `data/s2_sales_channel_content_lookup.csv`: S2 `판매채널콘텐츠 조회`(`/sale/ext/ext-salm/schn-ctns`) 소설 대상. 지급정산 매칭 후보로 쓰지 않고, no-match 행의 “같은 채널 판매채널콘텐츠 있음 / 지급정산 없음” 근거로만 표시합니다.
-- 수동 S2 업로드에도 guard를 적용하지만, 수동 업로드는 예외 모드입니다. 운영 기본값은 관리자 배포 S2 기준 사용입니다.
-
-매핑 리포트는 같은 정제키에 S2 후보가 여러 개 있으면 최신 등록일자 후보를 보여주되, S2 전송자료는 `S2_후보수 > 1` 행을 차단합니다.
-또한 `S2_분리사유`가 있는 행은 청구/누락 등 별도 처리 가능성이 있으므로 전송자료에서 차단합니다.
-
-이 최신화 결과는 정산 전송용 기준입니다. S2의 콘텐츠 상세 화면이나 `판매채널콘텐츠 검색`에서 보이는 서비스 가능 코드는 별도 개념입니다. 서비스 가능 코드는 작품이 해당 판매채널에 등록되어 있다는 뜻일 수 있지만, 계약 ID나 지급정산 설정이 붙은 정산 가능 코드라는 뜻은 아닙니다. 따라서 지급정산관리 목록에 없는 `판매채널콘텐츠ID`를 정산서에 임의 연결하지 않습니다.
-
-기본 자동감지는 정산서 파일명에 들어 있는 실제 S2 `판매채널명`만 사용합니다. 예를 들어 `카카오`는 통과하지 않고 `카카오페이지(소설)`처럼 S2에서 쓰는 판매채널명을 넣어야 합니다. 파일명을 맞추기 싫으면 앱의 판매채널 드롭다운에서 실제 S2 판매채널명을 직접 선택합니다.
-
-기본 baseline으로 쓰는 파일은 `data/kiss_payment_settlement_s2_lookup.csv`입니다. 현재 기본 최신화는 lookup-only 방식이라 S2 원천 XLSX나 대용량 원천 CSV part를 만들지 않습니다. 과거 호환용 `data/kiss_payment_settlement_cache_part_*.csv`가 있더라도 앱 매핑 기준은 compact lookup을 우선 사용합니다. 최신화 이력 DB와 실행 잠금 파일은 로컬 운영 파일이며 git에 올리지 않습니다.
-
-CLI에서 같은 빠른 최신화를 실행하려면 아래처럼 사용합니다.
-
-```powershell
-python scripts\refresh_kiss_payment_settlement.py --mode full-replace --lookup-only --page-size 1000000 --content-style-code 102
-```
-
-보조 guard만 따로 갱신하려면 아래처럼 실행합니다.
-
-```powershell
-python scripts\refresh_s2_reference_guards.py --page-size 1000000 --content-style-code 102
-```
-
-판매채널콘텐츠 정보 lookup만 따로 갱신하려면 아래처럼 실행합니다.
-
-```powershell
-python scripts\refresh_s2_sales_channel_contents.py --content-style-code 102
-```
-
-갱신 뒤 Cloud 기준을 바꾸려면 아래 파일을 커밋/푸시합니다.
-
-```powershell
-git add data/kiss_payment_settlement_s2_lookup.csv data/s2_payment_missing_lookup.csv data/s2_billing_settlement_lookup.csv data/s2_sales_channel_content_lookup.csv
-git commit -m "Refresh S2 lookup baseline"
-git push origin main
-```
-
-### 수동 S2 업로드 자료
-
-- `S2 원천 엑셀`: S2 `[5031] 정산정보(지급)관리`에서 내려받은 원본 엑셀입니다. 앱이 필요한 기준 컬럼으로 변환합니다. URL: `https://kiss.kld.kr/mst/stmi/pymt-setl`
-- `S2 기준 리스트`: `판매채널콘텐츠ID`, `콘텐츠ID`, `콘텐츠명`, `판매채널명`이 이미 들어가도록 관리자가 가공한 기준 파일입니다. 일반 사용자는 보통 쓰지 않습니다.
-
-## 운영 체크리스트
-
-### S2 최신화 전
-
-- 관리자 로컬 `.env`에 S2 로그인 정보가 있는지 확인합니다.
-- 사이드바의 현재 S2 기준 행 수를 확인합니다.
-- 최신화는 전체 교체이므로, 실행 중에는 같은 로컬 기준 파일을 다른 도구에서 열어두지 않습니다.
-
-### S2 최신화 후
-
-- 최근 상태가 `success`인지 확인합니다.
-- 최근 S2 기준 행 수가 비정상적으로 작아지지 않았는지 확인합니다.
-- 사이드바의 `누락 guard`, `청구 guard` 행 수가 0으로 떨어지지 않았는지 확인합니다.
-- 신규/삭제/변경 건수를 확인합니다.
-- 삭제 건수가 예상보다 크면 정산서 매핑을 진행하지 말고 S2 조회 조건과 실행 로그를 먼저 확인합니다.
-- 변경 상세에서 같은 `판매채널콘텐츠ID`의 콘텐츠명, S2 마스터ID, 콘텐츠ID, 작가정보 변경이 납득 가능한지 확인합니다.
-
-### 정산서 업로드 실패 시
-
-- 파일명에 실제 S2 `판매채널명`이 없으면 파일명을 먼저 수정하거나 판매채널 드롭다운에서 직접 선택합니다. 예: `카카오페이지(소설)`, `구글(소설)`, `네이버_장르`.
-- 어댑터 오류가 뜨면 오류 상세와 시트별 감사를 먼저 확인합니다.
-- S2 매핑 입력 행이 0이면 해당 파일이 S2 매핑 대상인지, 통합본/확장체크 같은 검토용 변형 파일인지, 또는 시트명/헤더 위치/헤더명이 바뀌었는지 확인합니다.
-- 콘텐츠마스터나 콘텐츠 상세에는 보이지만 S2 지급정산 기준에는 없는 행은 임의로 서비스 가능 판매채널 코드를 붙이지 않습니다. 콘텐츠 상세에는 코드가 보여도 정산 설정이 없을 수 있으므로, S2 지급정산관리에서 계약/정산 설정을 먼저 확인합니다.
+- 실제 `.env`와 local 작업 산출물은 git에 올리지 않습니다.
+- 상세 운영 히스토리는 [doc/OPERATIONS.md](doc/OPERATIONS.md)에 보존했습니다.
+- 과거 조사/증거 파일은 아직 repo에 남아 있으나, 신규 운영자는 위 `Main Paths`와 `ops/` 문서를 우선 보면 됩니다.
