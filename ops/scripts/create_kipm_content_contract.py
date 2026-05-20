@@ -90,6 +90,7 @@ class ContentContractSpec:
     counterparty_code: str = ""
     pen_name: str = ""
     existing_cid: str = ""
+    rs_rate: int = 0
 
 
 @dataclass(frozen=True)
@@ -169,6 +170,7 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Skip content creation and continue with this existing CID on write mode.",
     )
+    parser.add_argument("--rs-rate", type=int, default=0, help="Optional RS rate override for dummy contract registration.")
     parser.add_argument(
         "--release-date",
         default=DEFAULT_RELEASE_DATE,
@@ -680,6 +682,7 @@ def build_spec(args: argparse.Namespace, registry_match: RegistryMatch | None) -
         counterparty_code=normalize_text(args.counterparty_code),
         pen_name=normalize_text(args.pen_name),
         existing_cid=normalize_text(args.existing_cid),
+        rs_rate=args.rs_rate,
     )
 
 
@@ -780,6 +783,14 @@ def main() -> None:
                 if not target_cid:
                     raise ContentContractError("계약 등록 대상으로 사용할 CID 가 없습니다.")
 
+                contract_content_name = (
+                    content_result.content_name
+                    if isinstance(content_result, ContentCreateResult)
+                    else normalize_text(content_result.get("content_name")) or spec.title
+                )
+                if spec.existing_cid:
+                    contract_content_name = spec.title
+
                 harness.page.wait_for_timeout(2_000)
                 contract = create_dummy_contract(
                     harness.page,
@@ -796,6 +807,8 @@ def main() -> None:
                         publisher=nas_profile.publisher,
                         genre=DEFAULT_GENRE,
                         detail_genre=DEFAULT_DETAIL_GENRE,
+                        content_name=contract_content_name,
+                        rs_rate=spec.rs_rate,
                     ),
                 )
                 contract_result = {"status": "created", **asdict(contract)}

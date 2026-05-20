@@ -183,6 +183,8 @@ def wait_for_selected_cell(page: Page, cell_ref: str, settle_ms: int) -> None:
 
 def write_cell(page: Page, cell_ref: str, value: str, settle_ms: int) -> None:
     validate_single_cell_ref(cell_ref)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(100)
     name_box = page.locator(NAME_BOX_SELECTOR)
     name_box.click()
     try:
@@ -193,8 +195,16 @@ def write_cell(page: Page, cell_ref: str, value: str, settle_ms: int) -> None:
     name_box.press("Enter")
     page.wait_for_timeout(settle_ms)
     wait_for_selected_cell(page, cell_ref, settle_ms)
-    page.keyboard.type(value, delay=20)
-    page.keyboard.press("Enter")
+    if value.isascii():
+        page.keyboard.type(value, delay=20)
+        page.keyboard.press("Enter")
+    else:
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(100)
+        page.keyboard.press("Control+A")
+        page.keyboard.insert_text(value)
+        page.keyboard.press("Enter")
+    page.keyboard.press("Escape")
     page.wait_for_timeout(settle_ms)
 
 
@@ -296,17 +306,23 @@ class RawCDPSheetWriter:
         return result.get("result", {}).get("value")
 
     def _press_enter(self) -> None:
+        self._press_key("Enter", 13, "")
+
+    def _press_escape(self) -> None:
+        self._press_key("Escape", 27, "")
+
+    def _press_key(self, key: str, key_code: int, text: str = "") -> None:
         for key_type in ("keyDown", "keyUp"):
             self.call(
                 "Input.dispatchKeyEvent",
                 {
                     "type": key_type,
-                    "windowsVirtualKeyCode": 13,
-                    "nativeVirtualKeyCode": 13,
-                    "code": "Enter",
-                    "key": "Enter",
-                    "text": "\r" if key_type == "keyDown" else "",
-                    "unmodifiedText": "\r",
+                    "windowsVirtualKeyCode": key_code,
+                    "nativeVirtualKeyCode": key_code,
+                    "code": key,
+                    "key": key,
+                    "text": text if key_type == "keyDown" else "",
+                    "unmodifiedText": text,
                 },
             )
 
@@ -319,6 +335,8 @@ class RawCDPSheetWriter:
 
     def write_cell(self, cell_ref: str, value: str, settle_ms: int) -> None:
         validate_single_cell_ref(cell_ref)
+        self._press_escape()
+        time.sleep(0.1)
         self.eval_js(
             """
             (() => {
@@ -340,9 +358,12 @@ class RawCDPSheetWriter:
                 "Selection mismatch before write: "
                 f"expected {normalize_cell_ref(cell_ref)}, actual {normalize_cell_ref(selected_cell) or '<empty>'}"
             )
+        self._press_key("Delete", 46, "")
+        time.sleep(0.1)
         self.call("Input.insertText", {"text": value})
         time.sleep(settle_ms / 1000)
         self._press_enter()
+        self._press_escape()
         time.sleep(max(1.2, settle_ms / 1000 * 2))
 
     def get_cookies(self, urls: list[str]) -> list[dict[str, Any]]:
@@ -476,21 +497,14 @@ def run_upload(args: argparse.Namespace) -> dict[str, Any]:
                 start_wait_ms=args.chrome_start_wait_ms,
             )
             report["debug_chrome"] = launch.to_dict()
-        try:
-            with sync_playwright() as playwright:
-                browser = playwright.chromium.connect_over_cdp(args.connect_url, timeout=15_000)
-                page = find_target_page(browser, args.sheet_url.split("#")[0])
-                page.bring_to_front()
-                wait_for_sheet_ready(page)
-                for upload_row in upload_rows:
-                    write_cell(page, upload_row.cell_ref, upload_row.value, args.settle_ms)
-            report["write_method"] = "playwright_cdp"
-        except Exception:
-            with RawCDPSheetWriter(args.connect_url, args.sheet_url) as writer:
-                writer.wait_for_sheet_ready()
-                for upload_row in upload_rows:
-                    writer.write_cell(upload_row.cell_ref, upload_row.value, args.settle_ms)
-            report["write_method"] = "raw_cdp"
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.connect_over_cdp(args.connect_url, timeout=60_000)
+            page = find_target_page(browser, args.sheet_url.split("#")[0])
+            page.bring_to_front()
+            wait_for_sheet_ready(page)
+            for upload_row in upload_rows:
+                write_cell(page, upload_row.cell_ref, upload_row.value, args.settle_ms)
+        report["write_method"] = "playwright_cdp"
 
         if not args.skip_verify:
             first_csv = download_sheet_csv_via_cdp(args.connect_url, args.sheet_url)

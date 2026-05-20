@@ -58,6 +58,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--value-column", default="sales_channel_content_id")
     parser.add_argument("--action-column", default="next_action")
     parser.add_argument("--required-action", default="paste_sales_channel_content_id")
+    parser.add_argument("--source-contract-id", default="", help="Optional explicit source 통합 계약 ID.")
+    parser.add_argument("--source-contract-id-column", default="source_contract_id")
+    parser.add_argument("--force-add-existing-platform", action="store_true")
+    parser.add_argument("--force-add-existing-platform-column", default="force_add_existing_platform")
     parser.add_argument("--settle-ms", type=int, default=500)
     parser.add_argument("--verify-wait-ms", type=int, default=2500)
     parser.add_argument("--headless", action="store_true")
@@ -164,6 +168,10 @@ def main() -> int:
             platform_column="input_platform",
             action_column="next_action",
             required_action="add_platform_in_ips",
+            source_contract_id=args.source_contract_id,
+            source_contract_id_column=args.source_contract_id_column,
+            force_add_existing_platform=args.force_add_existing_platform,
+            force_add_existing_platform_column=args.force_add_existing_platform_column,
             limit=0,
             env_file=args.env_file,
             headless=args.headless,

@@ -24,6 +24,11 @@ DEFAULT_KIPM_PATH = "/ip/cntr/cntrreg/cntr-trg-ctns-reg"
 DEFAULT_SERVICE_CHANNEL = "외부유통"
 DEFAULT_UPPER_CHANNEL = "서드유통-일반(국내)"
 DEFAULT_LOWER_CHANNEL = "교보문고(소설)"
+CONTRACT_BASE_CHANNEL_SELECTIONS = (
+    ("서비스가능판매채널", DEFAULT_SERVICE_CHANNEL),
+    ("상위판매채널", DEFAULT_UPPER_CHANNEL),
+    ("하위판매채널", DEFAULT_LOWER_CHANNEL),
+)
 DEFAULT_SERVICE_TYPE = "연재"
 DEFAULT_GRADE = "비성인"
 DEFAULT_PUBLISHER = "포텐"
@@ -44,10 +49,28 @@ DEFAULT_SETTLEMENT_CYCLE = "익분기(M+2)"
 DEFAULT_BASIS = "키다리스튜디오"
 DEFAULT_RS_METHOD = "순매출액대비RS율"
 DEFAULT_MG_SETOFF_TARGET = "N"
+COUNTERPARTY_SEARCH_ALIASES = {
+    "apbooks": "AP 북스",
+    "ap북스": "AP 북스",
+    "ebook21": "조은커뮤니티",
+    "이북21": "조은커뮤니티",
+}
 
 
 class DummyContractError(RuntimeError):
     pass
+
+
+def normalize_text(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "").replace("\u00a0", " ")).strip()
+
+
+def alias_key(value: Any) -> str:
+    return re.sub(r"\s+", "", normalize_text(value)).lower()
+
+
+def resolve_counterparty_search_name(holder_name: str) -> str:
+    return COUNTERPARTY_SEARCH_ALIASES.get(alias_key(holder_name), normalize_text(holder_name))
 
 
 @dataclass(frozen=True)
@@ -66,6 +89,12 @@ class DummyContractSpec:
     detail_genre: str = ""
     manager_name: str = ""
     manager_department: str = ""
+    content_name: str = ""
+    rs_rate: int = 0
+    trace_steps: bool = False
+    skip_manager_field: bool = False
+    force_manager_field: bool = False
+    skip_step1_required_fields: bool = False
 
 
 @dataclass(frozen=True)
@@ -122,6 +151,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--detail-genre", default="", help="Optional 세부장르 default.")
     parser.add_argument("--manager-name", default="", help="Optional 담당자명 default.")
     parser.add_argument("--manager-department", default="", help="Optional 담당자 소속 default.")
+    parser.add_argument("--skip-manager-field", action="store_true", help="Keep the manager loaded from the mapped content.")
+    parser.add_argument(
+        "--force-manager-field",
+        action="store_true",
+        help="Set manager/department by direct input events and skip slow lookup popups.",
+    )
+    parser.add_argument(
+        "--skip-step1-required-fields",
+        action="store_true",
+        help="Keep mapped content metadata/book rows as-is instead of filling release/ISBN defaults.",
+    )
+    parser.add_argument("--content-name", default="", help="Optional known content name to avoid rereading it from step 1.")
+    parser.add_argument("--rs-rate", type=int, default=0, help="Optional RS rate override. Example: 50.")
+    parser.add_argument("--trace-steps", action="store_true", help="Print major contract registration steps.")
     parser.add_argument(
         "--env-file",
         default="",
@@ -1195,6 +1238,38 @@ def ensure_step1_metadata_fields(page: Any, spec: DummyContractSpec) -> None:
             continue
 
 
+def ensure_contract_base_channel_fields(page: Any) -> None:
+    for label, option_text in CONTRACT_BASE_CHANNEL_SELECTIONS:
+        try:
+            if page.locator("label").filter(has_text=label).count() == 0:
+                continue
+            current_value = read_select_value(page, label)
+        except Exception:
+            current_value = ""
+        if normalize_text(current_value) == normalize_text(option_text):
+            continue
+        choose_select_with_retry(page, page, label, option_text)
+
+
+def resolve_contract_content_metadata(page: Any, spec: DummyContractSpec) -> tuple[str, str]:
+    content_name = normalize_text(spec.content_name)
+    if not content_name:
+        content_name = read_field_value(page, "콘텐츠명")
+
+    grade_name = normalize_text(spec.grade)
+    if not grade_name:
+        try:
+            if page.locator("label").filter(has_text="등급").count() > 0:
+                grade_name = read_field_value(page, "등급")
+        except Exception:
+            pass
+    grade_name = grade_name or DEFAULT_GRADE
+
+    if not content_name:
+        raise DummyContractError(f"CID {spec.cid} 의 콘텐츠명을 읽지 못했습니다.")
+    return content_name, grade_name
+
+
 def add_counterparty(
     page: Any,
     holder_name: str,
@@ -1203,11 +1278,12 @@ def add_counterparty(
     counterparty_code: str = "",
     pen_name: str = "",
 ) -> None:
+    search_name = resolve_counterparty_search_name(holder_name)
     click_text_button(page, "계약상대방 추가")
     overlay = modal_overlay(page, "거래처명")
     if counterparty_type.strip():
         choose_select_by_label(page, overlay, "거래처 구분", counterparty_type.strip())
-    fill_field_by_label(overlay, "거래처명", holder_name)
+    fill_field_by_label(overlay, "거래처명", search_name)
     click_text_button(overlay, "조회")
     page.wait_for_timeout(1_200)
     rows = overlay.locator(".rg-data-row")
@@ -1231,7 +1307,7 @@ def add_counterparty(
         raise DummyContractError(
             "예금주 검색 결과가 1건이 아닙니다. "
             "holder="
-            f"{holder_name} type={counterparty_type or '-'} code={counterparty_code or '-'} "
+            f"{holder_name} search={search_name} type={counterparty_type or '-'} code={counterparty_code or '-'} "
             f"pen={pen_name or '-'} count={row_count} rows={row_texts}"
         )
     rows.first.click()
@@ -1327,7 +1403,18 @@ def extract_contract_id(url: str) -> str:
     return values[0] if values else ""
 
 
-def configure_step4(page: Any, grade_name: str) -> int:
+def trace_step(spec: DummyContractSpec, message: str) -> None:
+    if spec.trace_steps:
+        print(f"[dummy-contract][cid={spec.cid}] {message}", flush=True)
+
+
+def resolve_rs_rate(grade_name: str, explicit_rate: int = 0) -> int:
+    if explicit_rate > 0:
+        return explicit_rate
+    return 80 if grade_name.strip() == "성인" else 70
+
+
+def configure_step4(page: Any, grade_name: str, *, explicit_rs_rate: int = 0) -> int:
     choose_select_by_label(page, page, "지급액 여부", "N")
     choose_select_by_label(page, page, "RS여부", "Y")
     choose_select_by_label(page, page, "지급통화", DEFAULT_CURRENCY)
@@ -1338,7 +1425,7 @@ def configure_step4(page: Any, grade_name: str) -> int:
 
     ensure_rs_section_open(page)
     rs_grid = grid_section_by_title(page, "RS - 개별")
-    rs_rate = 80 if grade_name.strip() == "성인" else 70
+    rs_rate = resolve_rs_rate(grade_name, explicit_rs_rate)
     rows = grid_rows(rs_grid)
 
     for row_index in range(rows.count()):
@@ -1361,45 +1448,59 @@ def configure_step4(page: Any, grade_name: str) -> int:
 
 
 def create_dummy_contract(page: Any, spec: DummyContractSpec) -> DummyContractResult:
+    trace_step(spec, "open contract target content registration")
     page.goto(get_site("kipm").resolve_url(DEFAULT_KIPM_PATH), wait_until="domcontentloaded", timeout=20_000)
     try:
         page.wait_for_load_state("networkidle", timeout=8_000)
     except Exception:
         page.wait_for_timeout(1_000)
 
+    trace_step(spec, "select content by cid")
     select_content_by_cid(page, spec.cid)
-    ensure_step1_manager_field(
-        page,
-        spec.manager_name or DEFAULT_MANAGER_NAME,
-        department_name=spec.manager_department or DEFAULT_MANAGER_DEPARTMENT,
-    )
+    if spec.skip_manager_field:
+        trace_step(spec, "skip manager")
+    elif spec.force_manager_field:
+        trace_step(spec, "force manager")
+        manager_name = spec.manager_name or DEFAULT_MANAGER_NAME
+        department_name = spec.manager_department or DEFAULT_MANAGER_DEPARTMENT
+        force_input_value_by_label(page, ["담당자명", "담당자"], manager_name)
+        force_manager_and_department_fields(
+            page,
+            manager_name=manager_name,
+            department_name=department_name,
+        )
+    else:
+        trace_step(spec, "ensure manager")
+        ensure_step1_manager_field(
+            page,
+            spec.manager_name or DEFAULT_MANAGER_NAME,
+            department_name=spec.manager_department or DEFAULT_MANAGER_DEPARTMENT,
+        )
     try:
-        page.locator("label").filter(has_text="서비스가능판매채널").first.wait_for(
+        page.locator("label").filter(has_text="하위판매채널").first.wait_for(
             state="visible", timeout=15_000
         )
     except Exception:
         page.wait_for_timeout(1_000)
-    choose_select_with_retry(page, page, "서비스가능판매채널", DEFAULT_SERVICE_CHANNEL)
-    choose_select_with_retry(page, page, "상위판매채널", DEFAULT_UPPER_CHANNEL)
-    choose_select_with_retry(page, page, "하위판매채널", DEFAULT_LOWER_CHANNEL)
+    trace_step(spec, "ensure base channel")
+    ensure_contract_base_channel_fields(page)
+    trace_step(spec, "ensure step1 metadata")
     ensure_step1_metadata_fields(page, spec)
-    ensure_step1_required_fields(page)
+    if spec.skip_step1_required_fields:
+        trace_step(spec, "skip step1 required fields")
+    else:
+        trace_step(spec, "ensure step1 required fields")
+        ensure_step1_required_fields(page)
 
-    content_name = read_field_value(page, "콘텐츠명")
-    grade_name = ""
-    try:
-        if page.locator("label").filter(has_text="등급").count() > 0:
-            grade_name = read_field_value(page, "등급")
-    except Exception:
-        pass
-    grade_name = grade_name or spec.grade or DEFAULT_GRADE
-    if not content_name:
-        raise DummyContractError(f"CID {spec.cid} 의 콘텐츠명을 읽지 못했습니다.")
+    trace_step(spec, "resolve content metadata")
+    content_name, grade_name = resolve_contract_content_metadata(page, spec)
 
+    trace_step(spec, "move to counterparty step")
     click_text_button(page, "다음")
     page.wait_for_timeout(400)
     confirm_popups(page, timeout_ms=1_500, max_clicks=5)
 
+    trace_step(spec, "add counterparty")
     add_counterparty(
         page,
         spec.holder_name,
@@ -1407,6 +1508,7 @@ def create_dummy_contract(page: Any, spec: DummyContractSpec) -> DummyContractRe
         counterparty_code=spec.counterparty_code,
         pen_name=spec.pen_name,
     )
+    trace_step(spec, "move to contract info step")
     click_text_button(page, "다음")
     page.wait_for_timeout(400)
 
@@ -1437,13 +1539,16 @@ def create_dummy_contract(page: Any, spec: DummyContractSpec) -> DummyContractRe
     except Exception:
         pass
 
+    trace_step(spec, "move to settlement step")
     click_text_button(page, "다음")
     maybe_confirm_popup(page, timeout_ms=3_000)
     click_text_button(page, "다음")
     page.wait_for_timeout(600)
 
-    rs_rate = configure_step4(page, grade_name)
+    trace_step(spec, "configure settlement")
+    rs_rate = configure_step4(page, grade_name, explicit_rs_rate=spec.rs_rate)
 
+    trace_step(spec, "save")
     save_response = None
     try:
         with page.expect_response(
@@ -1471,6 +1576,7 @@ def create_dummy_contract(page: Any, spec: DummyContractSpec) -> DummyContractRe
         except Exception:
             save_contract_id = ""
 
+    trace_step(spec, "wait final url")
     try:
         page.wait_for_url(
             re.compile(r".*/cntr/(cntrchg/cntr-chg-reg|cntrlt/cntr-detail)\?cntrId=\d+"),
@@ -1494,6 +1600,7 @@ def create_dummy_contract(page: Any, spec: DummyContractSpec) -> DummyContractRe
     if not contract_id:
         raise DummyContractError(f"저장 후 계약ID를 추출하지 못했습니다. url={page.url}")
 
+    trace_step(spec, f"saved contract_id={contract_id}")
     return DummyContractResult(
         cid=spec.cid,
         holder_name=spec.holder_name,
@@ -1532,6 +1639,12 @@ def main() -> None:
         detail_genre=args.detail_genre.strip(),
         manager_name=args.manager_name.strip(),
         manager_department=args.manager_department.strip(),
+        content_name=args.content_name.strip(),
+        rs_rate=args.rs_rate,
+        trace_steps=args.trace_steps,
+        skip_manager_field=args.skip_manager_field,
+        force_manager_field=args.force_manager_field,
+        skip_step1_required_fields=args.skip_step1_required_fields,
     )
     settings = BrowserSettings(
         headless=args.headless,
