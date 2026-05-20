@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-05-20T00:01:18+09:00",
-  "source_rows": 142103,
-  "cache_rows_before": 125099,
-  "cache_rows_after": 125100,
-  "s2_lookup_rows": 125100,
+  "generated_at": "2026-05-20T12:01:08+09:00",
+  "source_rows": 142105,
+  "cache_rows_before": 125100,
+  "cache_rows_after": 125101,
+  "s2_lookup_rows": 125101,
   "s2_change_added": 1,
   "s2_change_deleted": 0,
   "s2_change_modified": 0,
@@ -11,18 +11,18 @@
   "output_cache_parts": [],
   "output_s2_lookup": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "summary": {
-    "rows": 142103,
+    "rows": 142105,
     "columns": 11,
     "content_shape_counts": {
-      "소설": 142103
+      "소설": 142105
     },
     "approval_status_counts": {
       "승인": 138181,
-      "미승인": 3910,
+      "미승인": 3912,
       "승인취소": 12
     },
     "payment_settlement_status_counts": {
-      "운영중": 141299,
+      "운영중": 141301,
       "종료": 694,
       "콘텐츠확인필요": 99,
       "거래처확인필요": 11
@@ -49,15 +49,15 @@
       "스토린랩(원스토어)": 2406,
       "리디북스(소설)": 2316
     },
-    "content_id_nonblank": 142103,
+    "content_id_nonblank": 142105,
     "content_id_unique": 28318,
-    "sales_channel_content_id_nonblank": 141920,
-    "sales_channel_content_id_unique": 125100,
+    "sales_channel_content_id_nonblank": 141922,
+    "sales_channel_content_id_unique": 125101,
     "registered_at_min": "2024-12-31T12:00:00",
-    "registered_at_max": "2026-05-19T19:05:25",
-    "sales_channel_content_id_duplicate_keys": 12065,
+    "registered_at_max": "2026-05-20T11:25:01",
+    "sales_channel_content_id_duplicate_keys": 12066,
     "sales_channel_content_id_multiple_titles": 1,
-    "sales_channel_content_id_multiple_master_ids": 12065,
+    "sales_channel_content_id_multiple_master_ids": 12066,
     "sales_channel_content_id_multiple_content_ids": 1,
     "cache_mode": "lookup_only",
     "s2_change_summary": {
