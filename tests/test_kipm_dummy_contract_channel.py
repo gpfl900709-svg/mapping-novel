@@ -83,6 +83,44 @@ class DummyContractChannelTest(unittest.TestCase):
         self.assertEqual(dummy_contract.resolve_rs_rate("성인", 0), 80)
         self.assertEqual(dummy_contract.resolve_rs_rate("비성인", 0), 70)
 
+    def test_account_rs_guard_requires_account_evidence(self):
+        spec = dummy_contract.DummyContractSpec(
+            cid="328118",
+            holder_name="AP 북스",
+            pdf_path=Path("dummy.pdf"),
+            rs_rate=50,
+        )
+
+        with self.assertRaisesRegex(dummy_contract.DummyContractError, "account"):
+            dummy_contract.validate_account_rs_guard(spec)
+
+    def test_account_rs_guard_accepts_matching_account_rate(self):
+        spec = dummy_contract.DummyContractSpec(
+            cid="328118",
+            holder_name="AP 북스",
+            pdf_path=Path("dummy.pdf"),
+            account_rights_code="1000114",
+            account_rights_name="기본정산율",
+            account_rs_rate=50,
+            rs_rate=50,
+        )
+
+        dummy_contract.validate_account_rs_guard(spec)
+
+    def test_account_rs_guard_rejects_mismatched_rate(self):
+        spec = dummy_contract.DummyContractSpec(
+            cid="109694",
+            holder_name="EpyruS",
+            pdf_path=Path("dummy.pdf"),
+            account_rights_code="1000000",
+            account_rights_name="기본정산율",
+            account_rs_rate=35,
+            rs_rate=70,
+        )
+
+        with self.assertRaisesRegex(dummy_contract.DummyContractError, "account 확인값과 다릅니다"):
+            dummy_contract.validate_account_rs_guard(spec)
+
     def test_counterparty_search_aliases_cover_vendor_names(self):
         self.assertEqual(dummy_contract.resolve_counterparty_search_name("APBOOKS"), "AP 북스")
         self.assertEqual(dummy_contract.resolve_counterparty_search_name("AP북스"), "AP 북스")

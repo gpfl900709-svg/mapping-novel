@@ -78,6 +78,9 @@ class DummyContractSpec:
     cid: str
     holder_name: str
     pdf_path: Path
+    account_rights_code: str = ""
+    account_rights_name: str = ""
+    account_rs_rate: int = 0
     contract_name: str = ""
     counterparty_type: str = ""
     counterparty_code: str = ""
@@ -101,6 +104,9 @@ class DummyContractSpec:
 class DummyContractResult:
     cid: str
     holder_name: str
+    account_rights_code: str
+    account_rights_name: str
+    account_rs_rate: int
     content_name: str
     contract_name: str
     grade_name: str
@@ -143,6 +149,22 @@ def parse_args() -> argparse.Namespace:
         "--pen-name",
         default="",
         help="Optional 필명 used to disambiguate duplicate counterparty rows.",
+    )
+    parser.add_argument(
+        "--account-rights-code",
+        default="",
+        help="account에서 확인한 저작권코드. 계약 등록 전 필수 확인값.",
+    )
+    parser.add_argument(
+        "--account-rights-name",
+        default="",
+        help="account에서 확인한 저작권명/정산명. 예: 기본정산율.",
+    )
+    parser.add_argument(
+        "--account-rs-rate",
+        type=int,
+        default=0,
+        help="account에서 확인한 B2C/자체 RS율. --rs-rate와 같아야 합니다.",
     )
     parser.add_argument("--service-type", default="", help="Optional 서비스유형 default.")
     parser.add_argument("--grade", default="", help="Optional 등급 default.")
@@ -1414,6 +1436,29 @@ def resolve_rs_rate(grade_name: str, explicit_rate: int = 0) -> int:
     return 80 if grade_name.strip() == "성인" else 70
 
 
+def validate_account_rs_guard(spec: DummyContractSpec) -> None:
+    missing: list[str] = []
+    if not normalize_text(spec.account_rights_code):
+        missing.append("--account-rights-code")
+    if not normalize_text(spec.account_rights_name):
+        missing.append("--account-rights-name")
+    if spec.account_rs_rate <= 0:
+        missing.append("--account-rs-rate")
+    if spec.rs_rate <= 0:
+        missing.append("--rs-rate")
+    if missing:
+        raise DummyContractError(
+            "계약 등록 전 account에서 저작권코드/정산명/B2C RS율을 확인해야 합니다. "
+            f"누락={', '.join(missing)}"
+        )
+
+    if spec.rs_rate != spec.account_rs_rate:
+        raise DummyContractError(
+            "입력 RS율이 account 확인값과 다릅니다. "
+            f"--rs-rate={spec.rs_rate}, --account-rs-rate={spec.account_rs_rate}"
+        )
+
+
 def configure_step4(page: Any, grade_name: str, *, explicit_rs_rate: int = 0) -> int:
     choose_select_by_label(page, page, "지급액 여부", "N")
     choose_select_by_label(page, page, "RS여부", "Y")
@@ -1604,6 +1649,9 @@ def create_dummy_contract(page: Any, spec: DummyContractSpec) -> DummyContractRe
     return DummyContractResult(
         cid=spec.cid,
         holder_name=spec.holder_name,
+        account_rights_code=spec.account_rights_code,
+        account_rights_name=spec.account_rights_name,
+        account_rs_rate=spec.account_rs_rate,
         content_name=content_name,
         contract_name=contract_name,
         grade_name=grade_name,
@@ -1628,6 +1676,9 @@ def main() -> None:
         cid=str(args.cid).strip(),
         holder_name=args.holder_name.strip(),
         pdf_path=pdf_path,
+        account_rights_code=args.account_rights_code.strip(),
+        account_rights_name=args.account_rights_name.strip(),
+        account_rs_rate=args.account_rs_rate,
         contract_name=args.contract_name.strip(),
         counterparty_type=args.counterparty_type.strip(),
         counterparty_code=args.counterparty_code.strip(),
@@ -1646,6 +1697,7 @@ def main() -> None:
         force_manager_field=args.force_manager_field,
         skip_step1_required_fields=args.skip_step1_required_fields,
     )
+    validate_account_rs_guard(spec)
     settings = BrowserSettings(
         headless=args.headless,
         slow_mo_ms=args.slow_mo_ms,
