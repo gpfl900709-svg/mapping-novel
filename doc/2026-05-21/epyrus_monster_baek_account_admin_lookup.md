@@ -8,17 +8,17 @@ Scope:
 
 ## Login Status
 
-Live `account.barobook.com` / `admin.barobook.com` lookup could not be completed from the current repo credentials.
+Live `account.barobook.com` / `admin.barobook.com` lookup completed successfully with the SSOT env file:
 
-- `.env` has no `BAROBOOK_ID` / `BAROBOOK_PW`.
-- Fallback credential sources tested without printing secret values: `KLD`, `KISS`, `S2`, `IPS`.
-- All tested fallback sources stayed on `http://member.barobook.com/Auth/Login` for both admin and account.
+- Env source: `C:\Users\wjjo\Desktop\업무자동화_ssot\SIAAN Project\.env`
+- Account session check: `http://account.barobook.com/CpMgr/List` returned non-login page.
+- Admin session check: admin Barobook cookies were issued and product additional-info endpoints returned copyright rows.
 
-So the account-only values below remain unconfirmed:
+Important ID namespace note:
 
-- `account_저작권코드`
-- account `저작권명/정산명`
-- account page RS rate
+- KIPM/IPS target CIDs are not safe to reuse directly as Barobook admin product numbers.
+- Direct admin lookups for `295590`, `326461`, `113327`, `113328` returned unrelated legacy Barobook products.
+- Therefore the ACCOUNT mapping product numbers below are the reliable admin lookup keys, not the KIPM target CIDs.
 
 ## Evidence Found
 
@@ -47,12 +47,21 @@ KISS/KIPM settlement template evidence for target CID `295590` shows existing ro
 - `주식회사 북메이커`, RS evidence `70`
 - `(주)문피아`, mixed rows including zero-rate/template rows
 
+ACCOUNT/ADMIN live evidence:
+
+- ACCOUNT CP search found `4476942 / 최상진 ( 킹메이커 )`.
+- CP `4476942` rights code `1005413`, rights name `기본정산율`, rates `B2C 70.00 / B2BC 70.00 / B2B 70.00`.
+- ACCOUNT title search under rights `1005413` maps `[연재] 몬스터 홀` products, including `932251 / [연재] 몬스터 홀 100화 완결`; total title-hit sample count was 110.
+- ADMIN product sample `932251` returned `최상진 - 기본정산율 : 자체 70.00%, 제휴 70.00%, B2B 70.00%`.
+- ACCOUNT CP `4242646 / (주)문피아` also maps old one-volume products `316767`-`316774` for `몬스터 홀`, with admin rates `자체 70.00%, 제휴 65.00%, B2B 0.00%`.
+
 Decision:
 
-- Do not treat row 3550 as simple sales-channel add yet.
+- Do not treat row 3550 as simple sales-channel add.
 - The target CID `295590` itself has no nonzero settlement contract ID.
 - The only concrete nonzero contract in the family is `326461 / 83905 / 주식회사 북메이커`.
-- To proceed safely, confirm in ACCOUNT/ADMIN whether `295590` should use the same holder/right as the `326461` family contract, then link/create the contract on `295590` before adding the Epyrus sales channel.
+- ACCOUNT/ADMIN confirms actual Barobook rights for the live `몬스터 홀` serial under `최상진(킹메이커) / 1005413`, but KIPM target settlement rows are still all `cntrId=0`.
+- Proceed by selecting/linking a valid nonzero KIPM contract for target CID `295590`, or creating the required contract if no applicable contract can be linked, before adding the Epyrus sales channel.
 
 ### 백작가의사생아가결혼하면
 
@@ -77,16 +86,24 @@ KISS/KIPM settlement template evidence for target CID `113327` shows existing ro
 - `최은비`, RS evidence `70`
 - `(주)키다리스튜디오`, RS evidence `70` on some platform rows
 
+ACCOUNT/ADMIN live evidence:
+
+- ACCOUNT CP search found `4476606 / 최은비 ( 랏슈 )`.
+- CP `4476606` rights code `1004835`, rights name `백작가의 사생아가 결혼하면`, rates `B2C 60.00 / B2BC 70.00 / B2B 70.00`.
+- Rights `1004835` maps ordinary/non-Kakao products including `856320 / 백작가의 사생아가 결혼하면 1권`, `856316 / 백작가의 사생아가 결혼하면 세트`, `872880 / [봄툰] 백작가의 사생아가 결혼하면 1화 완결`.
+- ADMIN samples `856320`, `856316`, `872880` returned `최은비 - 백작가의 사생아가 결혼하면 : 자체 60.00%, 제휴 70.00%, B2B 70.00%`.
+- CP `4476606` also has rights `1004621 / [카카오] 백작가의 사생아가 결혼하면` with the same `60/70/70` rates and rights `1004910 / [원작] 백작가의 사생아가 결혼하면` with `5/5/5` rates.
+
 Decision:
 
-- Do not treat row 3551 as simple sales-channel add yet.
+- Do not treat row 3551 as simple sales-channel add.
 - Contract tab has candidates, but the target CID settlement rows still have `cntrId=0`.
-- Need ACCOUNT/ADMIN confirmation of `최은비 / 랏슈 / 백작가의 사생아가 결혼하면` account rights code and actual RS basis before contract/settlement linking.
-- After that, link the correct contract to `113327` settlement information or create the required contract, then add the Epyrus sales channel.
+- ACCOUNT/ADMIN confirms the normal B2C/ebook basis as `최은비(랏슈) / 1004835 / 백작가의 사생아가 결혼하면 / 60-70-70`.
+- Next step is to select/link the correct nonzero KIPM contract from the existing target contract tab, or create the required contract if none of those contracts applies, before adding the Epyrus sales channel.
 
 ## Output Files
 
 - `doc/2026-05-21/epyrus_monster_baek_contract_family_links.csv`
 - `doc/2026-05-21/epyrus_monster_baek_contract_family_links_edges.csv`
 - `doc/2026-05-21/epyrus_monster_baek_contract_family_links.json`
-
+- `doc/2026-05-21/epyrus_monster_baek_account_admin_live_lookup.csv`
