@@ -17,7 +17,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-DEFAULT_SSOT_ROOT = Path(r"C:\Users\wjjo\Desktop\업무자동화_ssot")
+DEFAULT_SSOT_ROOT = ROOT / "ops"
 DEFAULT_REPORT = ROOT / "igignore" / "mapping_results_20260515_0203" / "PD_작업지시_종합리포트.csv"
 DEFAULT_IPS_XLSX = ROOT / "ips_20260515.xlsx"
 DEFAULT_OUTPUT_DIR = ROOT / "igignore" / "ips_safe_channel_backfill_20260515"

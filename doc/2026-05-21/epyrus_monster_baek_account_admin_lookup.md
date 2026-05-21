@@ -10,7 +10,7 @@ Scope:
 
 Live `account.barobook.com` / `admin.barobook.com` lookup completed successfully with the SSOT env file:
 
-- Env source: `C:\Users\wjjo\Desktop\업무자동화_ssot\SIAAN Project\.env`
+- Env source: local `.env` credentials, not committed to this repository.
 - Account session check: `http://account.barobook.com/CpMgr/List` returned non-login page.
 - Admin session check: admin Barobook cookies were issued and product additional-info endpoints returned copyright rows.
 
