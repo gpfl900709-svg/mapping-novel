@@ -48,6 +48,7 @@ DEFAULT_PAYMENT_DAY = "당월 말일"
 DEFAULT_SETTLEMENT_CYCLE = "익분기(M+2)"
 DEFAULT_BASIS = "키다리스튜디오"
 DEFAULT_RS_METHOD = "순매출액대비RS율"
+NOT_APPLICABLE_RS_METHOD = "해당없음"
 DEFAULT_MG_SETOFF_TARGET = "N"
 COUNTERPARTY_SEARCH_ALIASES = {
     "apbooks": "AP 북스",
@@ -94,6 +95,7 @@ class DummyContractSpec:
     manager_department: str = ""
     content_name: str = ""
     rs_rate: int = 0
+    allow_zero_rs: bool = False
     trace_steps: bool = False
     skip_manager_field: bool = False
     force_manager_field: bool = False
@@ -186,6 +188,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--content-name", default="", help="Optional known content name to avoid rereading it from step 1.")
     parser.add_argument("--rs-rate", type=int, default=0, help="Optional RS rate override. Example: 50.")
+    parser.add_argument(
+        "--allow-zero-rs",
+        action="store_true",
+        help="Allow a 0% RS contract for IPS-only unsettled counterparties such as 소설사업부(미정산).",
+    )
     parser.add_argument("--trace-steps", action="store_true", help="Print major contract registration steps.")
     parser.add_argument(
         "--env-file",
@@ -1332,9 +1339,30 @@ def add_counterparty(
             f"{holder_name} search={search_name} type={counterparty_type or '-'} code={counterparty_code or '-'} "
             f"pen={pen_name or '-'} count={row_count} rows={row_texts}"
         )
-    rows.first.click()
-    click_text_button(overlay, "선택 가져오기")
-    page.wait_for_timeout(400)
+    target_row = rows.first
+    target_row.scroll_into_view_if_needed(timeout=10_000)
+    for selector in (".rg-data-cell", "td"):
+        cells = target_row.locator(selector)
+        if cells.count():
+            cells.first.click(force=True)
+            break
+    else:
+        target_row.click(force=True)
+    page.wait_for_timeout(300)
+    for attempt in range(3):
+        click_text_button(overlay, "선택 가져오기")
+        page.wait_for_timeout(700)
+        try:
+            overlay.wait_for(state="hidden", timeout=1_000)
+            return
+        except Exception:
+            if attempt == 1:
+                target_row.dblclick(force=True)
+                page.wait_for_timeout(500)
+            else:
+                target_row.click(force=True)
+                page.wait_for_timeout(300)
+    raise DummyContractError(f"거래처 선택 가져오기 실패: holder={holder_name} code={counterparty_code or '-'}")
 
 
 def maybe_confirm_popup(page: Any, *, timeout_ms: int = 1_500) -> bool:
@@ -1430,7 +1458,30 @@ def trace_step(spec: DummyContractSpec, message: str) -> None:
         print(f"[dummy-contract][cid={spec.cid}] {message}", flush=True)
 
 
-def resolve_rs_rate(grade_name: str, explicit_rate: int = 0) -> int:
+def snapshot_response(response: Any, *, include_body: bool = False) -> dict[str, Any]:
+    snapshot: dict[str, Any] = {
+        "status": getattr(response, "status", ""),
+        "url": getattr(response, "url", ""),
+        "method": getattr(getattr(response, "request", None), "method", ""),
+    }
+    if include_body:
+        try:
+            content_type = response.headers.get("content-type", "")
+        except Exception:
+            content_type = ""
+        try:
+            if "json" in content_type.lower():
+                snapshot["json"] = response.json()
+            else:
+                snapshot["text"] = response.text()[:2_000]
+        except Exception as exc:
+            snapshot["body_error"] = str(exc)
+    return snapshot
+
+
+def resolve_rs_rate(grade_name: str, explicit_rate: int = 0, *, allow_zero_rs: bool = False) -> int:
+    if allow_zero_rs and explicit_rate == 0:
+        return 0
     if explicit_rate > 0:
         return explicit_rate
     return 80 if grade_name.strip() == "성인" else 70
@@ -1442,9 +1493,13 @@ def validate_account_rs_guard(spec: DummyContractSpec) -> None:
         missing.append("--account-rights-code")
     if not normalize_text(spec.account_rights_name):
         missing.append("--account-rights-name")
-    if spec.account_rs_rate <= 0:
+    if spec.account_rs_rate < 0:
         missing.append("--account-rs-rate")
-    if spec.rs_rate <= 0:
+    elif spec.account_rs_rate == 0 and not spec.allow_zero_rs:
+        missing.append("--account-rs-rate")
+    if spec.rs_rate < 0:
+        missing.append("--rs-rate")
+    elif spec.rs_rate == 0 and not spec.allow_zero_rs:
         missing.append("--rs-rate")
     if missing:
         raise DummyContractError(
@@ -1459,7 +1514,13 @@ def validate_account_rs_guard(spec: DummyContractSpec) -> None:
         )
 
 
-def configure_step4(page: Any, grade_name: str, *, explicit_rs_rate: int = 0) -> int:
+def configure_step4(
+    page: Any,
+    grade_name: str,
+    *,
+    explicit_rs_rate: int = 0,
+    allow_zero_rs: bool = False,
+) -> int:
     choose_select_by_label(page, page, "지급액 여부", "N")
     choose_select_by_label(page, page, "RS여부", "Y")
     choose_select_by_label(page, page, "지급통화", DEFAULT_CURRENCY)
@@ -1469,8 +1530,8 @@ def configure_step4(page: Any, grade_name: str, *, explicit_rs_rate: int = 0) ->
     choose_select_by_label(page, page, "기준선택", DEFAULT_BASIS)
 
     ensure_rs_section_open(page)
+    rs_rate = resolve_rs_rate(grade_name, explicit_rs_rate, allow_zero_rs=allow_zero_rs)
     rs_grid = grid_section_by_title(page, "RS - 개별")
-    rs_rate = resolve_rs_rate(grade_name, explicit_rs_rate)
     rows = grid_rows(rs_grid)
 
     for row_index in range(rows.count()):
@@ -1484,9 +1545,10 @@ def configure_step4(page: Any, grade_name: str, *, explicit_rs_rate: int = 0) ->
 
         if grid_cell_text(cells, 7) != DEFAULT_MG_SETOFF_TARGET:
             select_grid_dropdown_value(page, cells, 7, DEFAULT_MG_SETOFF_TARGET)
-        if grid_cell_text(cells, 8) != DEFAULT_RS_METHOD:
-            select_grid_dropdown_value(page, cells, 8, DEFAULT_RS_METHOD)
-        if grid_cell_text(cells, 9) != str(rs_rate):
+        rs_method = NOT_APPLICABLE_RS_METHOD if allow_zero_rs and rs_rate == 0 else DEFAULT_RS_METHOD
+        if grid_cell_text(cells, 8) != rs_method:
+            select_grid_dropdown_value(page, cells, 8, rs_method)
+        if rs_method == DEFAULT_RS_METHOD and grid_cell_text(cells, 9) != str(rs_rate):
             fill_grid_number_value(page, cells, 9, rs_rate)
 
     return rs_rate
@@ -1591,27 +1653,50 @@ def create_dummy_contract(page: Any, spec: DummyContractSpec) -> DummyContractRe
     page.wait_for_timeout(600)
 
     trace_step(spec, "configure settlement")
-    rs_rate = configure_step4(page, grade_name, explicit_rs_rate=spec.rs_rate)
+    rs_rate = configure_step4(
+        page,
+        grade_name,
+        explicit_rs_rate=spec.rs_rate,
+        allow_zero_rs=spec.allow_zero_rs,
+    )
 
     trace_step(spec, "save")
     save_response = None
+    save_response_snapshots: list[dict[str, Any]] = []
+
+    def remember_contract_post(response: Any) -> None:
+        try:
+            if response.request.method == "POST" and "/cntr/" in response.url:
+                save_response_snapshots.append(snapshot_response(response))
+        except Exception:
+            return
+
+    page.on("response", remember_contract_post)
     try:
-        with page.expect_response(
-            lambda response: (
-                response.request.method == "POST"
-                and "/cntr/cntrreg/cntr-inf-reg" in response.url
-            ),
-            timeout=30_000,
-        ) as response_info:
+        try:
+            with page.expect_response(
+                lambda response: (
+                    response.request.method == "POST"
+                    and "/cntr/cntrreg/cntr-inf-reg" in response.url
+                ),
+                timeout=30_000,
+            ) as response_info:
+                click_text_button(page, "저장")
+            save_response = response_info.value
+        except Exception:
             click_text_button(page, "저장")
-        save_response = response_info.value
-    except Exception:
-        click_text_button(page, "저장")
+    finally:
+        try:
+            page.remove_listener("response", remember_contract_post)
+        except Exception:
+            pass
     page.wait_for_timeout(600)
     confirm_popups(page, timeout_ms=3_000, max_clicks=5)
 
     save_contract_id = ""
+    save_debug: dict[str, Any] = {}
     if save_response is not None:
+        save_debug = snapshot_response(save_response, include_body=True)
         try:
             payload = save_response.json()
             if isinstance(payload, dict):
@@ -1635,8 +1720,11 @@ def create_dummy_contract(page: Any, spec: DummyContractSpec) -> DummyContractRe
         else:
             errors = collect_visible_error_fields(page)
             values = collect_visible_form_values(page)
+            if not save_debug and save_response_snapshots:
+                save_debug = {"observed_contract_posts": save_response_snapshots[-10:]}
             raise DummyContractError(
                 "저장 후 계약 상세/변경 페이지로 이동하지 않았습니다. "
+                f"save_response={json.dumps(save_debug, ensure_ascii=False)} "
                 f"url={page.url} errors={json.dumps(errors, ensure_ascii=False)} "
                 f"visible_values={json.dumps(values[:60], ensure_ascii=False)}"
             ) from exc
@@ -1692,6 +1780,7 @@ def main() -> None:
         manager_department=args.manager_department.strip(),
         content_name=args.content_name.strip(),
         rs_rate=args.rs_rate,
+        allow_zero_rs=args.allow_zero_rs,
         trace_steps=args.trace_steps,
         skip_manager_field=args.skip_manager_field,
         force_manager_field=args.force_manager_field,

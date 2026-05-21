@@ -391,6 +391,24 @@ def select_channel_row(channels: list[dict[str, Any]], platform_name: str) -> di
     return fallback
 
 
+def channel_from_existing_platform_row(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not row:
+        return None
+    channel_id = str(
+        row.get("schnId")
+        or row.get("lwerSchnCd")
+        or row.get("lewrSchnCd")
+        or row.get("lwerSchnId")
+        or ""
+    ).strip()
+    if not channel_id:
+        return None
+    return {
+        "schnId": channel_id,
+        "schnNm": str(row.get("lwerSchnNm") or row.get("schnNm") or "").strip(),
+    }
+
+
 def click_visible_button(scope: Any, label: str) -> bool:
     buttons = scope.locator("button")
     for index in range(buttons.count()):
@@ -593,7 +611,13 @@ def add_platform_via_api(
         },
     )
 
-    channel = select_channel_row(list(setup.get("channels") or []), platform_name)
+    channel = (
+        channel_from_existing_platform_row(matched_platform)
+        if force_add_existing_platform and matched_platform is not None
+        else None
+    )
+    if channel is None:
+        channel = select_channel_row(list(setup.get("channels") or []), platform_name)
     if channel is None:
         raise LookupError(f"판매채널 옵션을 찾지 못했습니다: {platform_name}")
 
@@ -679,6 +703,14 @@ def add_platform_via_detail(
             "matched_platform_name": str(matched_platform.get("lwerSchnNm") or "").strip(),
             "existing_platform_snapshot": snapshot,
         }
+    if matched_platform is not None and force_add_existing_platform:
+        return add_platform_via_api(
+            page,
+            cid,
+            platform_name,
+            source_contract_id=source_contract_id,
+            force_add_existing_platform=True,
+        )
 
     source_row = select_settlement_source_row(page, preferred_contract_id=source_contract_id)
     page.get_by_role("button", name="판매채널추가").click()

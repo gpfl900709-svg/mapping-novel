@@ -1,0 +1,432 @@
+{
+  "summary": {
+    "ips_export": "C:\\Users\\wjjo\\Desktop\\mapping-novel\\ips_20260515.xlsx",
+    "sheet_name": "콘텐츠 목록",
+    "target_count": 4,
+    "missing_requested_cids": [],
+    "workers": 1,
+    "page_size": 1000,
+    "status_counts": {
+      "matched_both": 4
+    },
+    "rows_with_any_contract_id": 4,
+    "rows_without_contract_id": 0,
+    "edge_count": 8,
+    "elapsed_seconds": 1.766,
+    "summary_csv": "doc\\2026-05-21\\novel_unsettled_contract_verify_4_final.csv",
+    "edges_csv": "doc\\2026-05-21\\novel_unsettled_contract_verify_4_final_edges.csv",
+    "json_output": "doc\\2026-05-21\\novel_unsettled_contract_verify_4_final.json"
+  },
+  "rows": [
+    {
+      "cid": "160166",
+      "content_name": "[정산정보없음]_무유지",
+      "content_type": "소설",
+      "owning_company": "키다리스튜디오",
+      "department": "소설편집팀",
+      "manager_name": "이선근",
+      "status": "matched_both",
+      "all_contract_ids": [
+        "86041"
+      ],
+      "contract_tab_total": 1,
+      "contract_tab_visible_ids": [
+        "86041"
+      ],
+      "contract_tab_unity_ids": [
+        "86041"
+      ],
+      "contract_tab_lookup_ids": [
+        "86041"
+      ],
+      "settlement_total": 9,
+      "settlement_contract_ids": [
+        "86041"
+      ],
+      "settlement_blank_contract_rows": 7,
+      "contracts": [
+        {
+          "visible_contract_id": "86041",
+          "unity_contract_id": "86041",
+          "main_contract_id": "",
+          "lookup_contract_id": "86041",
+          "contract_name": "20260521_[정산정보없음]_무유지_소설사업부(미정산)",
+          "contract_kind": "본계약서",
+          "contract_kind_code": "001",
+          "is_primary_contract": "Y",
+          "contract_status": "유지",
+          "counterparty_name": "기타-소설사업부(미정산)",
+          "contract_date": "2026-05-21",
+          "attachment_name": "더미+계약서.pdf",
+          "contract_manager_name": "조원재"
+        }
+      ],
+      "settlement_contracts": [
+        {
+          "contract_id": "86041",
+          "settlement_row_count": 2,
+          "payment_settlement_ids": [
+            "1085574",
+            "1085565"
+          ],
+          "payment_detail_ids": [
+            "1078364",
+            "1078355"
+          ],
+          "channels": [
+            "원스토어(소설)",
+            "교보문고(소설)"
+          ],
+          "counterparties": [
+            "기타-소설사업부(미정산)"
+          ]
+        }
+      ],
+      "error": ""
+    },
+    {
+      "cid": "113774",
+      "content_name": "상처",
+      "content_type": "소설",
+      "owning_company": "키다리스튜디오",
+      "department": "소설편집팀",
+      "manager_name": "이선근",
+      "status": "matched_both",
+      "all_contract_ids": [
+        "86042"
+      ],
+      "contract_tab_total": 1,
+      "contract_tab_visible_ids": [
+        "86042"
+      ],
+      "contract_tab_unity_ids": [
+        "86042"
+      ],
+      "contract_tab_lookup_ids": [
+        "86042"
+      ],
+      "settlement_total": 3,
+      "settlement_contract_ids": [
+        "86042"
+      ],
+      "settlement_blank_contract_rows": 1,
+      "contracts": [
+        {
+          "visible_contract_id": "86042",
+          "unity_contract_id": "86042",
+          "main_contract_id": "",
+          "lookup_contract_id": "86042",
+          "contract_name": "20260521_상처_소설사업부(미정산)",
+          "contract_kind": "본계약서",
+          "contract_kind_code": "001",
+          "is_primary_contract": "Y",
+          "contract_status": "유지",
+          "counterparty_name": "기타-소설사업부(미정산)",
+          "contract_date": "2026-05-21",
+          "attachment_name": "더미+계약서.pdf",
+          "contract_manager_name": "조원재"
+        }
+      ],
+      "settlement_contracts": [
+        {
+          "contract_id": "86042",
+          "settlement_row_count": 2,
+          "payment_settlement_ids": [
+            "1085571",
+            "1085566"
+          ],
+          "payment_detail_ids": [
+            "1078361",
+            "1078356"
+          ],
+          "channels": [
+            "리디북스(소설)",
+            "교보문고(소설)"
+          ],
+          "counterparties": [
+            "기타-소설사업부(미정산)"
+          ]
+        }
+      ],
+      "error": ""
+    },
+    {
+      "cid": "113098",
+      "content_name": "무성격자",
+      "content_type": "소설",
+      "owning_company": "키다리스튜디오",
+      "department": "소설편집팀",
+      "manager_name": "이선근",
+      "status": "matched_both",
+      "all_contract_ids": [
+        "86043"
+      ],
+      "contract_tab_total": 1,
+      "contract_tab_visible_ids": [
+        "86043"
+      ],
+      "contract_tab_unity_ids": [
+        "86043"
+      ],
+      "contract_tab_lookup_ids": [
+        "86043"
+      ],
+      "settlement_total": 3,
+      "settlement_contract_ids": [
+        "86043"
+      ],
+      "settlement_blank_contract_rows": 1,
+      "contracts": [
+        {
+          "visible_contract_id": "86043",
+          "unity_contract_id": "86043",
+          "main_contract_id": "",
+          "lookup_contract_id": "86043",
+          "contract_name": "20260521_무성격자_소설사업부(미정산)",
+          "contract_kind": "본계약서",
+          "contract_kind_code": "001",
+          "is_primary_contract": "Y",
+          "contract_status": "유지",
+          "counterparty_name": "기타-소설사업부(미정산)",
+          "contract_date": "2026-05-21",
+          "attachment_name": "더미+계약서.pdf",
+          "contract_manager_name": "조원재"
+        }
+      ],
+      "settlement_contracts": [
+        {
+          "contract_id": "86043",
+          "settlement_row_count": 2,
+          "payment_settlement_ids": [
+            "1085575",
+            "1085567"
+          ],
+          "payment_detail_ids": [
+            "1078365",
+            "1078357"
+          ],
+          "channels": [
+            "리디북스(소설)",
+            "교보문고(소설)"
+          ],
+          "counterparties": [
+            "기타-소설사업부(미정산)"
+          ]
+        }
+      ],
+      "error": ""
+    },
+    {
+      "cid": "111932",
+      "content_name": "나비를 잡는 아버지",
+      "content_type": "소설",
+      "owning_company": "키다리스튜디오",
+      "department": "소설편집팀",
+      "manager_name": "이선근",
+      "status": "matched_both",
+      "all_contract_ids": [
+        "86046"
+      ],
+      "contract_tab_total": 1,
+      "contract_tab_visible_ids": [
+        "86046"
+      ],
+      "contract_tab_unity_ids": [
+        "86046"
+      ],
+      "contract_tab_lookup_ids": [
+        "86046"
+      ],
+      "settlement_total": 3,
+      "settlement_contract_ids": [
+        "86046"
+      ],
+      "settlement_blank_contract_rows": 1,
+      "contracts": [
+        {
+          "visible_contract_id": "86046",
+          "unity_contract_id": "86046",
+          "main_contract_id": "",
+          "lookup_contract_id": "86046",
+          "contract_name": "20260521_나비를 잡는 아버지_소설사업부(미정산)",
+          "contract_kind": "본계약서",
+          "contract_kind_code": "001",
+          "is_primary_contract": "Y",
+          "contract_status": "유지",
+          "counterparty_name": "기타-소설사업부(미정산)",
+          "contract_date": "2026-05-21",
+          "attachment_name": "더미+계약서.pdf",
+          "contract_manager_name": "조원재"
+        }
+      ],
+      "settlement_contracts": [
+        {
+          "contract_id": "86046",
+          "settlement_row_count": 2,
+          "payment_settlement_ids": [
+            "1085576",
+            "1085570"
+          ],
+          "payment_detail_ids": [
+            "1078366",
+            "1078360"
+          ],
+          "channels": [
+            "리디북스(소설)",
+            "교보문고(소설)"
+          ],
+          "counterparties": [
+            "기타-소설사업부(미정산)"
+          ]
+        }
+      ],
+      "error": ""
+    }
+  ],
+  "edges": [
+    {
+      "cid": "160166",
+      "content_name": "[정산정보없음]_무유지",
+      "department": "소설편집팀",
+      "manager_name": "이선근",
+      "source": "contract_tab",
+      "contract_id": "86041",
+      "visible_contract_id": "86041",
+      "unity_contract_id": "86041",
+      "main_contract_id": "",
+      "contract_kind": "본계약서",
+      "contract_status": "유지",
+      "counterparty_name": "기타-소설사업부(미정산)",
+      "contract_name": "20260521_[정산정보없음]_무유지_소설사업부(미정산)",
+      "settlement_row_count": "",
+      "channels": "",
+      "payment_settlement_ids": ""
+    },
+    {
+      "cid": "160166",
+      "content_name": "[정산정보없음]_무유지",
+      "department": "소설편집팀",
+      "manager_name": "이선근",
+      "source": "settlement_table",
+      "contract_id": "86041",
+      "visible_contract_id": "",
+      "unity_contract_id": "",
+      "main_contract_id": "",
+      "contract_kind": "",
+      "contract_status": "",
+      "counterparty_name": "기타-소설사업부(미정산)",
+      "contract_name": "",
+      "settlement_row_count": 2,
+      "channels": "원스토어(소설);교보문고(소설)",
+      "payment_settlement_ids": "1085574;1085565"
+    },
+    {
+      "cid": "113774",
+      "content_name": "상처",
+      "department": "소설편집팀",
+      "manager_name": "이선근",
+      "source": "contract_tab",
+      "contract_id": "86042",
+      "visible_contract_id": "86042",
+      "unity_contract_id": "86042",
+      "main_contract_id": "",
+      "contract_kind": "본계약서",
+      "contract_status": "유지",
+      "counterparty_name": "기타-소설사업부(미정산)",
+      "contract_name": "20260521_상처_소설사업부(미정산)",
+      "settlement_row_count": "",
+      "channels": "",
+      "payment_settlement_ids": ""
+    },
+    {
+      "cid": "113774",
+      "content_name": "상처",
+      "department": "소설편집팀",
+      "manager_name": "이선근",
+      "source": "settlement_table",
+      "contract_id": "86042",
+      "visible_contract_id": "",
+      "unity_contract_id": "",
+      "main_contract_id": "",
+      "contract_kind": "",
+      "contract_status": "",
+      "counterparty_name": "기타-소설사업부(미정산)",
+      "contract_name": "",
+      "settlement_row_count": 2,
+      "channels": "리디북스(소설);교보문고(소설)",
+      "payment_settlement_ids": "1085571;1085566"
+    },
+    {
+      "cid": "113098",
+      "content_name": "무성격자",
+      "department": "소설편집팀",
+      "manager_name": "이선근",
+      "source": "contract_tab",
+      "contract_id": "86043",
+      "visible_contract_id": "86043",
+      "unity_contract_id": "86043",
+      "main_contract_id": "",
+      "contract_kind": "본계약서",
+      "contract_status": "유지",
+      "counterparty_name": "기타-소설사업부(미정산)",
+      "contract_name": "20260521_무성격자_소설사업부(미정산)",
+      "settlement_row_count": "",
+      "channels": "",
+      "payment_settlement_ids": ""
+    },
+    {
+      "cid": "113098",
+      "content_name": "무성격자",
+      "department": "소설편집팀",
+      "manager_name": "이선근",
+      "source": "settlement_table",
+      "contract_id": "86043",
+      "visible_contract_id": "",
+      "unity_contract_id": "",
+      "main_contract_id": "",
+      "contract_kind": "",
+      "contract_status": "",
+      "counterparty_name": "기타-소설사업부(미정산)",
+      "contract_name": "",
+      "settlement_row_count": 2,
+      "channels": "리디북스(소설);교보문고(소설)",
+      "payment_settlement_ids": "1085575;1085567"
+    },
+    {
+      "cid": "111932",
+      "content_name": "나비를 잡는 아버지",
+      "department": "소설편집팀",
+      "manager_name": "이선근",
+      "source": "contract_tab",
+      "contract_id": "86046",
+      "visible_contract_id": "86046",
+      "unity_contract_id": "86046",
+      "main_contract_id": "",
+      "contract_kind": "본계약서",
+      "contract_status": "유지",
+      "counterparty_name": "기타-소설사업부(미정산)",
+      "contract_name": "20260521_나비를 잡는 아버지_소설사업부(미정산)",
+      "settlement_row_count": "",
+      "channels": "",
+      "payment_settlement_ids": ""
+    },
+    {
+      "cid": "111932",
+      "content_name": "나비를 잡는 아버지",
+      "department": "소설편집팀",
+      "manager_name": "이선근",
+      "source": "settlement_table",
+      "contract_id": "86046",
+      "visible_contract_id": "",
+      "unity_contract_id": "",
+      "main_contract_id": "",
+      "contract_kind": "",
+      "contract_status": "",
+      "counterparty_name": "기타-소설사업부(미정산)",
+      "contract_name": "",
+      "settlement_row_count": 2,
+      "channels": "리디북스(소설);교보문고(소설)",
+      "payment_settlement_ids": "1085576;1085570"
+    }
+  ]
+}

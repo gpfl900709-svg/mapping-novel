@@ -1,0 +1,5 @@
+row_id,work_cid,input_platform,next_action,title_note,source_contract_id,force_add_existing_platform
+3501,160166,원스토어(소설),add_platform_in_ips,무유지,86041,Y
+3529,113774,리디북스(소설),add_platform_in_ips,상처,86042,N
+3537,113098,리디북스(소설),add_platform_in_ips,무성격자,86043,N
+3538,111932,리디북스(소설),add_platform_in_ips,나비를잡는아버지,86046,N

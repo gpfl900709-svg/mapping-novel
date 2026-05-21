@@ -1,0 +1,88 @@
+{
+  "written_count": 4,
+  "dry_run": false,
+  "rows": [
+    {
+      "row_number": 3501,
+      "cell_ref": "E3501",
+      "value": "488201",
+      "input_title": "",
+      "platform": "원스토어(소설)",
+      "next_action": "paste_sales_channel_content_id"
+    },
+    {
+      "row_number": 3529,
+      "cell_ref": "E3529",
+      "value": "904703",
+      "input_title": "",
+      "platform": "리디북스(소설)",
+      "next_action": "paste_sales_channel_content_id"
+    },
+    {
+      "row_number": 3537,
+      "cell_ref": "E3537",
+      "value": "113715",
+      "input_title": "",
+      "platform": "리디북스(소설)",
+      "next_action": "paste_sales_channel_content_id"
+    },
+    {
+      "row_number": 3538,
+      "cell_ref": "E3538",
+      "value": "112512",
+      "input_title": "",
+      "platform": "리디북스(소설)",
+      "next_action": "paste_sales_channel_content_id"
+    }
+  ],
+  "write_method": "playwright_cdp",
+  "verification": {
+    "first_pass": {
+      "match_count": 4,
+      "mismatch_count": 0,
+      "matches": [
+        {
+          "row_number": 3501,
+          "cell_ref": "E3501",
+          "expected": "488201",
+          "actual": "488201",
+          "input_title": ""
+        },
+        {
+          "row_number": 3529,
+          "cell_ref": "E3529",
+          "expected": "904703",
+          "actual": "904703",
+          "input_title": ""
+        },
+        {
+          "row_number": 3537,
+          "cell_ref": "E3537",
+          "expected": "113715",
+          "actual": "113715",
+          "input_title": ""
+        },
+        {
+          "row_number": 3538,
+          "cell_ref": "E3538",
+          "expected": "112512",
+          "actual": "112512",
+          "input_title": ""
+        }
+      ],
+      "mismatches": []
+    }
+  },
+  "debug_chrome": {
+    "launched": false,
+    "connect_url": "http://127.0.0.1:9222",
+    "http_base": "http://127.0.0.1:9222",
+    "chrome_path": "",
+    "working_directory": "",
+    "shortcut_path": "C:\\Users\\wjjo\\Desktop\\크롬디버깅.lnk",
+    "sheet_url": "https://docs.google.com/spreadsheets/d/1jG0Q6LKzJ_q2VqdqtoDHSEwl8hfOEUrxRuxXq7KSazY/edit?gid=1569459807#gid=1569459807",
+    "port_ready": true
+  },
+  "verified_count": 4,
+  "mismatch_count": 0
+}

@@ -12,6 +12,7 @@ if str(OPS_SCRIPTS) not in sys.path:
 
 from ips_sales_channel_adder import (
     build_requests,
+    channel_from_existing_platform_row,
     classify_unresolved_generated_id,
     choose_settlement_source_row_index,
     choose_settlement_template_row,
@@ -142,6 +143,13 @@ class IpsSalesChannelAdderTest(unittest.TestCase):
 
         self.assertIsNotNone(matched)
         self.assertEqual(matched["schnCtnsId"], "new")
+
+    def test_existing_platform_row_can_supply_channel_code_for_forced_settlement(self) -> None:
+        channel = channel_from_existing_platform_row(
+            {"lwerSchnCd": "92", "lwerSchnNm": "원스토어(소설)", "schnCtnsId": "488201"}
+        )
+
+        self.assertEqual(channel, {"schnId": "92", "schnNm": "원스토어(소설)"})
 
     def test_classifies_missing_contract_as_sheet_status_value(self) -> None:
         status, value = classify_unresolved_generated_id(

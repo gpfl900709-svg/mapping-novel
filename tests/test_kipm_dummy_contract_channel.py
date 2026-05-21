@@ -82,6 +82,7 @@ class DummyContractChannelTest(unittest.TestCase):
         self.assertEqual(dummy_contract.resolve_rs_rate("비성인", 50), 50)
         self.assertEqual(dummy_contract.resolve_rs_rate("성인", 0), 80)
         self.assertEqual(dummy_contract.resolve_rs_rate("비성인", 0), 70)
+        self.assertEqual(dummy_contract.resolve_rs_rate("비성인", 0, allow_zero_rs=True), 0)
 
     def test_account_rs_guard_requires_account_evidence(self):
         spec = dummy_contract.DummyContractSpec(
@@ -103,6 +104,20 @@ class DummyContractChannelTest(unittest.TestCase):
             account_rights_name="기본정산율",
             account_rs_rate=50,
             rs_rate=50,
+        )
+
+        dummy_contract.validate_account_rs_guard(spec)
+
+    def test_account_rs_guard_accepts_explicit_zero_rate_override(self):
+        spec = dummy_contract.DummyContractSpec(
+            cid="160166",
+            holder_name="소설사업부(미정산)",
+            pdf_path=Path("dummy.pdf"),
+            account_rights_code="IPS_ONLY_UNSETTLED",
+            account_rights_name="소설사업부(미정산)",
+            account_rs_rate=0,
+            rs_rate=0,
+            allow_zero_rs=True,
         )
 
         dummy_contract.validate_account_rs_guard(spec)

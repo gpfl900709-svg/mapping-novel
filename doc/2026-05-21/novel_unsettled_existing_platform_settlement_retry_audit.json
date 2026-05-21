@@ -1,0 +1,40 @@
+[
+  {
+    "row_id": "3537",
+    "work_cid": "113098",
+    "input_platform": "리디북스(소설)",
+    "next_action": "paste_sales_channel_content_id",
+    "title_note": "무성격자",
+    "source_contract_id": "86043",
+    "force_add_existing_platform": "Y",
+    "detail_view_url": "https://kipm.kld.kr/ip/cntsd/cntslt/ctns-detail?parCtnsId=113098",
+    "addition_status": "added_existing_platform_settlement",
+    "sales_channel_content_id": "113715",
+    "matched_platform_name": "리디북스(소설)",
+    "existing_platform_snapshot": "교보문고(소설):904701 | 리디북스(소설):113715",
+    "settlement_source_contract_id": "86043",
+    "settlement_source_row_status": "contract_linked",
+    "detail_status": "loaded",
+    "platform_match_status": "found",
+    "addition_error": ""
+  },
+  {
+    "row_id": "3538",
+    "work_cid": "111932",
+    "input_platform": "리디북스(소설)",
+    "next_action": "paste_sales_channel_content_id",
+    "title_note": "나비를잡는아버지",
+    "source_contract_id": "86046",
+    "force_add_existing_platform": "Y",
+    "detail_view_url": "https://kipm.kld.kr/ip/cntsd/cntslt/ctns-detail?parCtnsId=111932",
+    "addition_status": "added_existing_platform_settlement",
+    "sales_channel_content_id": "112512",
+    "matched_platform_name": "리디북스(소설)",
+    "existing_platform_snapshot": "교보문고(소설):904702 | 리디북스(소설):112512",
+    "settlement_source_contract_id": "86046",
+    "settlement_source_row_status": "contract_linked",
+    "detail_status": "loaded",
+    "platform_match_status": "found",
+    "addition_error": ""
+  }
+]

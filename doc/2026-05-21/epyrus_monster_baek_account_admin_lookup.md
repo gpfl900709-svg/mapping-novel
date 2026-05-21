@@ -42,10 +42,15 @@ Related family CID `326461`:
 - Contract name `20260203_몬스터 홀 [단행본]_주식회사 북메이커`
 - Settlement table links 10 rows to contract ID `83905`
 
-KISS/KIPM settlement template evidence for target CID `295590` shows existing rows under:
+KISS/KIPM settlement template evidence for target CID `295590` showed legacy/template rows under:
 
 - `주식회사 북메이커`, RS evidence `70`
 - `(주)문피아`, mixed rows including zero-rate/template rows
+
+Correction after operator review:
+
+- The `북메이커` row is a related-CID/template signal only and is not the decision basis for `몬스터홀`.
+- The operator-confirmed holder for `몬스터홀` is `킹메이커`; ACCOUNT/ADMIN live evidence below is the controlling basis.
 
 ACCOUNT/ADMIN live evidence:
 
@@ -59,9 +64,9 @@ Decision:
 
 - Do not treat row 3550 as simple sales-channel add.
 - The target CID `295590` itself has no nonzero settlement contract ID.
-- The only concrete nonzero contract in the family is `326461 / 83905 / 주식회사 북메이커`.
+- Do not use the related `북메이커` family contract as the basis for row 3550.
 - ACCOUNT/ADMIN confirms actual Barobook rights for the live `몬스터 홀` serial under `최상진(킹메이커) / 1005413`, but KIPM target settlement rows are still all `cntrId=0`.
-- Proceed by selecting/linking a valid nonzero KIPM contract for target CID `295590`, or creating the required contract if no applicable contract can be linked, before adding the Epyrus sales channel.
+- Proceed by selecting/linking or creating the correct KIPM contract for target CID `295590` using the `최상진(킹메이커) / 1005413 / 70-70-70` basis before adding the Epyrus sales channel.
 
 ### 백작가의사생아가결혼하면
 
