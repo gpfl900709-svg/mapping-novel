@@ -23,6 +23,8 @@ DEFAULT_IPS_XLSX = ROOT / "ips_20260515.xlsx"
 DEFAULT_OUTPUT_DIR = ROOT / "igignore" / "ips_safe_channel_backfill_20260515"
 EXACT_REASON = "해당채널 지급정산 없음 / 타채널 지급정산 존재"
 SPECIAL_CHANNEL_MARKERS = ("네이버", "카카오")
+CONTRACT_CHECK_ACTION = "check_source_contract_id"
+READY_TO_ADD_ACTION = "add_platform_in_ips"
 
 
 def text(value: Any) -> str:
@@ -135,7 +137,8 @@ def build_candidates(args: argparse.Namespace) -> dict[str, Any]:
             "source_report_row": row_number,
             "work_cid": cid or " | ".join(cid_values),
             "input_platform": channel,
-            "next_action": "add_platform_in_ips" if not exclusions else "manual_review",
+            "next_action": CONTRACT_CHECK_ACTION if not exclusions else "manual_review",
+            "contract_gate": "source_contract_id_required" if not exclusions else "",
             "정제_상품명": text(row.get("정제_상품명")),
             "정산서_대표콘텐츠명": text(row.get("정산서_대표콘텐츠명")),
             "S2_미매핑상세사유": reason,
@@ -245,9 +248,11 @@ def live_lookup(args: argparse.Namespace) -> list[dict[str, Any]]:
                         row["matched_platform_name"] = text(matched_platform.get("lwerSchnNm"))
                         row["sales_channel_content_id"] = id_text(matched_platform.get("schnCtnsId"))
                         row["next_action"] = "paste_sales_channel_content_id"
+                        row["contract_gate"] = ""
                     else:
                         row["platform_match_status"] = "missing_platform"
-                        row["next_action"] = "add_platform_in_ips"
+                        row["next_action"] = CONTRACT_CHECK_ACTION
+                        row["contract_gate"] = "source_contract_id_required"
             except Exception as exc:  # noqa: BLE001
                 row["detail_status"] = "lookup_failed"
                 row["lookup_error"] = str(exc)
@@ -288,7 +293,7 @@ def add_platforms(args: argparse.Namespace) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     pending_indexes = [
         idx for idx, row in enumerate(input_rows)
-        if text(row.get("next_action")) == "add_platform_in_ips"
+        if text(row.get("next_action")) == READY_TO_ADD_ACTION
     ]
     if args.limit:
         pending_indexes = pending_indexes[: args.limit]

@@ -1,5 +1,5 @@
 row_id,work_cid,input_platform,next_action,title_note
-3550,295590,에피루스 이북클럽(B2C),add_platform_in_ips,몬스터홀
-3551,113327,에피루스 이북클럽(B2C),add_platform_in_ips,백작가의사생아가결혼하면
-3552,113749,에피루스 이북클럽(B2C),add_platform_in_ips,살인귀의아이를낳았다
-3560,110907,에피루스 이북클럽(B2C),add_platform_in_ips,핵무기도만들어드릴까요
+3550,295590,에피루스 이북클럽(B2C),check_source_contract_id,몬스터홀
+3551,113327,에피루스 이북클럽(B2C),check_source_contract_id,백작가의사생아가결혼하면
+3552,113749,에피루스 이북클럽(B2C),check_source_contract_id,살인귀의아이를낳았다
+3560,321184,에피루스 이북클럽(B2C),paste_sales_channel_content_id,핵무기도만들어드릴까요

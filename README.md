@@ -78,8 +78,15 @@ python scripts\triage_generated_id_gaps.py --input <sheet.csv>
 1. S2 지급정산 기준 exact match
 2. S2 판매채널콘텐츠 lookup exact match
 3. S2 정산정보누락/청구정산 guard
-4. S2 fuzzy 후보
-5. IPS/admin/account 더미계약 조사
+4. S2 타채널 지급정산 증거 확인
+5. S2 fuzzy 후보
+6. IPS/admin/account 조사
+
+`S2_타채널지급정산_존재`는 판매채널 추가 확정이 아닙니다. 타채널 ID는 입력하지 않고, IPS 콘텐츠 상세의 정산정보에서 source 통합 계약 ID를 확인한 뒤 분기합니다.
+
+- `source 통합 계약 ID`가 0이 아닌 단일 값이면 해당 계약 ID 기준으로 판매채널 추가를 진행할 수 있습니다.
+- 정산정보가 전부 `0`이면 판매채널 추가가 아니라 계약/정산 연결 보강이 먼저입니다.
+- 0이 아닌 계약 ID가 여러 개면 계약서를 사람이 선택한 뒤 진행합니다.
 
 ## Operator Layer
 
