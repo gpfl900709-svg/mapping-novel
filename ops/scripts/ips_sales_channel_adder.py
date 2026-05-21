@@ -361,6 +361,22 @@ def select_platform_option(page: Any, platform_name: str) -> None:
     raise LookupError(f"판매채널 옵션을 찾지 못했습니다: {platform_name}")
 
 
+def select_grid_platform(page: Any, dialog: Any, grid_id: str, platform_name: str) -> None:
+    first_row_cells = dialog.locator(f"#{grid_id} tr.rg-data-row .rg-data-cell")
+    if first_row_cells.count() < 2:
+        raise RuntimeError(f"판매채널 추가 모달의 {grid_id} 지급액 그리드를 찾지 못했습니다.")
+
+    channel_cell = first_row_cells.first
+    channel_cell.click()
+    page.wait_for_timeout(400)
+    select_platform_option(page, platform_name)
+    page.wait_for_timeout(600)
+
+    # Commit the dropdown choice before saving.
+    first_row_cells.nth(1).click()
+    page.wait_for_timeout(400)
+
+
 def select_channel_row(channels: list[dict[str, Any]], platform_name: str) -> dict[str, Any] | None:
     requested_keys = platform_match_keys(platform_name)
     fallback: dict[str, Any] | None = None
@@ -387,7 +403,7 @@ def click_visible_button(scope: Any, label: str) -> bool:
     return False
 
 
-def click_settlement_row_checkbox(row: Any) -> None:
+def click_settlement_row_checkbox(row: Any, *, grid: Any | None = None, row_index: int | None = None) -> None:
     for selector in ("input[type='checkbox']", "[role='checkbox']", ".rg-checkbox"):
         controls = row.locator(selector)
         for index in range(controls.count()):
@@ -402,6 +418,23 @@ def click_settlement_row_checkbox(row: Any) -> None:
                     return
             control.click(force=True)
             return
+
+    if grid is not None and row_index is not None:
+        row_bar_controls = grid.locator(
+            "tr.rg-row-bar input.rg-checkbox, "
+            "tr.rg-row-bar input[type='checkbox'], "
+            "tr.rg-row-bar [role='checkbox'], "
+            "tr.rg-row-bar .rg-checkbox"
+        )
+        if row_index < row_bar_controls.count():
+            control = row_bar_controls.nth(row_index)
+            try:
+                if control.is_visible():
+                    control.click(force=True)
+                    return
+            except Exception:  # noqa: BLE001
+                control.click(force=True)
+                return
 
     cells = row.locator(".rg-data-cell, td")
     cell_count = cells.count()
@@ -419,7 +452,13 @@ def click_settlement_row_checkbox(row: Any) -> None:
 
 
 def select_settlement_source_row(page: Any, *, preferred_contract_id: int = 0) -> dict[str, Any]:
-    rows = page.locator(".rg-body tbody tr")
+    grid = page.locator("#setlGridId").first
+    rows = grid.locator("tr.rg-data-row")
+    if rows.count() == 0:
+        grid = page
+        rows = page.locator("tr.rg-data-row")
+    if rows.count() == 0:
+        rows = page.locator(".rg-body tbody tr")
     visible_rows: list[Any] = []
     row_texts: list[str] = []
     for index in range(rows.count()):
@@ -444,13 +483,11 @@ def select_settlement_source_row(page: Any, *, preferred_contract_id: int = 0) -
     contract_id = extract_unified_contract_id(row_texts[selected_index])
     if contract_id <= 0:
         raise RuntimeError(
-            "판매채널 추가에는 통합 계약 ID가 있는 정산 기준행이 필요합니다. "
-            "현재 화면에서 선택 가능한 정산행의 통합 계약 ID가 0입니다. "
-            "계약변경등록(/ip/cntr/cntrchg/cntr-chg-reg?cntrId=...)에서 계약/정산 연결을 먼저 보강하세요."
+            "판매채널 추가에는 통합 계약 ID가 0이 아닌 정산 기준행 체크가 필요합니다. "
+            "현재 화면에서 선택 가능한 정산행의 통합 계약 ID가 0입니다."
         )
-
     selected_row = visible_rows[selected_index]
-    click_settlement_row_checkbox(selected_row)
+    click_settlement_row_checkbox(selected_row, grid=grid, row_index=selected_index)
     page.wait_for_timeout(300)
     return {
         "settlement_source_row_number": selected_index + 1,
@@ -632,26 +669,6 @@ def add_platform_via_detail(
     page.goto(build_detail_view_url(cid), wait_until="domcontentloaded", timeout=25_000)
     page.wait_for_timeout(2_000)
 
-    try:
-        return add_platform_via_api(
-            page,
-            cid,
-            platform_name,
-            source_contract_id=source_contract_id,
-            force_add_existing_platform=force_add_existing_platform,
-        )
-    except Exception:  # noqa: BLE001
-        # Some special settlement CIDs only expose billing-side templates to the
-        # API endpoint. Fall back to the browser flow, which is what an operator
-        # would do in IPS.
-        try:
-            click_visible_button(page, "확인")
-            page.keyboard.press("Escape")
-        except Exception:  # noqa: BLE001
-            pass
-        page.goto(build_detail_view_url(cid), wait_until="domcontentloaded", timeout=25_000)
-        page.wait_for_timeout(2_000)
-
     click_tab(page, "정산정보")
     detail_data = fetch_detail_data(page, cid)
     matched_platform, snapshot = platform_snapshot(detail_data, platform_name)
@@ -668,24 +685,8 @@ def add_platform_via_detail(
     page.wait_for_timeout(1_200)
     dialog = find_visible_dialog(page)
 
-    first_row_cells = dialog.locator("#mgGrid .rg-body tbody tr .rg-data-cell")
-    if first_row_cells.count() < 2:
-        if not click_visible_button(dialog, "추가"):
-            raise RuntimeError("판매채널 추가 모달의 추가 버튼을 찾지 못했습니다.")
-        page.wait_for_timeout(1_000)
-        first_row_cells = dialog.locator("#mgGrid .rg-body tbody tr .rg-data-cell")
-    if first_row_cells.count() < 2:
-        raise RuntimeError("판매채널 추가 모달의 지급액 그리드를 찾지 못했습니다.")
-
-    channel_cell = first_row_cells.first
-    channel_cell.click()
-    page.wait_for_timeout(400)
-    select_platform_option(page, platform_name)
-    page.wait_for_timeout(600)
-
-    # Commit the dropdown choice before saving.
-    first_row_cells.nth(1).click()
-    page.wait_for_timeout(400)
+    select_grid_platform(page, dialog, "mgGrid", platform_name)
+    select_grid_platform(page, dialog, "rsGrid", platform_name)
 
     if not click_visible_button(dialog, "저장"):
         raise RuntimeError("판매채널 추가 모달의 저장 버튼을 찾지 못했습니다.")

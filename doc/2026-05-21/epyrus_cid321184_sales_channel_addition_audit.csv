@@ -1,0 +1,2 @@
+row_id,work_cid,content_name,target_platform,action,sales_channel_content_id,settlement_contract_id,settlement_source_row_number,payment_settlement_id,confirmation_status,verification_note
+3560,321184,핵무기도 만들어 드림_북홀릭_1005593_1159_확정,에피루스 이북클럽(B2C),added,904695,78489,5,1085559,미승인,정산정보 UI에서 통합 계약 ID 78489 행 체크 후 판매채널 추가. 읽기 전용 정산 API에서 에피루스 행 확인.
