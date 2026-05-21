@@ -219,7 +219,7 @@ def decide(
     if len(sales_channel):
         return "S2_판매채널콘텐츠만_존재", "S2에는 판매채널콘텐츠가 있으나 지급정산 기준 없음. IPS/S2 정산 설정 확인"
     if len(other_payment):
-        return "S2_타채널지급정산_존재", "현재 S2 판매채널 지급정산은 없음. 타채널 ID를 입력하지 말고 현재 채널 정산 설정/계약 보강 여부 확인"
+        return "S2_타채널지급정산_존재", "현재 S2 판매채널 지급정산은 없음. 타채널 ID를 입력하지 말고 현재 채널 판매채널/지급정산 추가 대상. source 통합 계약 ID만 별도 확인"
     if len(other_sales_channel):
         return "S2_타채널판매채널콘텐츠만_존재", "타채널 판매채널콘텐츠만 있는 보조 증거. 현재 채널 지급정산 ID로 입력하지 않음"
     if fuzzy:

@@ -149,7 +149,7 @@ class IpsSalesChannelAdderTest(unittest.TestCase):
         )
 
         self.assertEqual(status, "needs_contract")
-        self.assertEqual(value, "계약 등록 필요 : 통합 계약 ID 없음")
+        self.assertEqual(value, "판매채널 추가 보류 : source 통합 계약 ID 확인 필요")
 
     def test_classifies_multiple_contracts_as_human_judgment_value(self) -> None:
         status, value = classify_unresolved_generated_id(

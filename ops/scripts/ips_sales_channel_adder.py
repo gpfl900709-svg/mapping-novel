@@ -75,7 +75,7 @@ ADD_PAYLOAD_DEFAULTS: dict[str, Any] = {
     "appCoinUnpcWithRt": 0,
 }
 
-NEEDS_CONTRACT_MESSAGE = "계약 등록 필요 : 통합 계약 ID 없음"
+NEEDS_CONTRACT_MESSAGE = "판매채널 추가 보류 : source 통합 계약 ID 확인 필요"
 NEEDS_EXPLICIT_CONTRACT_MESSAGE = "인간 판단 필요 : 통합 계약 ID 복수"
 NEEDS_HUMAN_JUDGMENT_MESSAGE = "인간 판단 필요 : 판매채널 추가 실패"
 
