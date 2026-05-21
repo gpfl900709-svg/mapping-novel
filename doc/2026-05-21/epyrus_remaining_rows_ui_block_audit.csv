@@ -1,0 +1,5 @@
+sheet_row,normalized_title,representative_title,target_platform,target_cid,result,sales_channel_content_id,sheet_update,ips_evidence
+3550,몬스터홀,몬스터 홀 100화,에피루스 이북클럽(B2C),295590,blocked_ui_contract_id_zero,,G3550 비고 업데이트,IPS 정산정보 visible rows all cntrId=0; 판매채널 추가 button inactive after 0-row checkbox attempt
+3551,백작가의사생아가결혼하면,백작가의 사생아가 결혼하면 1,에피루스 이북클럽(B2C),113327,blocked_ui_contract_id_zero,,G3551 비고 업데이트,IPS 정산정보 visible rows all cntrId=0; 판매채널 추가 button inactive after 0-row checkbox attempt
+3552,살인귀의아이를낳았다,살인귀의 아이를 낳았다 1,에피루스 이북클럽(B2C),113749,blocked_ui_contract_id_zero,,G3552 비고 업데이트,IPS 정산정보 visible rows all cntrId=0; 판매채널 추가 button inactive after 0-row checkbox attempt
+3560,핵무기도만들어드릴까요,핵무기도 만들어 드릴까요? 2,에피루스 이북클럽(B2C),321184,added,904695,E3560 ID 업데이트,IPS 정산정보 source cntrId=78489; added payment settlement row pymtSetlId=1085559
