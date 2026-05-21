@@ -1484,7 +1484,10 @@ def resolve_rs_rate(grade_name: str, explicit_rate: int = 0, *, allow_zero_rs: b
         return 0
     if explicit_rate > 0:
         return explicit_rate
-    return 80 if grade_name.strip() == "성인" else 70
+    raise DummyContractError(
+        "RS율은 등급 기본값으로 추정하지 않습니다. account 저작권코드에 연결된 대표 RS를 확인해 "
+        "--account-rs-rate와 --rs-rate에 같은 값을 명시하세요."
+    )
 
 
 def validate_account_rs_guard(spec: DummyContractSpec) -> None:

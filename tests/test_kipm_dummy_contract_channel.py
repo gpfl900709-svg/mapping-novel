@@ -80,9 +80,11 @@ class DummyContractChannelTest(unittest.TestCase):
 
     def test_explicit_rs_rate_overrides_grade_default(self):
         self.assertEqual(dummy_contract.resolve_rs_rate("비성인", 50), 50)
-        self.assertEqual(dummy_contract.resolve_rs_rate("성인", 0), 80)
-        self.assertEqual(dummy_contract.resolve_rs_rate("비성인", 0), 70)
         self.assertEqual(dummy_contract.resolve_rs_rate("비성인", 0, allow_zero_rs=True), 0)
+
+    def test_rs_rate_without_account_explicit_value_is_not_defaulted(self):
+        with self.assertRaisesRegex(dummy_contract.DummyContractError, "등급 기본값"):
+            dummy_contract.resolve_rs_rate("비성인", 0)
 
     def test_account_rs_guard_requires_account_evidence(self):
         spec = dummy_contract.DummyContractSpec(
