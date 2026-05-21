@@ -1,0 +1,73 @@
+{
+  "written_count": 3,
+  "dry_run": false,
+  "rows": [
+    {
+      "row_number": 3550,
+      "cell_ref": "E3550",
+      "value": "904706",
+      "input_title": "",
+      "platform": "에피루스 이북클럽(B2C)",
+      "next_action": "paste_sales_channel_content_id"
+    },
+    {
+      "row_number": 3551,
+      "cell_ref": "E3551",
+      "value": "904707",
+      "input_title": "",
+      "platform": "에피루스 이북클럽(B2C)",
+      "next_action": "paste_sales_channel_content_id"
+    },
+    {
+      "row_number": 3552,
+      "cell_ref": "E3552",
+      "value": "904708",
+      "input_title": "",
+      "platform": "에피루스 이북클럽(B2C)",
+      "next_action": "paste_sales_channel_content_id"
+    }
+  ],
+  "write_method": "playwright_cdp",
+  "verification": {
+    "first_pass": {
+      "match_count": 3,
+      "mismatch_count": 0,
+      "matches": [
+        {
+          "row_number": 3550,
+          "cell_ref": "E3550",
+          "expected": "904706",
+          "actual": "904706",
+          "input_title": ""
+        },
+        {
+          "row_number": 3551,
+          "cell_ref": "E3551",
+          "expected": "904707",
+          "actual": "904707",
+          "input_title": ""
+        },
+        {
+          "row_number": 3552,
+          "cell_ref": "E3552",
+          "expected": "904708",
+          "actual": "904708",
+          "input_title": ""
+        }
+      ],
+      "mismatches": []
+    }
+  },
+  "debug_chrome": {
+    "launched": false,
+    "connect_url": "http://127.0.0.1:9222",
+    "http_base": "http://127.0.0.1:9222",
+    "chrome_path": "",
+    "working_directory": "",
+    "shortcut_path": "C:\\Users\\wjjo\\Desktop\\크롬디버깅.lnk",
+    "sheet_url": "https://docs.google.com/spreadsheets/d/1jG0Q6LKzJ_q2VqdqtoDHSEwl8hfOEUrxRuxXq7KSazY/edit?gid=1569459807#gid=1569459807",
+    "port_ready": true
+  },
+  "verified_count": 3,
+  "mismatch_count": 0
+}

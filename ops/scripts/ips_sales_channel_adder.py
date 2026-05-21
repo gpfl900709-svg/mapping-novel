@@ -589,10 +589,14 @@ def add_platform_via_api(
           const cpr = detail.rversCprCd || detail.cprCd || '1000';
           const templateResp = await axios.get(templatePath, {
             params: {
+              pageNum: 1,
+              pageSize: 1000,
               srchCntrId: 0,
               srcCntrClCd: '',
               srcCtnsId: String(cid),
               srcCprCd: cpr,
+              srcBcncCd: '',
+              pymtSetlSetmId: '',
             },
           });
           const channelResp = await axios.get(channelPath);
@@ -710,6 +714,14 @@ def add_platform_via_detail(
             platform_name,
             source_contract_id=source_contract_id,
             force_add_existing_platform=True,
+        )
+    if source_contract_id > 0:
+        return add_platform_via_api(
+            page,
+            cid,
+            platform_name,
+            source_contract_id=source_contract_id,
+            force_add_existing_platform=force_add_existing_platform,
         )
 
     source_row = select_settlement_source_row(page, preferred_contract_id=source_contract_id)

@@ -849,7 +849,7 @@ def force_manager_and_department_fields(
                 for (const input of inputs) {
                     const labelText = textFor(input);
                     const value = (input.value || "").trim();
-                    if (labelText.includes("담당부서") || labelText.includes("소속")) {
+                    if (labelText.includes("담당부서") || labelText.includes("담당팀") || labelText.includes("소속")) {
                         if (!value || knownManagers.includes(value)) {
                             setNativeValue(input, departmentName);
                             changed = true;
@@ -1601,6 +1601,12 @@ def create_dummy_contract(page: Any, spec: DummyContractSpec) -> DummyContractRe
     else:
         trace_step(spec, "ensure step1 required fields")
         ensure_step1_required_fields(page)
+        if spec.manager_name and spec.manager_department:
+            force_manager_and_department_fields(
+                page,
+                manager_name=spec.manager_name,
+                department_name=spec.manager_department,
+            )
 
     trace_step(spec, "resolve content metadata")
     content_name, grade_name = resolve_contract_content_metadata(page, spec)
