@@ -191,7 +191,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--allow-zero-rs",
         action="store_true",
-        help="Allow a 0% RS contract for IPS-only unsettled counterparties such as 소설사업부(미정산).",
+        help="Allow a 0%% RS contract for IPS-only unsettled counterparties such as 소설사업부(미정산).",
     )
     parser.add_argument("--trace-steps", action="store_true", help="Print major contract registration steps.")
     parser.add_argument(
