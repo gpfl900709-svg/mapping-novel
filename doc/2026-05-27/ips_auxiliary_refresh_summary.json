@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-05-27T00:02:03",
+  "as_of": "2026-05-27",
+  "api_total_rows": 62899,
+  "fetched_rows": 62899,
+  "fetched_pages": 2,
+  "source_rows": 62899,
+  "all_rows": 62899,
+  "novel_rows": 29843,
+  "webtoon_rows": 32652,
+  "content_style_code": "",
+  "content_status_code": "001",
+  "reversion_company_code": "1000",
+  "outputs": [
+    "C:\\Users\\User\\Desktop\\mapping-novel\\data\\all_contents.xlsx",
+    "C:\\Users\\User\\Desktop\\mapping-novel\\data\\kidari_contents.xlsx",
+    "C:\\Users\\User\\Desktop\\mapping-novel\\data\\kidari_webtoon.xlsx"
+  ]
+}
