@@ -1,0 +1,69 @@
+{
+  "generated_at": "2026-06-02T00:01:21+09:00",
+  "source_rows": 142341,
+  "cache_rows_before": 125255,
+  "cache_rows_after": 125326,
+  "s2_lookup_rows": 125326,
+  "s2_change_added": 71,
+  "s2_change_deleted": 0,
+  "s2_change_modified": 0,
+  "output_cache": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
+  "output_cache_parts": [],
+  "output_s2_lookup": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
+  "summary": {
+    "rows": 142341,
+    "columns": 11,
+    "content_shape_counts": {
+      "소설": 142341
+    },
+    "approval_status_counts": {
+      "승인": 138241,
+      "미승인": 4088,
+      "승인취소": 12
+    },
+    "payment_settlement_status_counts": {
+      "운영중": 141537,
+      "종료": 694,
+      "콘텐츠확인필요": 99,
+      "거래처확인필요": 11
+    },
+    "top_channel_counts": {
+      "봄툰KR(1068149784)": 13113,
+      "원스토어(소설)": 11316,
+      "미스터블루(소설)": 10865,
+      "판무림": 10540,
+      "한아름(P000003716)": 8417,
+      "Yes24(서점)": 4605,
+      "인터파크": 4268,
+      "리디북스(이벤트)": 4226,
+      "웹소설 하이북": 4079,
+      "북큐브(소설)": 4052,
+      "구글(소설)": 3965,
+      "네이버_일반": 3798,
+      "교보문고(소설)": 3772,
+      "무툰(소설 서비스)": 3427,
+      "한국이퍼브": 3374,
+      "네이버_장르(광고수익)": 3276,
+      "유페이퍼": 3064,
+      "누온": 2867,
+      "스토린랩(원스토어)": 2409,
+      "리디북스(소설)": 2323
+    },
+    "content_id_nonblank": 142341,
+    "content_id_unique": 28333,
+    "sales_channel_content_id_nonblank": 142156,
+    "sales_channel_content_id_unique": 125326,
+    "registered_at_min": "2024-12-31T12:00:00",
+    "registered_at_max": "2026-06-01T17:03:07",
+    "sales_channel_content_id_duplicate_keys": 12071,
+    "sales_channel_content_id_multiple_titles": 1,
+    "sales_channel_content_id_multiple_master_ids": 12071,
+    "sales_channel_content_id_multiple_content_ids": 1,
+    "cache_mode": "lookup_only",
+    "s2_change_summary": {
+      "added": 71,
+      "deleted": 0,
+      "modified": 0
+    }
+  }
+}
