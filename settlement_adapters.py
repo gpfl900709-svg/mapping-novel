@@ -286,13 +286,31 @@ def normalize_settlement(
     workbook = _load_workbook(source, read_only=_read_only_workbook_enabled(selected_platform))
     parsed: list[pd.DataFrame] = []
     audits: list[SheetAudit] = []
+    scoped_sheet_count = 0
+    excluded_sheet_audit_indexes: dict[str, int] = {}
     for sheet in workbook.worksheets:
         if not _sheet_in_scope(spec, sheet.title):
+            excluded_sheet_audit_indexes[sheet.title] = len(audits)
             audits.append(SheetAudit(sheet=sheet.title, status="excluded_sheet", note=spec.exclude_rule))
             continue
+        scoped_sheet_count += 1
         frame, audit = _parse_sheet(sheet, spec, display_name, file_status)
         audits.append(audit)
         if not frame.empty:
+            parsed.append(frame)
+
+    if not parsed and scoped_sheet_count == 0 and _header_fallback_enabled(spec):
+        for sheet in workbook.worksheets:
+            frame, audit = _parse_sheet(sheet, spec, display_name, file_status)
+            if frame.empty:
+                continue
+            audit.status = "parsed_sheet_rule_fallback"
+            audit.note = f"시트명 규칙({spec.source_sheet_rule}) 미일치 후 헤더 구조로 선택"
+            audit_index = excluded_sheet_audit_indexes.get(sheet.title)
+            if audit_index is None:
+                audits.append(audit)
+            else:
+                audits[audit_index] = audit
             parsed.append(frame)
 
     rows = pd.concat(parsed, ignore_index=True) if parsed else _empty_rows()
@@ -327,6 +345,15 @@ def _read_only_workbook_enabled(platform: str) -> bool:
     raw = os.environ.get(SETTLEMENT_READ_ONLY_PLATFORMS_ENV, "")
     platforms = {text(value) for value in raw.split(",") if text(value)}
     return "*" in platforms or text(platform) in platforms
+
+
+def _header_fallback_enabled(spec: AdapterSpec) -> bool:
+    if spec.blocks_default_feed:
+        return False
+    if spec.parser_contract != "single_header":
+        return False
+    rule = spec.source_sheet_rule.strip()
+    return bool(rule and rule not in {"없음", "날짜범위 시트", "월별 정산내역 시트", "상세 판매일 시트"})
 
 
 def _load_workbook(source: str | Path | BinaryIO | io.BytesIO, *, read_only: bool = False):
@@ -714,7 +741,7 @@ def _standardize(
     out["외부콘텐츠ID"] = _pick_series(data, spec.external_id_candidates).map(text)
     out["판매금액_후보"] = _pick_series(data, spec.sale_amount_candidates).map(_number_or_blank)
     out["정산기준액_후보"] = _pick_series(data, spec.settlement_amount_candidates).map(_number_or_blank)
-    out["상계금액_후보"] = _pick_series(data, spec.offset_amount_candidates).map(_number_or_blank)
+    out["상계금액_후보"] = _offset_amount_series(data, spec).map(_number_or_blank)
     out["정제_상품명"] = out[STANDARD_TITLE_COLUMN].map(clean_title)
     out["parser_contract"] = spec.parser_contract
     out["amount_rule_status"] = spec.amount_rule_status
@@ -787,6 +814,34 @@ def _pick_series(df: pd.DataFrame, candidates: Iterable[str]) -> pd.Series:
         if column_norm in candidate_norms:
             return df[column]
     return pd.Series([""] * len(df), index=df.index, dtype=object)
+
+
+def _offset_amount_series(df: pd.DataFrame, spec: AdapterSpec) -> pd.Series:
+    if spec.platform == "올툰":
+        return _sum_numeric_candidate_series(df, spec.offset_amount_candidates)
+    return _pick_series(df, spec.offset_amount_candidates)
+
+
+def _sum_numeric_candidate_series(df: pd.DataFrame, candidates: Iterable[str]) -> pd.Series:
+    candidate_norms = {_norm(candidate) for candidate in candidates if _norm(candidate)}
+    matching_columns = [
+        column
+        for column in df.columns
+        if _norm(re.sub(r"__\d+$", "", str(column))) in candidate_norms
+    ]
+    if not matching_columns:
+        return pd.Series([""] * len(df), index=df.index, dtype=object)
+
+    total = pd.Series(0.0, index=df.index)
+    has_value = pd.Series(False, index=df.index)
+    for column in matching_columns:
+        numeric = pd.to_numeric(df[column].map(_number_or_blank), errors="coerce")
+        has_value = has_value | numeric.notna()
+        total = total + numeric.fillna(0)
+
+    result = total.map(lambda value: int(value) if float(value).is_integer() else value).astype(object)
+    result.loc[~has_value] = ""
+    return result
 
 
 def _title_count(frame: pd.DataFrame) -> int:
@@ -905,7 +960,7 @@ _REGISTRY_ROWS = [
     ("에이블리", "single_header_plus_summary_exclusion", "mixed_sheet_policy_gate", "상세 판매일 시트", "행 레이블 pivot/요약 시트는 출력 제외", "작품명", "작가명", "작품 ID", "판매 금액 합계 (원)", "정산 금액 합계 (원)", "운영 수수료 합계 (원)", "candidate_confirmed_after_reconcile", "요약 시트 제외 + 총액 reconcile 후 출력"),
     ("에피루스", "single_header", "single_header_policy_gate", "월별 정산내역 시트", "", "제목", "저자", "없음", "판매금액", "정산액", "수수료", "candidate_confirmed_after_reconcile", "대표월 fixture + 수수료 상계 정책 확인 후 출력"),
     ("예스24", "single_header", "single_header_policy_gate", "Sheet1", "", "도서명", "저자명", "bookID / ePubID / 전자책ISBN / 종이책ISBN / 세트코드", "서점판매가 또는 출판사판매가", "출판사정산액", "서점환불가 / 환불일 기반 취소 처리", "needs_policy", "판매가 기준/환불 처리 정책 확정 후 출력"),
-    ("올툰", "single_header", "single_header_amount_policy_required", "시트1", "", "작품명", "없음", "없음", "총 매출액(원) / 코인 사용수량", "정산 대상 금액(수수료 제외)", "앱스토어 수수료(원) / 올웨이즈 수수료(원)", "needs_fee_policy", "수수료 제외/순매출 기준 확정 후 S2 출력"),
+    ("올툰", "single_header", "single_header_amount_policy_required", "시트1", "", "작품명", "없음", "없음", "총 매출액(원)", "정산대상금액 / 정산 대상 금액(수수료 제외) / 정산 대상 금액(수수료 제)", "앱스토어 수수료(원) / 올웨이즈 수수료(원)", "candidate_confirmed_after_reconcile", "정산대상금액=총매출액-앱스토어수수료-올웨이즈수수료"),
     ("원스토어", "wide_single_header_limited_columns", "wide_header_policy_gate", "multimedia", "", "채널상품명 / 상품명", "글작가", "채널상품ID / 상품ID / 파트너ID", "판매 / 합계 / 정액제 정산대상액 후보", "정산지급액", "취소 / 앱마켓수수료 / 서비스이용료", "needs_policy", "판매/정액제/취소/수수료 산식 확정 전 S2 출력 금지"),
     ("윌라", "sheet_whitelist_single_header", "single_header_with_aux_exclusion", "sheet", "콘텐츠 가격 변동 이력 시트 제외", "콘텐츠명", "저자", "코드 / 전자책ISBN", "공급가 또는 정가 후보", "정산 금액", "없음 확인 필요", "needs_policy", "공급가/정가 판매금액 기준 확정 + 가격변동이력 제외 후 출력"),
     ("조아라", "schema_signature_variants", "multi_schema_amount_policy_required", "작품별 정산리스트*, 후원쿠폰*", "", "작품명", "작가명", "작품코드 있는 그룹만", "단가 x 판매건수 / 금액 / 이용권 후보. 일부 단행본은 판매금액 불명", "정산금액", "없음 확인 필요", "needs_derived_sale_policy", "단가 없는 그룹의 판매금액 정책 확정 전 S2 출력 금지"),

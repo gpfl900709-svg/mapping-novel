@@ -9,7 +9,14 @@ from pathlib import Path
 
 from openpyxl import Workbook
 
-from settlement_adapters import REGISTRY, _file_status, adapter_blocking_messages, normalize_settlement, summarize_normalization
+from settlement_adapters import (
+    REGISTRY,
+    _file_status,
+    adapter_audit_dataframe,
+    adapter_blocking_messages,
+    normalize_settlement,
+    summarize_normalization,
+)
 
 
 DEFAULT_SOURCE_ROOT = Path(r"\\172.16.10.120\소설사업부\판무팀_ssot\100_계산서_매출등록_자료")
@@ -96,6 +103,77 @@ class SettlementAdapterRegistryTest(unittest.TestCase):
         self.assertEqual(len(feed), 1)
         self.assertEqual(feed["상품명"].iloc[0], "진짜 작품")
         self.assertEqual(result.rows["정제_상품명"].iloc[0], "진짜작품")
+
+    def test_alltoon_uses_header_fallback_when_sheet_name_changes(self) -> None:
+        workbook = Workbook()
+        invoice = workbook.active
+        invoice.title = "계산서 발행"
+        invoice.append(["■ 전자(세금)계산서 발행 정보"])
+        invoice.append(["웹소설", "발행금액", 168033.6])
+        detail = workbook.create_sheet("전체 매출 내역")
+        detail.append(
+            [
+                "매출 기간(월)",
+                "작품명",
+                "정산 수수료율(%)",
+                "코인 사용수량(개)",
+                "총 매출액(원)",
+                "앱스토어 수수료(원)",
+                "올웨이즈 수수료(원)",
+                "순매출액",
+                "정산대상금액",
+            ]
+        )
+        detail.append(["2026년 5월", "[소설]테스트 작품", 60, 100, 120, 36, 33.6, 84, 50.4])
+        payload = io.BytesIO()
+        workbook.save(payload)
+        payload.seek(0)
+
+        result = normalize_settlement(payload, platform="올툰", source_name="2026년 5월 올툰 정산상세.xlsx")
+        feed = result.to_mapping_feed()
+        audit = adapter_audit_dataframe(result)
+
+        self.assertEqual(len(feed), 1)
+        self.assertEqual(feed["상품명"].iloc[0], "[소설]테스트 작품")
+        self.assertEqual(feed["판매금액_후보"].iloc[0], 120)
+        self.assertAlmostEqual(feed["정산기준액_후보"].iloc[0], 50.4)
+        self.assertAlmostEqual(feed["상계금액_후보"].iloc[0], 69.6)
+        self.assertEqual(adapter_blocking_messages(result), [])
+        self.assertTrue(summarize_normalization(result)["s2_amount_policy_locked"])
+        self.assertIn("parsed_sheet_rule_fallback", audit["status"].tolist())
+        self.assertIn("excluded_sheet", audit["status"].tolist())
+
+    def test_alltoon_accepts_april_settlement_amount_header(self) -> None:
+        workbook = Workbook()
+        detail = workbook.active
+        detail.title = "전체 매출 내역"
+        detail.append(["CP사명: 키다리_소설"])
+        detail.append(
+            [
+                "작품명",
+                "정산 수수료율(%)",
+                "코인 사용수량(개)",
+                "총 매출액(원)",
+                "앱스토어 수수료(원)",
+                "올웨이즈 수수료(원)",
+                "순매출액(원)",
+                "정산 대상 금액(수수료 제)",
+            ]
+        )
+        detail.append(["[소설]테스트 작품", 60, 100, 120, 36, 33.6, 84, 50.4])
+        detail.append(["합계", "", 100, 120, 36, 33.6, 84, 50.4])
+        payload = io.BytesIO()
+        workbook.save(payload)
+        payload.seek(0)
+
+        result = normalize_settlement(payload, platform="올툰", source_name="2026년 4월 올툰 정산상세.xlsx")
+        feed = result.to_mapping_feed()
+
+        self.assertEqual(len(feed), 1)
+        self.assertEqual(feed["상품명"].iloc[0], "[소설]테스트 작품")
+        self.assertEqual(feed["판매금액_후보"].iloc[0], 120)
+        self.assertAlmostEqual(feed["정산기준액_후보"].iloc[0], 50.4)
+        self.assertAlmostEqual(feed["상계금액_후보"].iloc[0], 69.6)
 
 
 class SettlementAdapterFixtureTest(unittest.TestCase):
