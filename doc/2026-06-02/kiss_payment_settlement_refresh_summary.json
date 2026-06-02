@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-06-02T11:09:37+09:00",
+  "generated_at": "2026-06-02T12:01:13+09:00",
   "source_rows": 142366,
-  "cache_rows_before": 125326,
+  "cache_rows_before": 125350,
   "cache_rows_after": 125350,
   "s2_lookup_rows": 125350,
-  "s2_change_added": 24,
+  "s2_change_added": 0,
   "s2_change_deleted": 0,
   "s2_change_modified": 0,
-  "output_cache": "C:\\Users\\wjjo\\AppData\\Local\\Temp\\mapping-novel-alltoon-20260602110511\\data\\kiss_payment_settlement_s2_lookup.csv",
+  "output_cache": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "output_cache_parts": [],
-  "output_s2_lookup": "C:\\Users\\wjjo\\AppData\\Local\\Temp\\mapping-novel-alltoon-20260602110511\\data\\kiss_payment_settlement_s2_lookup.csv",
+  "output_s2_lookup": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "summary": {
     "rows": 142366,
     "columns": 11,
@@ -61,7 +61,7 @@
     "sales_channel_content_id_multiple_content_ids": 1,
     "cache_mode": "lookup_only",
     "s2_change_summary": {
-      "added": 24,
+      "added": 0,
       "deleted": 0,
       "modified": 0
     }
