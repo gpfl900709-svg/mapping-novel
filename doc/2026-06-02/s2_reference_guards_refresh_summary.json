@@ -1,6 +1,6 @@
 {
   "created_at": "2026-06-02",
-  "finished_at": "2026-06-02T00:01:26+09:00",
+  "finished_at": "2026-06-02T11:09:51+09:00",
   "content_style_code": "102",
   "missing_platform_code": "",
   "missing_rows_raw": 2327,
@@ -18,16 +18,16 @@
   },
   "missing_overlap_with_s2_lookup": 0,
   "missing_platform_comparisons": [],
-  "billing_api_total_rows": 938,
-  "billing_rows_raw": 938,
+  "billing_api_total_rows": 940,
+  "billing_rows_raw": 940,
   "billing_pages": 1,
-  "billing_lookup_rows": 938,
+  "billing_lookup_rows": 940,
   "billing_sales_channel_counts": {
     "벨툰JP(봄툰B2BC)(F000000019)": 144,
     "레진JP(봄툰B2BC)(F000000019)": 143,
     "카카오페이지(선투자)": 116,
     "스튜디오지니": 60,
-    "블라이스 셀렉트": 50,
+    "블라이스 셀렉트": 52,
     "대만-네이버": 40,
     "스토리위즈": 28,
     "태국-네이버": 17,
@@ -44,7 +44,7 @@
     "대만-리브북스": 9,
     "네이버_연재": 8
   },
-  "missing_lookup": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\s2_payment_missing_lookup.csv",
-  "billing_lookup": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\s2_billing_settlement_lookup.csv",
-  "s2_lookup": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv"
+  "missing_lookup": "C:\\Users\\wjjo\\AppData\\Local\\Temp\\mapping-novel-alltoon-20260602110511\\data\\s2_payment_missing_lookup.csv",
+  "billing_lookup": "C:\\Users\\wjjo\\AppData\\Local\\Temp\\mapping-novel-alltoon-20260602110511\\data\\s2_billing_settlement_lookup.csv",
+  "s2_lookup": "C:\\Users\\wjjo\\AppData\\Local\\Temp\\mapping-novel-alltoon-20260602110511\\data\\kiss_payment_settlement_s2_lookup.csv"
 }
