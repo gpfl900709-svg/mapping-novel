@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-06-03T00:01:30+09:00",
+  "generated_at": "2026-06-03T12:01:28+09:00",
   "source_rows": 142389,
-  "cache_rows_before": 125350,
+  "cache_rows_before": 125371,
   "cache_rows_after": 125371,
   "s2_lookup_rows": 125371,
-  "s2_change_added": 21,
+  "s2_change_added": 0,
   "s2_change_deleted": 0,
   "s2_change_modified": 0,
   "output_cache": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
@@ -61,7 +61,7 @@
     "sales_channel_content_id_multiple_content_ids": 1,
     "cache_mode": "lookup_only",
     "s2_change_summary": {
-      "added": 21,
+      "added": 0,
       "deleted": 0,
       "modified": 0
     }
