@@ -78,7 +78,8 @@ Live add requires explicit `--write`:
 python ops\scripts\ips_sales_channel_adder.py --input <harness-output.csv> --write --env-file "ops\SIAAN Project\.env"
 ```
 
-One-shot pipeline also supports `--dry-run`.
+One-shot pipeline is preview-only by default. Live IPS add/upload requires explicit `--write`;
+`--dry-run` is accepted as an explicit preview flag.
 
 ## Dummy Contract / Admin Working Files
 

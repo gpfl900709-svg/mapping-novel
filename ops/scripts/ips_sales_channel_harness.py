@@ -34,6 +34,8 @@ DETAIL_PATH_TEMPLATE = "/cntsd/cntschg/ctns-chg-list/detail/{cid}"
 EDIT_PATH_TEMPLATE = "/ip/cntsd/cntschg/ctns-chg-edit?parCtnsId={cid}"
 
 DEFAULT_TITLE_COLUMNS = (
+    "정제_상품명",
+    "정산서_대표콘텐츠명",
     "미매핑_콘텐츠마스터명",
     "콘텐츠마스터명",
     "작품명",
@@ -41,6 +43,7 @@ DEFAULT_TITLE_COLUMNS = (
     "raw_title",
 )
 DEFAULT_PLATFORM_COLUMNS = (
+    "S2 판매채널",
     "채널",
     "플랫폼",
     "판매채널",
@@ -108,7 +111,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--only-empty-column",
         default="",
-        help="Only keep rows where this source column is empty. Useful for 생성 ID blank-only runs.",
+        help="Only keep rows where this source column is empty. Useful for S2_판매채널콘텐츠ID blank-only runs.",
     )
     parser.add_argument("--registry", default=str(DEFAULT_WORK_CID_REGISTRY_PATH))
     parser.add_argument("--manual-overrides", default=str(DEFAULT_MANUAL_OVERRIDES_PATH))
@@ -491,6 +494,7 @@ def platform_match_keys(platform_name: str) -> set[str]:
     aliases = {
         platform_key("예스24(소설)"): ("Yes24(서점)",),
         platform_key("Yes24(소설)"): ("Yes24(서점)",),
+        platform_key("누온(피우리)"): ("누온",),
     }
     for alias in aliases.get(requested_key, ()):
         alias_key = platform_key(alias)

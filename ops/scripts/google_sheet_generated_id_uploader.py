@@ -51,7 +51,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input", required=True, help="Harness CSV or JSON output path.")
     parser.add_argument("--sheet-url", default=DEFAULT_SHEET_URL)
     parser.add_argument("--connect-url", default=DEFAULT_CONNECT_URL)
-    parser.add_argument("--column-letter", default="D", help="Target sheet column letter. Default is 생성 ID column D.")
+    parser.add_argument("--column-letter", default="E", help="Target sheet column letter. Default is S2_판매채널콘텐츠ID column E.")
     parser.add_argument("--value-column", default="sales_channel_content_id")
     parser.add_argument("--action-column", default="next_action")
     parser.add_argument("--row-id-columns", default="__row_id,row_index,row_id", help="Comma-separated row id column fallbacks.")
@@ -105,6 +105,13 @@ def first_non_empty(row: dict[str, Any], names: list[str]) -> str:
     return ""
 
 
+def is_safe_sales_channel_content_id(value: str) -> bool:
+    value = str(value or "").strip()
+    if not value.isdigit():
+        return False
+    return int(value) > 0
+
+
 def build_upload_rows(
     rows: list[dict[str, Any]],
     *,
@@ -121,6 +128,8 @@ def build_upload_rows(
         value = str(row.get(value_column) or "").strip()
         row_id_value = first_non_empty(row, row_id_columns)
         if action != required_action or not value or not row_id_value:
+            continue
+        if required_action == "paste_sales_channel_content_id" and not is_safe_sales_channel_content_id(value):
             continue
         try:
             row_number = int(float(row_id_value))

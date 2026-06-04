@@ -22,7 +22,7 @@ DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "output" / "ips_sales_channel_pipeline"
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "One-shot pipeline: title/CID resolve -> IPS 판매채널추가 -> Google Sheet 생성 ID 입력."
+            "One-shot pipeline: title/CID resolve -> IPS 판매채널추가 -> Google Sheet S2_판매채널콘텐츠ID 입력."
         ),
     )
     parser.add_argument("--input", default="", help="Google Sheet CSV/TSV/XLSX export path.")
@@ -33,9 +33,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--preset",
-        choices=("jo_blank_generated_id",),
+        choices=("sheet_blank_sales_channel_content_id", "jo_blank_generated_id"),
         default="",
-        help="Apply a known sheet-fill preset. jo_blank_generated_id = A platform, 조원재 only, blank 생성 ID -> D.",
+        help=(
+            "Apply a known sheet-fill preset. sheet_blank_sales_channel_content_id = "
+            "current promotion sheet, blank S2_판매채널콘텐츠ID -> E. "
+            "jo_blank_generated_id is a deprecated alias."
+        ),
     )
     parser.add_argument("--sheet", default="", help="Optional sheet name for XLSX input.")
     parser.add_argument("--sheet-url", default=DEFAULT_SHEET_URL)
@@ -54,7 +58,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--chrome-path", default="")
     parser.add_argument("--user-data-dir", default="")
     parser.add_argument("--chrome-start-wait-ms", type=int, default=30_000)
-    parser.add_argument("--column-letter", default="D")
+    parser.add_argument("--column-letter", default="E")
     parser.add_argument("--value-column", default="sales_channel_content_id")
     parser.add_argument("--action-column", default="next_action")
     parser.add_argument("--required-action", default="paste_sales_channel_content_id")
@@ -68,28 +72,51 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout-ms", type=int, default=25_000)
     parser.add_argument("--slow-mo-ms", type=int, default=0)
     parser.add_argument("--max-candidates", type=int, default=5)
+    parser.add_argument("--include-rs-fields", action="store_true", help="Also populate RS fields during sales-channel additions.")
     parser.add_argument("--limit", type=int, default=0, help="Optional max rows for the final sheet uploader.")
     parser.add_argument("--skip-add", action="store_true")
     parser.add_argument("--skip-upload", action="store_true")
     parser.add_argument("--skip-verify", action="store_true")
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--dry-run", action="store_true", help="Preview only. This is also the default when --write is absent.")
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="Actually execute live IPS sales-channel additions and sheet upload. Default is preview only.",
+    )
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     return parser.parse_args()
 
 
 def apply_preset(args: argparse.Namespace) -> None:
-    if args.preset != "jo_blank_generated_id":
+    if args.preset not in {"sheet_blank_sales_channel_content_id", "jo_blank_generated_id"}:
         return
+    if args.preset == "jo_blank_generated_id":
+        if not args.platform_column:
+            args.platform_column = "A"
+        if not args.manager_column:
+            args.manager_column = "담당자(없을 시 공란)"
+        if not args.filter_manager:
+            args.filter_manager = "조원재"
+        if not args.only_empty_column:
+            args.only_empty_column = "생성 ID"
+        if not args.column_letter:
+            args.column_letter = "D"
+        if not args.value_column:
+            args.value_column = "sales_channel_content_id"
+        if not args.required_action:
+            args.required_action = "paste_sales_channel_content_id"
+        return
+
+    if not args.title_column:
+        args.title_column = "정제_상품명"
     if not args.platform_column:
-        args.platform_column = "A"
+        args.platform_column = "S2 판매채널"
     if not args.manager_column:
         args.manager_column = "담당자(없을 시 공란)"
-    if not args.filter_manager:
-        args.filter_manager = "조원재"
     if not args.only_empty_column:
-        args.only_empty_column = "생성 ID"
+        args.only_empty_column = "S2_판매채널콘텐츠ID"
     if not args.column_letter:
-        args.column_letter = "D"
+        args.column_letter = "E"
     if not args.value_column:
         args.value_column = "sales_channel_content_id"
     if not args.required_action:
@@ -105,9 +132,16 @@ def write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def resolve_live_write(args: argparse.Namespace) -> bool:
+    if getattr(args, "write", False) and getattr(args, "dry_run", False):
+        raise SystemExit("Use either --write or --dry-run, not both.")
+    return bool(getattr(args, "write", False))
+
+
 def main() -> int:
     args = parse_args()
     apply_preset(args)
+    live_write = resolve_live_write(args)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -159,7 +193,7 @@ def main() -> int:
     write_json(lookup_json, lookup_rows)
 
     addition_rows = lookup_rows
-    if not args.dry_run and not args.skip_add and count_rows(lookup_rows, "next_action", "add_platform_in_ips"):
+    if live_write and not args.skip_add and count_rows(lookup_rows, "next_action", "add_platform_in_ips"):
         add_args = argparse.Namespace(
             input=str(lookup_csv),
             output="",
@@ -170,6 +204,9 @@ def main() -> int:
             required_action="add_platform_in_ips",
             source_contract_id=args.source_contract_id,
             source_contract_id_column=args.source_contract_id_column,
+            source_payment_setup_id="",
+            source_payment_setup_id_column="source_payment_setup_id",
+            source_platform_column="source_platform",
             force_add_existing_platform=args.force_add_existing_platform,
             force_add_existing_platform_column=args.force_add_existing_platform_column,
             limit=0,
@@ -178,6 +215,7 @@ def main() -> int:
             timeout_ms=args.timeout_ms,
             slow_mo_ms=args.slow_mo_ms,
             write=True,
+            include_rs_fields=args.include_rs_fields,
         )
         addition_rows = process_rows(add_args)
 
@@ -186,7 +224,7 @@ def main() -> int:
 
     upload_report: dict[str, object] = {}
     uploadable_count = count_rows(addition_rows, args.action_column, args.required_action)
-    if not args.dry_run and not args.skip_upload and uploadable_count:
+    if live_write and not args.skip_upload and uploadable_count:
         upload_args = argparse.Namespace(
             input=str(additions_csv),
             sheet_url=args.sheet_url,
@@ -205,7 +243,7 @@ def main() -> int:
             ensure_debug_chrome=True,
             skip_verify=args.skip_verify,
             verify_wait_ms=args.verify_wait_ms,
-            dry_run=args.dry_run,
+            dry_run=False,
             output=str(uploader_json),
         )
         upload_report = run_upload(upload_args)
@@ -228,7 +266,8 @@ def main() -> int:
         "upload_written_count": int(upload_report.get("written_count") or 0) if upload_report else 0,
         "upload_verified_count": int(upload_report.get("verified_count") or 0) if upload_report else 0,
         "upload_mismatch_count": int(upload_report.get("mismatch_count") or 0) if upload_report else 0,
-        "dry_run": args.dry_run,
+        "dry_run": not live_write,
+        "live_write": live_write,
     }
     write_json(summary_json, summary)
     print(json.dumps({"summary": summary, "upload_report": upload_report}, ensure_ascii=False, indent=2))

@@ -48,6 +48,18 @@ ADD_PAYLOAD_FIELDS = (
     "appCoinSetlRt",
     "appCoinUnpcWithRt",
 )
+RS_PAYLOAD_FIELDS = (
+    "rsMgStoffTrgYn",
+    "rsSetlMthCd",
+    "rsSetlRt",
+    "rsSetlBnusCoinYn",
+    "webCoinSetlAmt",
+    "appCoinSetlAmt",
+    "webCoinSetlRt",
+    "webCoinUnpcWithRt",
+    "appCoinSetlRt",
+    "appCoinUnpcWithRt",
+)
 
 ADD_PAYLOAD_DEFAULTS: dict[str, Any] = {
     "pymtCrcy": "KRW",
@@ -87,6 +99,8 @@ class AddRequest:
     cid: str
     platform_name: str
     source_contract_id: int = 0
+    source_payment_setup_id: int = 0
+    source_platform_name: str = ""
     force_add_existing_platform: bool = False
 
 
@@ -163,16 +177,46 @@ def get_row_contract_id(row: dict[str, Any]) -> int:
     return 0
 
 
+def get_row_payment_setup_id(row: dict[str, Any]) -> int:
+    for key in ("pymtSetlSetmId", "pymtSetlId"):
+        setup_id = _parse_int_token(row.get(key))
+        if setup_id > 0:
+            return setup_id
+    return 0
+
+
+def get_row_channel_id(row: dict[str, Any]) -> int:
+    for key in ("schnId", "lwerSchnCd", "lewrSchnCd", "lwerSchnId"):
+        channel_id = _parse_int_token(row.get(key))
+        if channel_id > 0:
+            return channel_id
+    return 0
+
+
 def choose_settlement_template_row(
     template_rows: list[dict[str, Any]],
     *,
     preferred_contract_id: int = 0,
+    preferred_payment_setup_id: int = 0,
+    preferred_platform_name: str = "",
 ) -> dict[str, Any]:
     if not template_rows:
         raise RuntimeError("판매채널 정산 템플릿을 찾지 못했습니다.")
 
     payment_rows = [row for row in template_rows if str(row.get("pymtStd") or "") == "지급"]
     candidates = payment_rows or template_rows
+    if preferred_payment_setup_id > 0:
+        for row in candidates:
+            if get_row_payment_setup_id(row) == preferred_payment_setup_id:
+                return row
+        raise RuntimeError(f"source_payment_setup_id={preferred_payment_setup_id} 정산 템플릿 행을 찾지 못했습니다.")
+    if preferred_platform_name:
+        requested_keys = platform_match_keys(preferred_platform_name)
+        for row in candidates:
+            row_name = str(row.get("schnNm") or row.get("lwerSchnNm") or "").strip()
+            if platform_key(row_name) in requested_keys:
+                return row
+        raise RuntimeError(f"source_platform={preferred_platform_name} 정산 템플릿 행을 찾지 못했습니다.")
     if preferred_contract_id > 0:
         for row in candidates:
             if get_row_contract_id(row) == preferred_contract_id:
@@ -191,9 +235,19 @@ def choose_settlement_template_row(
             )
         return linked_rows[-1]
 
+    setup_rows = [row for row in candidates if get_row_payment_setup_id(row) > 0]
+    if setup_rows:
+        setup_ids = sorted({get_row_payment_setup_id(row) for row in setup_rows})
+        if len(setup_ids) > 1:
+            raise RuntimeError(
+                "지급정산 설정 ID가 여러 개라 자동 선택을 중단합니다. "
+                f"payment_setup_ids={setup_ids}. source_payment_setup_id 또는 source_platform을 명시하세요."
+            )
+        return setup_rows[-1]
+
     raise RuntimeError(
         "판매채널 추가에는 통합 계약 ID가 있는 정산 기준행이 필요합니다. "
-        "현재 정산 템플릿의 통합 계약 ID가 모두 0입니다. "
+        "현재 정산 템플릿의 통합 계약 ID와 지급정산 설정 ID가 모두 0입니다. "
         "계약변경등록(/ip/cntr/cntrchg/cntr-chg-reg?cntrId=...)에서 계약/정산 연결을 먼저 보강하세요."
     )
 
@@ -212,7 +266,17 @@ def classify_unresolved_generated_id(error_text: str) -> tuple[str, str]:
         return "needs_contract", NEEDS_CONTRACT_MESSAGE
     if "판매채널 옵션을 찾지 못했습니다" in text:
         return "needs_human_judgment", "인간 판단 필요 : 판매채널 옵션 없음"
+    if "지급정산 설정 ID가 여러 개" in text or "source_payment_setup_id" in text:
+        return "needs_human_judgment", "인간 판단 필요 : 지급정산 설정 ID 확인"
     return "", ""
+
+
+def next_action_for_unresolved_status(status: str) -> str:
+    if status in {"needs_contract", "needs_explicit_contract"}:
+        return "check_source_contract_id"
+    if status:
+        return "manual_review"
+    return ""
 
 
 def parse_args() -> argparse.Namespace:
@@ -231,6 +295,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--required-action", default="add_platform_in_ips")
     parser.add_argument("--source-contract-id", default="", help="Optional explicit source 통합 계약 ID.")
     parser.add_argument("--source-contract-id-column", default="source_contract_id")
+    parser.add_argument("--source-payment-setup-id", default="", help="Optional explicit source 지급정산 설정 ID.")
+    parser.add_argument("--source-payment-setup-id-column", default="source_payment_setup_id")
+    parser.add_argument("--source-platform-column", default="source_platform")
     parser.add_argument(
         "--force-add-existing-platform",
         action="store_true",
@@ -242,6 +309,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--timeout-ms", type=int, default=25_000)
     parser.add_argument("--slow-mo-ms", type=int, default=0)
+    parser.add_argument("--include-rs-fields", action="store_true", help="Also populate RS grid/payload fields. Default skips RS.")
     parser.add_argument("--write", action="store_true", help="Actually add missing sales channels in live KIPM. Default is dry-run.")
     return parser.parse_args()
 
@@ -272,6 +340,9 @@ def build_requests(
     required_action: str,
     source_contract_id: int,
     source_contract_id_column: str,
+    source_payment_setup_id: int,
+    source_payment_setup_id_column: str,
+    source_platform_column: str,
     force_add_existing_platform: bool,
     force_add_existing_platform_column: str,
     limit: int,
@@ -285,6 +356,10 @@ def build_requests(
         if not cid or not platform_name:
             continue
         row_source_contract_id = source_contract_id or _parse_int_token(row.get(source_contract_id_column))
+        row_source_payment_setup_id = source_payment_setup_id or _parse_int_token(
+            row.get(source_payment_setup_id_column)
+        )
+        row_source_platform = str(row.get(source_platform_column) or "").strip()
         row_force_add_existing = force_add_existing_platform or _parse_bool_token(
             row.get(force_add_existing_platform_column)
         )
@@ -295,6 +370,8 @@ def build_requests(
                 cid=cid,
                 platform_name=platform_name,
                 source_contract_id=row_source_contract_id,
+                source_payment_setup_id=row_source_payment_setup_id,
+                source_platform_name=row_source_platform,
                 force_add_existing_platform=row_force_add_existing,
             )
         )
@@ -319,6 +396,13 @@ def build_output_paths(args: argparse.Namespace) -> tuple[Path | None, Path | No
 def build_detail_view_url(cid: str) -> str:
     site = get_site("kipm")
     return site.resolve_url(DETAIL_VIEW_PATH_TEMPLATE.format(cid=cid))
+
+
+def add_payload_fields(*, include_rs_fields: bool) -> tuple[str, ...]:
+    if include_rs_fields:
+        return ADD_PAYLOAD_FIELDS
+    rs_fields = set(RS_PAYLOAD_FIELDS)
+    return tuple(field for field in ADD_PAYLOAD_FIELDS if field not in rs_fields)
 
 
 def click_tab(page: Any, title: str) -> None:
@@ -377,18 +461,42 @@ def select_grid_platform(page: Any, dialog: Any, grid_id: str, platform_name: st
     page.wait_for_timeout(400)
 
 
-def select_channel_row(channels: list[dict[str, Any]], platform_name: str) -> dict[str, Any] | None:
+def pick_channel_for_company(channels: list[dict[str, Any]], company_code: str = "") -> dict[str, Any] | None:
+    if not channels:
+        return None
+    normalized_company_code = str(company_code or "").strip()
+    if normalized_company_code:
+        same_company = [
+            channel for channel in channels
+            if str(channel.get("cprCd") or "").strip() == normalized_company_code
+        ]
+        if same_company:
+            return same_company[0]
+        if any(str(channel.get("cprCd") or "").strip() for channel in channels):
+            return None
+    if len(channels) > 1 and len({str(channel.get("cprCd") or "").strip() for channel in channels}) > 1:
+        return None
+    return channels[0]
+
+
+def select_channel_row(
+    channels: list[dict[str, Any]],
+    platform_name: str,
+    *,
+    company_code: str = "",
+) -> dict[str, Any] | None:
     requested_keys = platform_match_keys(platform_name)
-    fallback: dict[str, Any] | None = None
+    exact: list[dict[str, Any]] = []
+    partial: list[dict[str, Any]] = []
     for channel in channels:
         option_key = platform_key(str(channel.get("schnNm") or ""))
         if not option_key:
             continue
         if option_key in requested_keys:
-            return channel
+            exact.append(channel)
         if any(requested in option_key or option_key in requested for requested in requested_keys):
-            fallback = channel
-    return fallback
+            partial.append(channel)
+    return pick_channel_for_company(exact, company_code) or pick_channel_for_company(partial, company_code)
 
 
 def channel_from_existing_platform_row(row: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -535,6 +643,8 @@ def find_platform_row_for_contract(
     detail_data: dict[str, Any],
     platform_name: str,
     contract_id: int,
+    *,
+    expected_channel_id: int = 0,
 ) -> dict[str, Any] | None:
     requested_keys = platform_match_keys(platform_name)
     if not requested_keys:
@@ -550,7 +660,15 @@ def find_platform_row_for_contract(
             continue
         matches.append(row)
         if contract_id > 0 and get_row_contract_id(row) == contract_id:
-            return row
+            continue
+    if contract_id > 0:
+        matches = [row for row in matches if get_row_contract_id(row) == contract_id]
+    if expected_channel_id > 0:
+        channel_matches = [row for row in matches if get_row_channel_id(row) == expected_channel_id]
+        if channel_matches:
+            return channel_matches[-1]
+        if any(get_row_channel_id(row) > 0 for row in matches) or len(matches) > 1:
+            return None
     return matches[-1] if matches else None
 
 
@@ -568,18 +686,12 @@ def add_platform_via_api(
     platform_name: str,
     *,
     source_contract_id: int = 0,
+    source_payment_setup_id: int = 0,
+    source_platform_name: str = "",
     force_add_existing_platform: bool = False,
+    include_rs_fields: bool = False,
 ) -> dict[str, Any]:
     current_detail = fetch_detail_data(page, cid)
-    matched_platform, snapshot = platform_snapshot(current_detail, platform_name)
-    if matched_platform is not None and not force_add_existing_platform:
-        return {
-            "addition_status": "already_present",
-            "sales_channel_content_id": str(matched_platform.get("schnCtnsId") or "").strip(),
-            "matched_platform_name": str(matched_platform.get("lwerSchnNm") or "").strip(),
-            "existing_platform_snapshot": snapshot,
-        }
-
     setup = page.evaluate(
         """
         async ({ cid, detailPath, templatePath, channelPath }) => {
@@ -615,29 +727,73 @@ def add_platform_via_api(
         },
     )
 
+    detail = setup.get("detail") or {}
+    detail_company_code = str(detail.get("rversCprCd") or detail.get("cprCd") or "").strip()
+    matched_platform, snapshot = platform_snapshot(current_detail, platform_name)
     channel = (
         channel_from_existing_platform_row(matched_platform)
         if force_add_existing_platform and matched_platform is not None
         else None
     )
     if channel is None:
-        channel = select_channel_row(list(setup.get("channels") or []), platform_name)
+        channel = select_channel_row(
+            list(setup.get("channels") or []),
+            platform_name,
+            company_code=detail_company_code,
+        )
     if channel is None:
-        raise LookupError(f"판매채널 옵션을 찾지 못했습니다: {platform_name}")
+        raise LookupError(f"판매채널 옵션을 찾지 못했습니다: {platform_name} cprCd={detail_company_code or '-'}")
+    selected_channel_id = get_row_channel_id(channel)
 
     template_rows = list(setup.get("templateRows") or [])
     base_row = choose_settlement_template_row(
         template_rows,
         preferred_contract_id=source_contract_id,
+        preferred_payment_setup_id=source_payment_setup_id,
+        preferred_platform_name=source_platform_name,
     )
     source_contract_id = get_row_contract_id(base_row)
-    detail = setup.get("detail") or {}
+    source_payment_setup_id = get_row_payment_setup_id(base_row)
+
+    existing_platform = find_platform_row_for_contract(
+        current_detail,
+        platform_name,
+        source_contract_id,
+        expected_channel_id=selected_channel_id,
+    )
+    if existing_platform is not None and not force_add_existing_platform:
+        return {
+            "addition_status": "already_present",
+            "sales_channel_content_id": str(existing_platform.get("schnCtnsId") or "").strip(),
+            "matched_platform_name": str(existing_platform.get("lwerSchnNm") or "").strip(),
+            "existing_platform_snapshot": snapshot,
+            "selected_channel_id": str(selected_channel_id or ""),
+            "settlement_source_contract_id": str(source_contract_id),
+            "settlement_source_payment_setup_id": str(source_payment_setup_id),
+        }
+
     payload = {}
-    for key in ADD_PAYLOAD_FIELDS:
+    needs_setup_pass_through = source_contract_id <= 0 and source_payment_setup_id > 0
+    for key in add_payload_fields(include_rs_fields=include_rs_fields or needs_setup_pass_through):
         value = base_row.get(key)
         if value is None or value == "":
             value = ADD_PAYLOAD_DEFAULTS.get(key)
         payload[key] = value
+    if needs_setup_pass_through:
+        for key in (
+            "pymtSetlId",
+            "pymtSetlDtlId",
+            "pymtSetlSetmId",
+            "pymtSetlSetmYn",
+            "pymtSetlStsCd",
+            "cnfmStsCd",
+            "bcncCd",
+            "cprCd",
+            "setlCyclCd",
+            "setlPymtDtCd",
+        ):
+            if base_row.get(key) not in (None, ""):
+                payload[key] = base_row.get(key)
     payload.update(
         {
             "schnId": channel.get("schnId"),
@@ -671,18 +827,28 @@ def add_platform_via_api(
 
     page.wait_for_timeout(1_500)
     detail_data = fetch_detail_data(page, cid)
-    matched_platform = find_platform_row_for_contract(detail_data, platform_name, source_contract_id)
+    matched_platform = find_platform_row_for_contract(
+        detail_data,
+        platform_name,
+        source_contract_id,
+        expected_channel_id=selected_channel_id,
+    )
     _, snapshot = platform_snapshot(detail_data, platform_name)
     if matched_platform is None:
-        raise RuntimeError(f"판매채널 저장 후에도 플랫폼이 보이지 않습니다: {platform_name}")
+        raise RuntimeError(
+            f"판매채널 저장 후에도 선택한 플랫폼/채널이 보이지 않습니다: "
+            f"{platform_name} schnId={selected_channel_id or '-'} cntrId={source_contract_id or '-'}"
+        )
 
     return {
         "addition_status": "added" if not force_add_existing_platform else "added_existing_platform_settlement",
         "sales_channel_content_id": str(matched_platform.get("schnCtnsId") or "").strip(),
         "matched_platform_name": str(matched_platform.get("lwerSchnNm") or "").strip(),
         "existing_platform_snapshot": snapshot,
+        "selected_channel_id": str(selected_channel_id or ""),
         "settlement_source_contract_id": str(source_contract_id),
-        "settlement_source_row_status": "contract_linked",
+        "settlement_source_payment_setup_id": str(source_payment_setup_id),
+        "settlement_source_row_status": "contract_linked" if source_contract_id > 0 else "payment_setup_linked",
     }
 
 
@@ -692,7 +858,10 @@ def add_platform_via_detail(
     platform_name: str,
     *,
     source_contract_id: int = 0,
+    source_payment_setup_id: int = 0,
+    source_platform_name: str = "",
     force_add_existing_platform: bool = False,
+    include_rs_fields: bool = False,
 ) -> dict[str, Any]:
     page.goto(build_detail_view_url(cid), wait_until="domcontentloaded", timeout=25_000)
     page.wait_for_timeout(2_000)
@@ -701,27 +870,37 @@ def add_platform_via_detail(
     detail_data = fetch_detail_data(page, cid)
     matched_platform, snapshot = platform_snapshot(detail_data, platform_name)
     if matched_platform is not None and not force_add_existing_platform:
-        return {
-            "addition_status": "already_present",
-            "sales_channel_content_id": str(matched_platform.get("schnCtnsId") or "").strip(),
-            "matched_platform_name": str(matched_platform.get("lwerSchnNm") or "").strip(),
-            "existing_platform_snapshot": snapshot,
-        }
+        return add_platform_via_api(
+            page,
+            cid,
+            platform_name,
+            source_contract_id=source_contract_id,
+            source_payment_setup_id=source_payment_setup_id,
+            source_platform_name=source_platform_name,
+            force_add_existing_platform=False,
+            include_rs_fields=include_rs_fields,
+        )
     if matched_platform is not None and force_add_existing_platform:
         return add_platform_via_api(
             page,
             cid,
             platform_name,
             source_contract_id=source_contract_id,
+            source_payment_setup_id=source_payment_setup_id,
+            source_platform_name=source_platform_name,
             force_add_existing_platform=True,
+            include_rs_fields=include_rs_fields,
         )
-    if source_contract_id > 0:
+    if source_contract_id > 0 or source_payment_setup_id > 0 or source_platform_name:
         return add_platform_via_api(
             page,
             cid,
             platform_name,
             source_contract_id=source_contract_id,
+            source_payment_setup_id=source_payment_setup_id,
+            source_platform_name=source_platform_name,
             force_add_existing_platform=force_add_existing_platform,
+            include_rs_fields=include_rs_fields,
         )
 
     source_row = select_settlement_source_row(page, preferred_contract_id=source_contract_id)
@@ -730,7 +909,8 @@ def add_platform_via_detail(
     dialog = find_visible_dialog(page)
 
     select_grid_platform(page, dialog, "mgGrid", platform_name)
-    select_grid_platform(page, dialog, "rsGrid", platform_name)
+    if include_rs_fields:
+        select_grid_platform(page, dialog, "rsGrid", platform_name)
 
     if not click_visible_button(dialog, "저장"):
         raise RuntimeError("판매채널 추가 모달의 저장 버튼을 찾지 못했습니다.")
@@ -786,6 +966,9 @@ def process_rows(args: argparse.Namespace) -> list[dict[str, Any]]:
         required_action=args.required_action,
         source_contract_id=_parse_int_token(args.source_contract_id),
         source_contract_id_column=args.source_contract_id_column,
+        source_payment_setup_id=_parse_int_token(getattr(args, "source_payment_setup_id", "")),
+        source_payment_setup_id_column=args.source_payment_setup_id_column,
+        source_platform_column=args.source_platform_column,
         force_add_existing_platform=getattr(args, "force_add_existing_platform", False),
         force_add_existing_platform_column=args.force_add_existing_platform_column,
         limit=args.limit,
@@ -823,7 +1006,10 @@ def process_rows(args: argparse.Namespace) -> list[dict[str, Any]]:
                     request.cid,
                     request.platform_name,
                     source_contract_id=request.source_contract_id,
+                    source_payment_setup_id=request.source_payment_setup_id,
+                    source_platform_name=request.source_platform_name,
                     force_add_existing_platform=request.force_add_existing_platform,
+                    include_rs_fields=getattr(args, "include_rs_fields", False),
                 )
                 row.update(result)
                 row["detail_status"] = "loaded"
@@ -836,9 +1022,12 @@ def process_rows(args: argparse.Namespace) -> list[dict[str, Any]]:
                 row["addition_error"] = str(exc)
                 if unresolved_value:
                     row["addition_status"] = unresolved_status
-                    row["sales_channel_content_id"] = unresolved_value
-                    row["next_action"] = "paste_sales_channel_content_id"
+                    row["sales_channel_content_id"] = ""
+                    row["addition_review_note"] = unresolved_value
+                    row["next_action"] = next_action_for_unresolved_status(unresolved_status)
                     row["platform_match_status"] = unresolved_status
+                    if unresolved_status in {"needs_contract", "needs_explicit_contract"}:
+                        row["contract_gate"] = "source_contract_id_required"
     return input_rows
 
 
