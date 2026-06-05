@@ -1720,6 +1720,36 @@ def inject_compact_layout_css() -> None:
             background: #fff7ed;
             color: #c2410c;
         }
+        .sidebar-roadmap-card {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            color: #374151;
+            margin: 0.85rem 0 0.2rem 0;
+            padding: 0.65rem 0.75rem;
+        }
+        .sidebar-roadmap-title {
+            color: #111827;
+            font-size: 0.78rem;
+            font-weight: 720;
+            line-height: 1.25;
+            margin-bottom: 0.18rem;
+        }
+        .sidebar-roadmap-date {
+            color: #6b7280;
+            font-size: 0.64rem;
+            line-height: 1.25;
+            margin-bottom: 0.45rem;
+        }
+        .sidebar-roadmap-list {
+            font-size: 0.7rem;
+            line-height: 1.45;
+            margin: 0;
+            padding-left: 1.05rem;
+        }
+        .sidebar-roadmap-list li {
+            margin: 0.1rem 0;
+        }
         div[data-testid="stFileUploader"] {
             min-width: 0;
         }
@@ -1849,6 +1879,22 @@ def render_s2_status_card(updated_at: str, usage_label: str, usage_tone: str) ->
     )
 
 
+def render_sidebar_roadmap_notice() -> None:
+    st.markdown(
+        """
+        <div class="sidebar-roadmap-card">
+          <div class="sidebar-roadmap-title">업데이트 예정</div>
+          <div class="sidebar-roadmap-date">26.06.05 기준</div>
+          <ol class="sidebar-roadmap-list">
+            <li>매핑 실패 시 ClickUp 자동 전송</li>
+            <li>수동 매핑 기능</li>
+          </ol>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_upload_examples() -> None:
     examples = (
         "네이버_장르_2026-02.xlsx",
@@ -1966,6 +2012,7 @@ with st.sidebar:
             render_error_detail(exc)
     if not clickup_config.is_configured:
         st.caption("ClickUp 알림 secrets를 설정하면 이 버튼이 활성화됩니다.")
+    render_sidebar_roadmap_notice()
 
 
 st.markdown('<div class="workflow-caption">정산서 업로드 -> 판매채널 확인 -> S2 매핑 -> 다운로드</div>', unsafe_allow_html=True)
