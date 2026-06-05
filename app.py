@@ -2322,7 +2322,7 @@ def render_sidebar_roadmap_notice() -> None:
           <ol class="sidebar-roadmap-list">
             <li>매핑 실패 시 ClickUp 자동 전송 (완료)</li>
             <li>수동 매핑 기능</li>
-            <li>"S2 최신화" 직접 실행 실험 원복: 관리자 요청 버튼 유지 (완료)</li>
+            <li>"관리자에게 S2 최신화 요청" 기능을 "S2 최신화 버튼"으로 변경 (설계취소)</li>
             <li>매핑 실패 시 LLM 진단/Codex 연결</li>
           </ol>
         </div>
