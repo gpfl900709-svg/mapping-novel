@@ -13,6 +13,9 @@ CLICKUP_DEFAULT_TAGS = ("s2-refresh", "mapping-novel")
 CLICKUP_ADAPTER_FAILURE_DEFAULT_LIST_ID = "901818576269"
 CLICKUP_ADAPTER_FAILURE_DEFAULT_PRIORITY = 1
 CLICKUP_ADAPTER_FAILURE_DEFAULT_TAGS = ("adapter-failure", "mapping-novel")
+CLICKUP_ADAPTER_FAILURE_DEFAULT_ASSIGNEE_IDS = (306885786,)
+CLICKUP_ADAPTER_FAILURE_DEFAULT_STATUS = "to do"
+CLICKUP_ADAPTER_FAILURE_DEFAULT_DUE_DATE_MINUTES = 2
 KST = timezone(timedelta(hours=9))
 
 
@@ -32,6 +35,7 @@ class ClickUpNotificationConfig:
     app_url: str = ""
     tags: tuple[str, ...] = CLICKUP_DEFAULT_TAGS
     attach_original: bool = False
+    due_date_minutes: int = 0
     timeout_seconds: int = 15
 
     @property
@@ -197,6 +201,13 @@ def normalize_clickup_secret_values(raw_secrets: object) -> dict[str, Any]:
         if adapter_failure_priority:
             values["CLICKUP_ADAPTER_FAILURE_PRIORITY"] = adapter_failure_priority
 
+        adapter_failure_due_date_minutes = _first_value(
+            source,
+            ("CLICKUP_ADAPTER_FAILURE_DUE_DATE_MINUTES", "adapter_failure_due_date_minutes"),
+        )
+        if adapter_failure_due_date_minutes:
+            values["CLICKUP_ADAPTER_FAILURE_DUE_DATE_MINUTES"] = adapter_failure_due_date_minutes
+
         adapter_failure_attach_original = source.get("CLICKUP_ADAPTER_FAILURE_ATTACH_ORIGINAL")
         if adapter_failure_attach_original is None:
             adapter_failure_attach_original = source.get("adapter_failure_attach_original")
@@ -258,20 +269,31 @@ def build_adapter_failure_clickup_config(values: Mapping[str, Any]) -> ClickUpNo
     if priority not in {1, 2, 3, 4}:
         priority = None
     tags = _parse_text_tuple(values.get("CLICKUP_ADAPTER_FAILURE_TAGS")) or CLICKUP_ADAPTER_FAILURE_DEFAULT_TAGS
+    assignee_ids = _parse_int_tuple(
+        values.get("CLICKUP_ADAPTER_FAILURE_ASSIGNEE_IDS") or values.get("CLICKUP_ASSIGNEE_IDS")
+    )
+    if not assignee_ids:
+        assignee_ids = CLICKUP_ADAPTER_FAILURE_DEFAULT_ASSIGNEE_IDS
+    due_date_minutes = _parse_int(
+        _first_value(values, ("CLICKUP_ADAPTER_FAILURE_DUE_DATE_MINUTES", "CLICKUP_DUE_DATE_MINUTES"))
+    )
+    if due_date_minutes is None:
+        due_date_minutes = CLICKUP_ADAPTER_FAILURE_DEFAULT_DUE_DATE_MINUTES
+    due_date_minutes = max(0, due_date_minutes)
 
     return ClickUpNotificationConfig(
         token=token,
         list_id=list_id,
         api_base_url=api_base_url.rstrip("/"),
-        assignee_ids=_parse_int_tuple(
-            values.get("CLICKUP_ADAPTER_FAILURE_ASSIGNEE_IDS") or values.get("CLICKUP_ASSIGNEE_IDS")
-        ),
+        assignee_ids=assignee_ids,
         auto_assign_self=_parse_bool(values.get("CLICKUP_AUTO_ASSIGN_SELF"), default=True),
-        status=_first_value(values, ("CLICKUP_ADAPTER_FAILURE_STATUS", "CLICKUP_STATUS")),
+        status=_first_value(values, ("CLICKUP_ADAPTER_FAILURE_STATUS", "CLICKUP_STATUS"))
+        or CLICKUP_ADAPTER_FAILURE_DEFAULT_STATUS,
         priority=priority,
         app_url=_first_value(values, ("CLICKUP_ADAPTER_FAILURE_APP_URL", "CLICKUP_APP_URL")),
         tags=tags,
         attach_original=_parse_bool(values.get("CLICKUP_ADAPTER_FAILURE_ATTACH_ORIGINAL"), default=False),
+        due_date_minutes=due_date_minutes,
     )
 
 
@@ -372,6 +394,10 @@ def build_adapter_failure_task_payload(
         payload["priority"] = config.priority
     if assignee_ids:
         payload["assignees"] = list(assignee_ids)
+    if config.due_date_minutes > 0:
+        due_date_at = requested_at.astimezone(KST) + timedelta(minutes=config.due_date_minutes)
+        payload["due_date"] = int(due_date_at.timestamp() * 1000)
+        payload["due_date_time"] = True
     return payload
 
 

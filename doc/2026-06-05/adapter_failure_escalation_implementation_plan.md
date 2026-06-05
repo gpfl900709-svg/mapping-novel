@@ -11,7 +11,7 @@
 - 원본 `.xlsx`는 ClickUp Task attachment로만 붙인다.
 - GitHub Issue에는 원본 파일을 붙이지 않고, 실패 사유/헤더 후보/ClickUp 링크/커밋 SHA/파일 해시만 올린다.
 - ClickUp Docs는 실패 원본 보관 위치로 쓰지 않는다. 누적 운영 문서나 월간 회고용이면 나중에 별도 확장한다.
-- 폰 알림은 ClickUp 담당자 지정 + priority + GitHub assignee/mention 조합으로 만든다. 단, 실제 푸시 수신은 각 앱의 모바일 알림 설정에 의존한다.
+- 폰 알림은 ClickUp 댓글이 아니라 새 태스크 + assignee `306885786` + due date 현재 시각 + 2분으로 만든다. 댓글 `notify_all=true`는 API 유저 활동이면 모바일 푸시가 씹힐 수 있으므로 보조 수단으로만 본다.
 - 운영 ClickUp은 전용 Folder와 전용 List를 만든다. 앱이 실제로 쓰는 값은 Folder ID가 아니라 그 안의 실패 티켓 List ID다.
 
 ## 조사 근거
@@ -63,7 +63,8 @@
 - 전용 List: 예: `긴급 실패 티켓`
 - 긴급 태스크 생성
 - priority 높게 설정
-- 담당자 지정
+- 담당자 지정: 기본 `306885786`
+- due date: 기본 현재 시각 + 2분, `due_date_time=true`
 - 태그: `adapter-failure`, `mapping-novel`, `{platform}`, `{s2_sales_channel}`
 - 원본 `.xlsx` 첨부
 - `failure_report.md` 첨부
@@ -251,6 +252,7 @@ sanitize_payload_for_github(payload: AdapterFailurePayload) -> dict[str, Any]
 - `CLICKUP_ADAPTER_FAILURE_ASSIGNEE_IDS`
 - `CLICKUP_ADAPTER_FAILURE_STATUS`
 - `CLICKUP_ADAPTER_FAILURE_PRIORITY`
+- `CLICKUP_ADAPTER_FAILURE_DUE_DATE_MINUTES`
 - `CLICKUP_ADAPTER_FAILURE_ATTACH_ORIGINAL`
 - `CLICKUP_ADAPTER_FAILURE_TAGS`
 
@@ -258,7 +260,10 @@ sanitize_payload_for_github(payload: AdapterFailurePayload) -> dict[str, Any]
 
 - 운영/Cloud에서는 `CLICKUP_ADAPTER_FAILURE_LIST_ID`를 필수로 본다
 - 기존 `CLICKUP_LIST_ID` fallback은 로컬 개발 또는 임시 테스트에서만 허용한다
+- assignee 기본값은 `306885786`으로 둔다
+- status 기본값은 `to do`로 둔다
 - priority는 `1` 또는 운영 ClickUp에서 가장 높은 우선순위로 맞춘다
+- due date 기본값은 생성 시각 + 2분이다
 - 전용 큐가 생성됐으므로 원본 첨부 기본값은 `CLICKUP_ADAPTER_FAILURE_ATTACH_ORIGINAL=true`로 둔다
 
 새 함수:
@@ -287,7 +292,7 @@ create_adapter_failure_task_with_attachments(
 
 테스트:
 
-- 태스크 payload에 `notify_all`, `priority`, `assignees`, `tags` 포함
+- 태스크 payload에 `notify_all`, `priority`, `assignees`, `due_date`, `due_date_time`, `tags` 포함
 - multipart 요청이 `attachment` 필드명으로 전송되는지 확인
 - 원본 첨부 flag off면 `.xlsx` 미첨부
 - ClickUp 첨부 실패 시 사용자에게 ClickUp task URL과 실패 상세 표시
@@ -380,6 +385,8 @@ repo 내부에는 별도 운영큐 DB가 아니라 ClickUp API 기반 요청 경
 - ClickUp Folder: `mapping-novel 정산서 어댑터`
 - ClickUp List: `긴급 실패 티켓`
 - 앱 설정: `CLICKUP_ADAPTER_FAILURE_LIST_ID=<긴급 실패 티켓 list id>`
+- 앱 설정: `CLICKUP_ADAPTER_FAILURE_ASSIGNEE_IDS=306885786`
+- 앱 설정: `CLICKUP_ADAPTER_FAILURE_DUE_DATE_MINUTES=2`
 - 기존 관리자 요청 큐와 같은 Folder/List를 쓰지 않는다.
 - title prefix와 tags는 보조 분리 장치로만 둔다.
 
@@ -464,7 +471,7 @@ GitHub Issue 본문 요약:
 
 ### 4. 폰 알림은 확실한가
 
-API만으로 100% 보장할 수 없다. 그래도 ClickUp assignee + priority가 실무상 가장 강하고, GitHub assignee/mention은 repo 변경 추적과 보조 알림으로 유효하다. 모바일 알림 설정 점검은 운영 준비 체크리스트에 넣어야 한다.
+API 댓글만으로는 100% 보장할 수 없다. 실사용 알림 루트는 ClickUp 새 태스크 + assignee `306885786` + due date 현재 시각 + 2분이다. GitHub assignee/mention은 repo 변경 추적과 보조 알림으로만 본다. 모바일 알림 설정 점검은 운영 준비 체크리스트에 넣어야 한다.
 
 ### 5. 95%에서 남은 5%
 
@@ -491,6 +498,8 @@ API만으로 100% 보장할 수 없다. 그래도 ClickUp assignee + priority가
 - 전용 ClickUp List ID: `901818576269`
 - ClickUp List 이름: `긴급 실패 티켓`
 - 앱 기본값: `CLICKUP_ADAPTER_FAILURE_LIST_ID=901818576269`
+- 앱 기본값: `CLICKUP_ADAPTER_FAILURE_ASSIGNEE_IDS=306885786`
+- 앱 기본값: `CLICKUP_ADAPTER_FAILURE_DUE_DATE_MINUTES=2`
 - 앱 기본값: `CLICKUP_ADAPTER_FAILURE_ATTACH_ORIGINAL=true`
 - 추가 모듈: `adapter_failure_diagnostics.py`
 - 추가 모듈: `github_notifications.py`

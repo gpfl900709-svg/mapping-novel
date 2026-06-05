@@ -107,6 +107,34 @@ class ClickUpNotificationsTest(unittest.TestCase):
         self.assertEqual(config.assignee_ids, (306885786,))
         self.assertTrue(config.attach_original)
         self.assertIn("adapter-failure", config.tags)
+        self.assertEqual(config.due_date_minutes, 2)
+
+    def test_adapter_failure_defaults_to_phone_alert_assignee_and_due_date(self) -> None:
+        config = build_adapter_failure_clickup_config(
+            {
+                "CLICKUP_API_TOKEN": "token-123",
+                "CLICKUP_ADAPTER_FAILURE_LIST_ID": "901818576269",
+            }
+        )
+
+        payload = build_adapter_failure_task_payload(
+            config=config,
+            failure_payload={
+                "source_name": "네이버.xlsx",
+                "effective_platform": "네이버",
+                "detected_s2_channel": "네이버_일반",
+                "failure_category": "header_not_found",
+                "failure_reason": "헤더를 찾지 못했습니다.",
+            },
+            requested_at=datetime(2026, 6, 5, 1, 30, tzinfo=timezone.utc),
+            assignee_ids=config.assignee_ids,
+        )
+
+        self.assertEqual(config.assignee_ids, (306885786,))
+        self.assertEqual(payload["status"], "to do")
+        self.assertEqual(payload["assignees"], [306885786])
+        self.assertTrue(payload["due_date_time"])
+        self.assertEqual(payload["due_date"], 1780623120000)
 
     def test_adapter_failure_payload_uses_dedicated_list_shape(self) -> None:
         config = build_adapter_failure_clickup_config(
