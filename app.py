@@ -2480,10 +2480,11 @@ def render_s2_status_card(updated_at: str, usage_label: str, usage_tone: str) ->
     )
 
 
-def render_s2_direct_refresh_panel(*, direct_config: object, has_credentials: bool) -> None:
+def render_s2_direct_refresh_panel(*, direct_config: object, has_credentials: bool) -> str:
     if not getattr(direct_config, "enabled", False):
-        return
+        return ""
 
+    provided_token = ""
     result_state = st.session_state.get(S2_DIRECT_REFRESH_RESULT_STATE_KEY)
     with st.expander("관리자 직접 S2 최신화", expanded=isinstance(result_state, dict) and bool(result_state)):
         if isinstance(result_state, dict) and result_state:
@@ -2509,7 +2510,6 @@ def render_s2_direct_refresh_panel(*, direct_config: object, has_credentials: bo
         if not getattr(direct_config, "token_ready", False):
             st.warning("직접 최신화가 켜져 있지만 관리자 토큰이 설정되지 않았습니다.")
 
-        provided_token = ""
         if getattr(direct_config, "require_token", True):
             provided_token = st.text_input(
                 "관리자 실행 키",
@@ -2518,21 +2518,11 @@ def render_s2_direct_refresh_panel(*, direct_config: object, has_credentials: bo
                 help="Streamlit secrets 또는 env의 S2_DIRECT_REFRESH_TOKEN 값과 일치해야 실행됩니다.",
             )
 
-        authorized = bool(getattr(direct_config, "is_authorized")(provided_token))
-        refresh_disabled = not has_credentials or not getattr(direct_config, "token_ready", False) or not authorized
-        direct_clicked = st.button(
-            "S2 최신화 바로 실행",
-            type="primary",
-            use_container_width=True,
-            disabled=refresh_disabled,
-        )
-        if direct_clicked:
-            with st.spinner("S2 기준 전체 최신화 실행 중..."):
-                st.session_state[S2_DIRECT_REFRESH_RESULT_STATE_KEY] = run_s2_direct_refresh_once()
-            st.rerun()
-
-        if refresh_disabled:
-            st.caption("직접 실행 조건이 맞지 않으면 아래 ClickUp 요청 버튼을 사용하세요.")
+        if has_credentials and getattr(direct_config, "token_ready", False):
+            st.caption("아래 `S2 최신화` 버튼이 직접 최신화를 실행합니다.")
+        else:
+            st.caption("직접 실행 조건이 맞지 않으면 아래 버튼은 비활성화됩니다.")
+    return provided_token
 
 
 def render_sidebar_roadmap_notice() -> None:
@@ -2641,42 +2631,64 @@ with st.sidebar:
     guard_cols[1].metric("청구 guard", f"{billing_guard_rows:,}")
     guard_cols[2].metric("콘텐츠 lookup", f"{service_content_rows:,}")
 
-    render_s2_direct_refresh_panel(
+    direct_refresh_admin_token = render_s2_direct_refresh_panel(
         direct_config=direct_refresh_config,
         has_credentials=direct_refresh_has_credentials,
     )
+    direct_refresh_enabled = bool(getattr(direct_refresh_config, "enabled", False))
+    direct_refresh_authorized = bool(getattr(direct_refresh_config, "is_authorized")(direct_refresh_admin_token))
+    direct_refresh_ready = bool(
+        direct_refresh_enabled
+        and direct_refresh_has_credentials
+        and getattr(direct_refresh_config, "token_ready", False)
+        and direct_refresh_authorized
+    )
+    direct_refresh_blocked = direct_refresh_enabled and not direct_refresh_ready
+    if direct_refresh_enabled:
+        refresh_button_disabled = direct_refresh_blocked
+    else:
+        refresh_button_disabled = not clickup_config.is_configured
 
     request_clicked = st.button(
         "S2 최신화",
         type="secondary",
         use_container_width=True,
-        disabled=not clickup_config.is_configured,
+        disabled=refresh_button_disabled,
     )
     if request_clicked:
-        try:
-            with st.spinner("관리자에게 요청 보내는 중..."):
-                clickup_result = create_s2_refresh_request_task(
-                    clickup_config,
-                    updated_at=baseline_updated_at,
-                    usage_label=usage_label,
-                    s2_rows=current_cache["rows"],
-                    s2_id_rows=current_cache["contract_linked_rows"],
-                    missing_guard_rows=missing_guard_rows,
-                    billing_guard_rows=billing_guard_rows,
-                    service_content_rows=service_content_rows,
-                    requested_at=datetime.now(KST),
-                )
-            st.success("S2 최신화 요청을 보냈습니다.")
-            if clickup_result.url:
-                st.markdown(f"[ClickUp에서 보기]({clickup_result.url})")
-        except ClickUpNotificationError as exc:
-            st.error("ClickUp 요청 전송에 실패했습니다.")
-            st.caption(str(exc))
-        except Exception as exc:
-            st.error("ClickUp 요청 전송에 실패했습니다.")
-            render_error_detail(exc)
-    if not clickup_config.is_configured:
-        st.caption("ClickUp 알림 secrets를 설정하면 S2 최신화 요청 버튼이 활성화됩니다.")
+        if direct_refresh_enabled:
+            with st.spinner("S2 기준 전체 최신화 실행 중..."):
+                st.session_state[S2_DIRECT_REFRESH_RESULT_STATE_KEY] = run_s2_direct_refresh_once()
+            st.rerun()
+        else:
+            try:
+                with st.spinner("관리자에게 요청 보내는 중..."):
+                    clickup_result = create_s2_refresh_request_task(
+                        clickup_config,
+                        updated_at=baseline_updated_at,
+                        usage_label=usage_label,
+                        s2_rows=current_cache["rows"],
+                        s2_id_rows=current_cache["contract_linked_rows"],
+                        missing_guard_rows=missing_guard_rows,
+                        billing_guard_rows=billing_guard_rows,
+                        service_content_rows=service_content_rows,
+                        requested_at=datetime.now(KST),
+                    )
+                st.success("S2 최신화 요청을 보냈습니다.")
+                if clickup_result.url:
+                    st.markdown(f"[ClickUp에서 보기]({clickup_result.url})")
+            except ClickUpNotificationError as exc:
+                st.error("ClickUp 요청 전송에 실패했습니다.")
+                st.caption(str(exc))
+            except Exception as exc:
+                st.error("ClickUp 요청 전송에 실패했습니다.")
+                render_error_detail(exc)
+    if direct_refresh_blocked:
+        st.caption("직접 최신화 설정이 켜져 있지만 S2 인증값 또는 관리자 실행 키가 없어 버튼이 비활성화됐습니다.")
+    elif not direct_refresh_enabled and not clickup_config.is_configured:
+        st.caption("직접 최신화 또는 ClickUp 요청 secrets를 설정하면 S2 최신화 버튼이 활성화됩니다.")
+    elif not direct_refresh_enabled:
+        st.caption("현재 환경은 ClickUp 요청 모드입니다. 직접 최신화는 관리자 환경에서만 켜집니다.")
     render_sidebar_roadmap_notice()
 
 

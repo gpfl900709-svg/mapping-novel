@@ -209,6 +209,50 @@ ClickUp 실패 task 생성
 - LLM prompt가 시간이 지나며 헛소리하는지 감시한다.
 - 새 플랫폼 실패가 들어올 때 회귀 corpus가 된다.
 
+### 6. 예비 회사컴 운영 감시자
+
+추천도: 높음
+확신도: 95% (회사컴이 업무시간에 켜져 있고 사내망/IPS/S2/ClickUp/GitHub 접근이 가능하다는 전제)
+
+동작:
+
+```text
+예비 회사컴 작업 스케줄러
+-> ClickUp 큐 polling
+-> 새/미처리 카드 분류
+-> 안전한 처리 루틴 실행 또는 사용자 확인 요청
+```
+
+이건 로컬 Codex thread heartbeat가 아니다. 사내망과 운영 권한이 붙은 예비 회사컴을 운영 러너로 보고, repo에 있는 스크립트나 별도 운영 스크립트가 ClickUp을 주기적으로 확인하는 구조다.
+
+권장 체크 시각:
+
+- 평일 09:00~18:00 정각
+- 추가 체크: 10:30, 13:30, 14:30, 15:30, 16:30
+
+카드 분류:
+
+- `s2-refresh`: S2 최신화 실행 가능 여부 확인 후 최신화 또는 관리자 확인 요청
+- `adapter-failure`: ClickUp 첨부의 `failure_payload.json`/`failure_report.md` 기준으로 진단
+- `mapping-run`: 실행 기록/이슈 수 변화 확인
+- `llm-codex`: LLM 진단 또는 Codex draft PR 후보
+
+장점:
+
+- Streamlit Cloud 앱 자체가 장기 background worker 역할을 하지 않아도 된다.
+- 로컬 Windows Codex thread에 자동화를 걸지 않아도 된다.
+- 회사컴이 사내망/S2 접근권을 유지하므로 S2 최신화나 내부 하네스 실행 쪽에 맞다.
+
+감리:
+
+- ClickUp은 운영 mirror이고 repo/test 결과가 최종 근거다.
+- 회사컴은 시스템 잠자기 방지, 네트워크 복구 후 재시도, 실행 로그 보관을 먼저 설정한다.
+- 화면 잠금/보호 모드는 괜찮지만, 예약 작업이 잠금 상태에서도 실행되는지 확인한다.
+- 회사컴 runner는 토큰을 로그에 출력하지 않는다.
+- 카드 중복 처리를 막기 위해 task id + 상태 + 마지막 처리 시각을 local state로 남긴다.
+- 자동 merge, 자동 배포, 원본 xlsx의 GitHub 업로드는 금지한다.
+- S2 최신화, LLM 진단, Codex draft PR은 각각 별도 explicit mode로 나눈다.
+
 ## 비추천 아이디어
 
 ### 원본 xlsx 전체를 LLM에 보내기
@@ -290,6 +334,28 @@ GitHub:
 - 원본 xlsx는 GitHub runner로 가져오지 않음
 - sanitized issue와 synthetic fixture만 사용
 
+### 5단계: 회사컴 ClickUp 감시자
+
+예비 회사컴:
+
+- Windows 작업 스케줄러로 평일 업무시간 polling 실행
+- `.env` 또는 OS keychain에서 ClickUp/OpenAI/GitHub 토큰 읽기
+- 처리 상태 저장: `data/clickup_watch_state.sqlite` 또는 local JSON
+- 새 카드가 없으면 조용히 종료
+- 새 카드가 있으면 분류 후 안전한 next action만 수행
+
+초기 구현 범위:
+
+- 읽기 전용 ClickUp polling
+- 새 task 요약 출력 또는 ClickUp comment만 남기기
+- 자동 코드수정/자동 PR은 1차에서 제외
+
+확장 구현:
+
+- `adapter-failure` 카드에 LLM 진단 comment 추가
+- `codex:auto-draft` label/card field가 있을 때만 Codex draft PR job 트리거
+- S2 refresh 요청 카드가 있으면 회사컴에서 S2 최신화 스크립트 실행 후 결과 comment
+
 ## 최종 판단
 
 도입할 만하다. 단, `LLM -> Codex -> PR`을 한 번에 붙이면 위험하다.
@@ -305,3 +371,5 @@ GitHub:
 ```
 
 이 방식이면 지금의 ClickUp/GitHub 실패 큐를 살리면서, 운영자가 매번 `failure_payload.json`을 직접 읽는 시간을 줄일 수 있다.
+
+감시 주체는 로컬 Codex thread heartbeat가 아니라 사내망 접근 가능한 예비 회사컴 runner가 맞다. 이 repo에는 그 runner가 실행할 polling/분류/처리 스크립트를 넣고, 회사컴의 Windows 작업 스케줄러가 정해진 시각에 호출하는 구조로 간다.

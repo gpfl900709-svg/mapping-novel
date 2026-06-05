@@ -25,9 +25,14 @@ Streamlit Cloud 앱은 S2 API에 직접 로그인하거나 S2 기준을 직접 �
 
 S2 기준은 사내망 PC의 자동 작업으로 매일 12:00, 24:00 KST 최신화한 뒤 repo에 커밋/푸시합니다. 사용자는 앱 사이드바의 `S2 기준 업데이트` 시각을 확인하고, 마지막 성공 업데이트가 12시간을 넘겼으면 관리자에게 요청하거나 앱 본문 `2. S2 기준`에서 수동 S2 파일 업로드를 사용합니다.
 
-S2 API 접속 정보는 Streamlit Cloud Secrets에 넣지 않습니다. 관리자 로컬 CLI에서만 `.env`를 사용합니다. 실제 접속 정보는 git에 올리지 않습니다.
+S2 API 접속 정보는 기본적으로 Streamlit Cloud Secrets에 넣지 않습니다. 관리자 로컬/사내망 실행 환경에서만 `.env` 또는 보호된 secrets를 사용합니다. 실제 접속 정보는 git에 올리지 않습니다.
 
-사이드바의 `관리자에게 S2 최신화 요청` 버튼은 ClickUp 태스크를 생성합니다. 사용자는 로그인 없이 버튼만 누르고, 관리자는 ClickUp 모바일 알림으로 요청을 받습니다. Streamlit Cloud Secrets에는 아래 값만 넣습니다.
+사이드바의 `S2 최신화` 버튼은 환경에 따라 두 가지로 동작합니다.
+
+- `S2_DIRECT_REFRESH_ENABLED=true`이고 S2 인증값과 관리자 실행 키가 준비된 관리자 환경: 버튼이 실제 S2 최신화를 실행합니다.
+- 직접 최신화가 꺼진 일반 Cloud 환경: 버튼이 ClickUp 태스크를 생성합니다. 사용자는 로그인 없이 버튼만 누르고, 관리자는 ClickUp 모바일 알림으로 요청을 받습니다.
+
+ClickUp 요청 모드의 Streamlit Cloud Secrets에는 아래 값만 넣습니다.
 
 ```toml
 [clickup]
