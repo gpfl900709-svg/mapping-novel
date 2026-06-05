@@ -104,6 +104,10 @@ from s2_auth import (
     normalize_s2_secret_values,
     read_env_file,
 )
+from s2_direct_refresh import (
+    build_s2_direct_refresh_config,
+    normalize_s2_direct_refresh_secret_values,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -141,6 +145,8 @@ SETTLEMENT_UPLOAD_RESET_COUNTER_KEY = "settlement_upload_reset_counter"
 MAPPING_RESULT_STATE_KEY = "mapping_result_state"
 ADAPTER_FAILURE_REQUEST_STATE_KEY = "adapter_failure_request_state"
 MAPPING_RUN_AUDIT_REQUEST_STATE_KEY = "mapping_run_audit_request_state"
+S2_DIRECT_REFRESH_RESULT_STATE_KEY = "s2_direct_refresh_result_state"
+S2_DIRECT_REFRESH_ADMIN_TOKEN_INPUT_KEY = "s2_direct_refresh_admin_token"
 S2_CHANNEL_SCHEMA_EXAMPLES = (
     "네이버_장르(광고수익)",
     "네이버_장르",
@@ -221,6 +227,13 @@ def streamlit_s2_secret_values() -> dict[str, str]:
         return {}
 
 
+def streamlit_s2_direct_refresh_secret_values() -> dict[str, str]:
+    try:
+        return normalize_s2_direct_refresh_secret_values(st.secrets)
+    except (FileNotFoundError, KeyError, RuntimeError):
+        return {}
+
+
 def streamlit_clickup_secret_values() -> dict[str, Any]:
     try:
         return normalize_clickup_secret_values(st.secrets)
@@ -242,6 +255,14 @@ def clickup_notification_config():
     config_values.update(streamlit_clickup_secret_values())
     config_values.setdefault("CLICKUP_APP_URL", STREAMLIT_CLOUD_APP_URL)
     return build_clickup_config(config_values)
+
+
+def s2_direct_refresh_config():
+    config_values: dict[str, Any] = {}
+    config_values.update(read_env_file(S2_ENV_FILE))
+    config_values.update(dict(os.environ))
+    config_values.update(streamlit_s2_direct_refresh_secret_values())
+    return build_s2_direct_refresh_config(config_values)
 
 
 def adapter_failure_clickup_config():
@@ -432,6 +453,44 @@ def run_s2_full_replace() -> tuple[subprocess.CompletedProcess[str], str]:
         stderr=f"{payment_completed.stderr}\n{guard_completed.stderr}\n{service_content_completed.stderr}",
     )
     return combined, f"{refresh_scope} + 누락/청구/판매채널콘텐츠 보조 기준"
+
+
+def run_s2_direct_refresh_once() -> dict[str, Any]:
+    started_at = datetime.now(KST)
+    auth_completed = run_s2_auth_check()
+    if auth_completed.returncode != 0:
+        return {
+            "status": "error",
+            "message": s2_refresh_error_message(auth_completed, "로그인 확인"),
+            "refresh_scope": "로그인 확인",
+            "started_at": started_at.isoformat(),
+            "finished_at": datetime.now(KST).isoformat(),
+            "log": ui_safe_refresh_log(f"{auth_completed.stdout}\n{auth_completed.stderr}")[-5000:],
+        }
+
+    completed, refresh_scope = run_s2_full_replace()
+    finished_at = datetime.now(KST)
+    if completed.returncode != 0:
+        return {
+            "status": "error",
+            "message": s2_refresh_error_message(completed, refresh_scope),
+            "refresh_scope": refresh_scope,
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
+            "log": ui_safe_refresh_log(f"{completed.stdout}\n{completed.stderr}")[-5000:],
+        }
+
+    metrics = cache_metrics(S2_SOURCE_LOOKUP)
+    return {
+        "status": "success",
+        "message": "S2 기준을 최신화했습니다.",
+        "refresh_scope": refresh_scope,
+        "started_at": started_at.isoformat(),
+        "finished_at": finished_at.isoformat(),
+        "s2_rows": metrics["rows"],
+        "s2_id_rows": metrics["contract_linked_rows"],
+        "log": ui_safe_refresh_log(f"{completed.stdout}\n{completed.stderr}")[-5000:],
+    }
 
 
 def s2_refresh_error_message(completed: subprocess.CompletedProcess[str], refresh_scope: str) -> str:
@@ -2421,6 +2480,61 @@ def render_s2_status_card(updated_at: str, usage_label: str, usage_tone: str) ->
     )
 
 
+def render_s2_direct_refresh_panel(*, direct_config: object, has_credentials: bool) -> None:
+    if not getattr(direct_config, "enabled", False):
+        return
+
+    result_state = st.session_state.get(S2_DIRECT_REFRESH_RESULT_STATE_KEY)
+    with st.expander("관리자 직접 S2 최신화", expanded=isinstance(result_state, dict) and bool(result_state)):
+        if isinstance(result_state, dict) and result_state:
+            if result_state.get("status") == "success":
+                st.success(
+                    f"{result_state.get('message', 'S2 기준을 최신화했습니다.')} "
+                    f"({format_update_timestamp(result_state.get('finished_at'))})"
+                )
+                st.caption(
+                    f"S2 기준 행 {safe_int(result_state.get('s2_rows')):,} / "
+                    f"계약연결 S2 ID {safe_int(result_state.get('s2_id_rows')):,}"
+                )
+            else:
+                st.error(text(result_state.get("message")) or "S2 최신화에 실패했습니다.")
+            if text(result_state.get("refresh_scope")):
+                st.caption(f"범위: {result_state.get('refresh_scope')}")
+            if text(result_state.get("log")):
+                with st.expander("실행 로그", expanded=False):
+                    st.code(text(result_state.get("log"))[-5000:])
+
+        if not has_credentials:
+            st.warning("S2 ID/PW 또는 access token이 없어 직접 최신화를 실행할 수 없습니다.")
+        if not getattr(direct_config, "token_ready", False):
+            st.warning("직접 최신화가 켜져 있지만 관리자 토큰이 설정되지 않았습니다.")
+
+        provided_token = ""
+        if getattr(direct_config, "require_token", True):
+            provided_token = st.text_input(
+                "관리자 실행 키",
+                type="password",
+                key=S2_DIRECT_REFRESH_ADMIN_TOKEN_INPUT_KEY,
+                help="Streamlit secrets 또는 env의 S2_DIRECT_REFRESH_TOKEN 값과 일치해야 실행됩니다.",
+            )
+
+        authorized = bool(getattr(direct_config, "is_authorized")(provided_token))
+        refresh_disabled = not has_credentials or not getattr(direct_config, "token_ready", False) or not authorized
+        direct_clicked = st.button(
+            "S2 최신화 바로 실행",
+            type="primary",
+            use_container_width=True,
+            disabled=refresh_disabled,
+        )
+        if direct_clicked:
+            with st.spinner("S2 기준 전체 최신화 실행 중..."):
+                st.session_state[S2_DIRECT_REFRESH_RESULT_STATE_KEY] = run_s2_direct_refresh_once()
+            st.rerun()
+
+        if refresh_disabled:
+            st.caption("직접 실행 조건이 맞지 않으면 아래 ClickUp 요청 버튼을 사용하세요.")
+
+
 def render_sidebar_roadmap_notice() -> None:
     st.markdown(
         """
@@ -2430,6 +2544,8 @@ def render_sidebar_roadmap_notice() -> None:
           <ol class="sidebar-roadmap-list">
             <li>매핑 실패 시 ClickUp 자동 전송 (완료)</li>
             <li>수동 매핑 기능</li>
+            <li>"관리자에게 S2 최신화 요청" 기능을 "S2 최신화 버튼"으로 변경 (완료)</li>
+            <li>매핑 실패 시 LLM 진단/Codex 연결</li>
           </ol>
         </div>
         """,
@@ -2504,6 +2620,8 @@ with st.sidebar:
     billing_guard_rows = lookup_row_count(S2_BILLING_LOOKUP)
     service_content_rows = lookup_row_count(S2_SERVICE_CONTENTS_LOOKUP)
     clickup_config = clickup_notification_config()
+    direct_refresh_config = s2_direct_refresh_config()
+    direct_refresh_has_credentials = has_s2_credentials(s2_runtime_auth_config())
     render_s2_status_card(baseline_updated_at, usage_label, usage_tone)
     st.caption(f"*{S2_DAILY_REFRESH_TIME_LABEL} KST 정규 업데이트됩니다.")
 
@@ -2523,8 +2641,13 @@ with st.sidebar:
     guard_cols[1].metric("청구 guard", f"{billing_guard_rows:,}")
     guard_cols[2].metric("콘텐츠 lookup", f"{service_content_rows:,}")
 
+    render_s2_direct_refresh_panel(
+        direct_config=direct_refresh_config,
+        has_credentials=direct_refresh_has_credentials,
+    )
+
     request_clicked = st.button(
-        "관리자에게 S2 최신화 요청",
+        "S2 최신화",
         type="secondary",
         use_container_width=True,
         disabled=not clickup_config.is_configured,
@@ -2553,7 +2676,7 @@ with st.sidebar:
             st.error("ClickUp 요청 전송에 실패했습니다.")
             render_error_detail(exc)
     if not clickup_config.is_configured:
-        st.caption("ClickUp 알림 secrets를 설정하면 이 버튼이 활성화됩니다.")
+        st.caption("ClickUp 알림 secrets를 설정하면 S2 최신화 요청 버튼이 활성화됩니다.")
     render_sidebar_roadmap_notice()
 
 
