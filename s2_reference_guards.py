@@ -279,7 +279,9 @@ def _write_lookup(frame: pd.DataFrame, path: str | Path, columns: list[str]) -> 
     for column in columns:
         if column not in output.columns:
             output[column] = ""
-    output[columns].to_csv(target, index=False, encoding="utf-8-sig")
+    temp_target = target.with_name(f"{target.stem}.tmp{target.suffix}")
+    output[columns].to_csv(temp_target, index=False, encoding="utf-8-sig")
+    temp_target.replace(target)
     return target
 
 

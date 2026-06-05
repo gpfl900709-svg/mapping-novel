@@ -8,8 +8,11 @@ from clickup_notifications import (
     build_adapter_failure_clickup_config,
     build_adapter_failure_task_payload,
     build_clickup_config,
+    build_mapping_run_clickup_config,
+    build_mapping_run_task_payload,
     build_s2_refresh_task_payload,
     create_adapter_failure_task_with_attachments,
+    create_mapping_run_task,
     create_s2_refresh_request_task,
     normalize_clickup_secret_values,
 )
@@ -118,6 +121,58 @@ class ClickUpNotificationsTest(unittest.TestCase):
         self.assertIn("adapter-failure", config.tags)
         self.assertEqual(config.due_date_minutes, 2)
 
+    def test_mapping_run_section_secrets_are_normalized(self) -> None:
+        values = normalize_clickup_secret_values(
+            {
+                "clickup": {
+                    "api_token": "token-123",
+                    "mapping_run_list_id": "901818576269",
+                    "mapping_run_assignee_ids": "306885786",
+                    "mapping_run_tags": "mapping-run,mapping-novel,audit",
+                }
+            }
+        )
+
+        config = build_mapping_run_clickup_config(values)
+
+        self.assertTrue(config.is_configured)
+        self.assertEqual(config.list_id, "901818576269")
+        self.assertEqual(config.assignee_ids, (306885786,))
+        self.assertIn("mapping-run", config.tags)
+        self.assertEqual(config.priority, 3)
+
+    def test_mapping_run_payload_summarizes_issues_and_sources(self) -> None:
+        config = build_mapping_run_clickup_config(
+            {
+                "CLICKUP_API_TOKEN": "token-123",
+                "CLICKUP_MAPPING_RUN_LIST_ID": "901818576269",
+                "CLICKUP_APP_URL": "https://example.test/app",
+            }
+        )
+
+        payload = build_mapping_run_task_payload(
+            config=config,
+            run_payload={
+                "run_id": "run-abc",
+                "file_count": 2,
+                "status_counts": {"success": 1, "blocked": 1, "failed": 0},
+                "review_required_count": 3,
+                "s2_source_label": "관리자 배포 S2 기준",
+                "s2_rows": 125499,
+                "s2_id_rows": 125499,
+                "source_names": ["네이버.xlsx", "무툰.xlsx"],
+                "zip_sha256": "abc123",
+            },
+            requested_at=datetime(2026, 6, 5, 1, 30, tzinfo=timezone.utc),
+            assignee_ids=(306885786,),
+        )
+
+        self.assertEqual(payload["name"], "[매핑 실행 기록] 2026-06-05 10:30 · 2개 · 이슈 4")
+        self.assertIn("mapping-issue", payload["tags"])
+        self.assertIn("검토필요 행: 3", payload["markdown_content"])
+        self.assertIn("`네이버.xlsx`", payload["markdown_content"])
+        self.assertIn("https://example.test/app", payload["markdown_content"])
+
     def test_adapter_failure_defaults_to_phone_alert_assignee_and_due_date(self) -> None:
         config = build_adapter_failure_clickup_config(
             {
@@ -208,6 +263,37 @@ class ClickUpNotificationsTest(unittest.TestCase):
         self.assertIn("모바일 알림", session.comment_payloads[0]["comment_text"])
         self.assertEqual(len(session.attachment_payloads), 2)
         self.assertEqual(session.attachment_payloads[0]["attachment"][0], "failure_report.md")
+
+    def test_create_mapping_run_task_uploads_attachments(self) -> None:
+        config = build_mapping_run_clickup_config(
+            {
+                "CLICKUP_API_TOKEN": "token-123",
+                "CLICKUP_MAPPING_RUN_LIST_ID": "901818576269",
+                "CLICKUP_MAPPING_RUN_ASSIGNEE_IDS": "306885786",
+            }
+        )
+        session = FakeSession()
+
+        result = create_mapping_run_task(
+            config,
+            run_payload={
+                "run_id": "run-abc",
+                "file_count": 1,
+                "status_counts": {"success": 1},
+                "review_required_count": 0,
+                "source_names": ["네이버.xlsx"],
+            },
+            attachments=(
+                ClickUpAttachment("batch_summary.csv", b"csv", "text/csv"),
+                ClickUpAttachment("mapping_results.zip", b"zip", "application/zip"),
+            ),
+            requested_at=datetime(2026, 6, 5, 1, 30, tzinfo=timezone.utc),
+            session=session,  # type: ignore[arg-type]
+        )
+
+        self.assertEqual(result.task_id, "task-1")
+        self.assertEqual(session.post_payloads[0]["name"], "[매핑 실행 기록] 2026-06-05 10:30 · 1개 · 이슈 0")
+        self.assertEqual(len(session.attachment_payloads), 2)
 
 
 class FakeResponse:

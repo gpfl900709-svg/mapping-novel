@@ -12,6 +12,12 @@ from ips.core.auth import resolve_env_path
 from ips.core.browser import BrowserSettings
 from ips.core.harness import IPSHarness
 from ips.sites import get_site
+from ips_safety_contract import (
+    NextAction,
+    SafetyStatus,
+    apply_sheet_upload_gate_fields,
+    classify_sheet_uploadable_sales_channel_row,
+)
 from ips_sales_channel_harness import axios_get_detail, match_platform_rows, platform_match_keys, platform_key
 
 
@@ -102,6 +108,8 @@ class AddRequest:
     source_payment_setup_id: int = 0
     source_platform_name: str = ""
     force_add_existing_platform: bool = False
+    allow_payment_setup_only: bool = False
+    payment_setup_only_reason: str = ""
 
 
 def row_has_approved_status(row_text: str) -> bool:
@@ -362,6 +370,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source-payment-setup-id-column", default="source_payment_setup_id")
     parser.add_argument("--source-platform-column", default="source_platform")
     parser.add_argument(
+        "--allow-payment-setup-only",
+        action="store_true",
+        help="Allow API add from payment setup evidence without a nonzero contract ID. Requires --payment-setup-only-reason.",
+    )
+    parser.add_argument("--payment-setup-only-reason", default="", help="Required when --allow-payment-setup-only is used.")
+    parser.add_argument(
         "--force-add-existing-platform",
         action="store_true",
         help="Add a new settlement row even when the sales channel content already exists.",
@@ -408,7 +422,9 @@ def build_requests(
     source_platform_column: str,
     force_add_existing_platform: bool,
     force_add_existing_platform_column: str,
-    limit: int,
+    allow_payment_setup_only: bool = False,
+    payment_setup_only_reason: str = "",
+    limit: int = 0,
 ) -> list[AddRequest]:
     requests: list[AddRequest] = []
     for index, row in enumerate(rows):
@@ -436,6 +452,8 @@ def build_requests(
                 source_payment_setup_id=row_source_payment_setup_id,
                 source_platform_name=row_source_platform,
                 force_add_existing_platform=row_force_add_existing,
+                allow_payment_setup_only=allow_payment_setup_only,
+                payment_setup_only_reason=payment_setup_only_reason,
             )
         )
         if limit and len(requests) >= limit:
@@ -789,6 +807,8 @@ def add_platform_via_api(
     source_platform_name: str = "",
     force_add_existing_platform: bool = False,
     include_rs_fields: bool = False,
+    allow_payment_setup_only: bool = False,
+    payment_setup_only_reason: str = "",
 ) -> dict[str, Any]:
     current_detail = fetch_detail_data(page, cid)
     setup = page.evaluate(
@@ -853,6 +873,13 @@ def add_platform_via_api(
     )
     source_contract_id = get_row_contract_id(base_row)
     source_payment_setup_id = get_row_payment_setup_id(base_row)
+    if source_contract_id <= 0:
+        reason = str(payment_setup_only_reason or "").strip()
+        if not (allow_payment_setup_only and reason):
+            raise RuntimeError(
+                "판매채널 API 추가에는 통합 계약 ID가 0이 아닌 정산 기준행이 필요합니다. "
+                f"payment_setup_id={source_payment_setup_id or '-'}만으로는 자동 추가하지 않습니다."
+            )
 
     existing_platform = find_platform_row_for_contract(
         current_detail,
@@ -869,6 +896,10 @@ def add_platform_via_api(
             "selected_channel_id": str(selected_channel_id or ""),
             "settlement_source_contract_id": str(source_contract_id),
             "settlement_source_payment_setup_id": str(source_payment_setup_id),
+            "settlement_source_row_status": "contract_linked" if source_contract_id > 0 else "payment_setup_linked",
+            "settlement_verification_status": "detail_platform_list" if source_contract_id > 0 else "",
+            "settlement_verified_contract_id": str(source_contract_id if source_contract_id > 0 else ""),
+            "settlement_verified_channel_id": str(selected_channel_id or ""),
         }
 
     payload = {}
@@ -994,6 +1025,8 @@ def add_platform_via_detail(
     source_platform_name: str = "",
     force_add_existing_platform: bool = False,
     include_rs_fields: bool = False,
+    allow_payment_setup_only: bool = False,
+    payment_setup_only_reason: str = "",
 ) -> dict[str, Any]:
     page.goto(build_detail_view_url(cid), wait_until="domcontentloaded", timeout=25_000)
     page.wait_for_timeout(2_000)
@@ -1011,6 +1044,8 @@ def add_platform_via_detail(
             source_platform_name=source_platform_name,
             force_add_existing_platform=False,
             include_rs_fields=include_rs_fields,
+            allow_payment_setup_only=allow_payment_setup_only,
+            payment_setup_only_reason=payment_setup_only_reason,
         )
     if matched_platform is not None and force_add_existing_platform:
         return add_platform_via_api(
@@ -1022,6 +1057,8 @@ def add_platform_via_detail(
             source_platform_name=source_platform_name,
             force_add_existing_platform=True,
             include_rs_fields=include_rs_fields,
+            allow_payment_setup_only=allow_payment_setup_only,
+            payment_setup_only_reason=payment_setup_only_reason,
         )
     if source_contract_id > 0 or source_payment_setup_id > 0 or source_platform_name:
         return add_platform_via_api(
@@ -1033,6 +1070,8 @@ def add_platform_via_detail(
             source_platform_name=source_platform_name,
             force_add_existing_platform=force_add_existing_platform,
             include_rs_fields=include_rs_fields,
+            allow_payment_setup_only=allow_payment_setup_only,
+            payment_setup_only_reason=payment_setup_only_reason,
         )
 
     source_row = select_settlement_source_row(page, preferred_contract_id=source_contract_id)
@@ -1068,6 +1107,8 @@ def add_platform_via_detail(
         "sales_channel_content_id": str(matched_platform.get("schnCtnsId") or "").strip(),
         "matched_platform_name": str(matched_platform.get("lwerSchnNm") or "").strip(),
         "existing_platform_snapshot": snapshot,
+        "settlement_verification_status": "detail_platform_list",
+        "settlement_verified_contract_id": str(source_row.get("settlement_source_contract_id") or ""),
         **source_row,
     }
 
@@ -1103,6 +1144,8 @@ def process_rows(args: argparse.Namespace) -> list[dict[str, Any]]:
         source_platform_column=args.source_platform_column,
         force_add_existing_platform=getattr(args, "force_add_existing_platform", False),
         force_add_existing_platform_column=args.force_add_existing_platform_column,
+        allow_payment_setup_only=getattr(args, "allow_payment_setup_only", False),
+        payment_setup_only_reason=str(getattr(args, "payment_setup_only_reason", "") or "").strip(),
         limit=args.limit,
     )
     if not requests:
@@ -1142,11 +1185,23 @@ def process_rows(args: argparse.Namespace) -> list[dict[str, Any]]:
                     source_platform_name=request.source_platform_name,
                     force_add_existing_platform=request.force_add_existing_platform,
                     include_rs_fields=getattr(args, "include_rs_fields", False),
+                    allow_payment_setup_only=request.allow_payment_setup_only,
+                    payment_setup_only_reason=request.payment_setup_only_reason,
                 )
                 row.update(result)
                 row["detail_status"] = "loaded"
                 row["platform_match_status"] = "found"
-                row["next_action"] = "paste_sales_channel_content_id"
+                row["next_action"] = NextAction.PASTE_SALES_CHANNEL_CONTENT_ID
+                decision = classify_sheet_uploadable_sales_channel_row(row)
+                row.update(apply_sheet_upload_gate_fields(row, decision))
+                if decision.allowed:
+                    row["next_action"] = NextAction.PASTE_SALES_CHANNEL_CONTENT_ID
+                elif decision.status == SafetyStatus.BLOCKED_PAYMENT_SETUP_ONLY:
+                    row["next_action"] = NextAction.CONNECT_CONTRACT_BEFORE_SHEET
+                    row["contract_gate"] = "source_contract_id_required"
+                else:
+                    row["next_action"] = NextAction.CHECK_SOURCE_CONTRACT_ID
+                    row["contract_gate"] = "source_contract_id_required"
                 row["addition_error"] = ""
             except Exception as exc:  # noqa: BLE001
                 unresolved_status, unresolved_value = classify_unresolved_generated_id(str(exc))

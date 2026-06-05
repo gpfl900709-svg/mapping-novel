@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from secret_redaction import dumps_redacted, redact_string
+
 
 if TYPE_CHECKING:
     from playwright.sync_api import Browser, BrowserContext, Page, Playwright
@@ -52,7 +54,7 @@ class BrowserRuntime:
             pass
 
         try:
-            html_path.write_text(self.page.content(), encoding="utf-8")
+            html_path.write_text(redact_string(self.page.content()), encoding="utf-8")
         except Exception:  # noqa: BLE001
             pass
 
@@ -62,7 +64,7 @@ class BrowserRuntime:
             "error": error_text,
             "extra": extra or {},
         }
-        meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+        meta_path.write_text(dumps_redacted(metadata), encoding="utf-8")
         return directory
 
 

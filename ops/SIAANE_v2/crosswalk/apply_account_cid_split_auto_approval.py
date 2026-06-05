@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -12,8 +13,12 @@ ROOT = SCRIPT_DIR.parents[1]
 ACCOUNT_DIR = ROOT / "SIAANE_v2" / "account"
 if str(ACCOUNT_DIR) not in sys.path:
     sys.path.insert(0, str(ACCOUNT_DIR))
+SIAANE_ROOT = ROOT / "SIAANE_v2"
+if str(SIAANE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SIAANE_ROOT))
 
 from build_account_observation_bundle import MANAGER, normalize_text  # noqa: E402
+from local_state_mutator import add_write_flags, backup_files, resolve_write_mode, write_receipt  # noqa: E402
 
 
 ACCOUNT_DECISION_CSV = ROOT / "SIAANE_v2" / "account" / "exports" / f"latest__account_decision_queue_{MANAGER}.csv"
@@ -35,6 +40,12 @@ HOLD_CODES = {
 }
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Auto-approve local account CID split review CSVs.")
+    add_write_flags(parser)
+    return parser.parse_args()
+
+
 def mark_note(series: pd.Series, note: str) -> pd.Series:
     existing = series.map(normalize_text)
     return existing.where(existing.ne(""), note)
@@ -46,6 +57,8 @@ def is_auto_note(value: object) -> bool:
 
 
 def main() -> None:
+    args = parse_args()
+    live_write = resolve_write_mode(args)
     decision_df = pd.read_csv(ACCOUNT_DECISION_CSV, dtype=str).fillna("")
     rights_df = pd.read_csv(RIGHTS_REVIEW_CSV, dtype=str).fillna("")
     work_df = pd.read_csv(WORK_REVIEW_CSV, dtype=str).fillna("")
@@ -98,19 +111,33 @@ def main() -> None:
         )
         work_df.loc[work_mask, "처리완료(Y/N)"] = "Y"
 
-    decision_df.to_csv(ACCOUNT_DECISION_CSV, index=False, encoding="utf-8-sig")
-    rights_df.to_csv(RIGHTS_REVIEW_CSV, index=False, encoding="utf-8-sig")
-    work_df.to_csv(WORK_REVIEW_CSV, index=False, encoding="utf-8-sig")
+    output_paths = [ACCOUNT_DECISION_CSV, RIGHTS_REVIEW_CSV, WORK_REVIEW_CSV]
+    backup_dir, before_hashes = (Path(""), {})
+    if live_write:
+        backup_dir, before_hashes = backup_files(output_paths, script_name=Path(__file__).stem)
+        decision_df.to_csv(ACCOUNT_DECISION_CSV, index=False, encoding="utf-8-sig")
+        rights_df.to_csv(RIGHTS_REVIEW_CSV, index=False, encoding="utf-8-sig")
+        work_df.to_csv(WORK_REVIEW_CSV, index=False, encoding="utf-8-sig")
+    receipt = write_receipt(
+        args,
+        script_name=Path(__file__).stem,
+        live_write=live_write,
+        output_paths=output_paths,
+        backup_dir=backup_dir,
+        before_hashes=before_hashes,
+    )
 
     print("=== account CID split auto approval applied ===")
     print(
         json.dumps(
             {
                 "manager": MANAGER,
+                "mode": "write" if live_write else "dry_run",
                 "approved_rights_rows": int(rights_mask.sum()),
                 "approved_work_rows": int(work_mask.sum()),
                 "approved_decision_rows": int(decision_mask.sum()),
                 "held_codes": sorted(HOLD_CODES),
+                "receipt": str(receipt),
             },
             ensure_ascii=False,
             indent=2,

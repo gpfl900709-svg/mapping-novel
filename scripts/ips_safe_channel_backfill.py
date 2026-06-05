@@ -17,6 +17,19 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+OPS_SCRIPTS = ROOT / "ops" / "scripts"
+if str(OPS_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(OPS_SCRIPTS))
+
+from ips_safety_contract import (  # noqa: E402
+    NextAction,
+    SafetyStatus,
+    apply_sheet_upload_gate_fields,
+    classify_sheet_uploadable_sales_channel_row,
+    first_nonzero_contract_id,
+)
+from s2_sales_channel_id_verifier import load_s2_lookup, verify_rows as verify_s2_sales_channel_rows  # noqa: E402
+
 DEFAULT_SSOT_ROOT = ROOT / "ops"
 DEFAULT_REPORT = ROOT / "igignore" / "mapping_results_20260515_0203" / "PD_작업지시_종합리포트.csv"
 DEFAULT_IPS_XLSX = ROOT / "ips_20260515.xlsx"
@@ -25,6 +38,19 @@ EXACT_REASON = "해당채널 지급정산 없음 / 타채널 지급정산 존재
 SPECIAL_CHANNEL_MARKERS = ("네이버", "카카오")
 CONTRACT_CHECK_ACTION = "check_source_contract_id"
 READY_TO_ADD_ACTION = "add_platform_in_ips"
+
+
+def apply_sales_channel_sheet_gate(row: dict[str, Any]) -> None:
+    decision = classify_sheet_uploadable_sales_channel_row(row)
+    row.update(apply_sheet_upload_gate_fields(row, decision))
+    if decision.allowed:
+        row["next_action"] = NextAction.PASTE_SALES_CHANNEL_CONTENT_ID
+    elif decision.status == SafetyStatus.BLOCKED_PAYMENT_SETUP_ONLY:
+        row["next_action"] = NextAction.CONNECT_CONTRACT_BEFORE_SHEET
+        row["contract_gate"] = "source_contract_id_required"
+    else:
+        row["next_action"] = NextAction.CHECK_SOURCE_CONTRACT_ID
+        row["contract_gate"] = "source_contract_id_required"
 
 
 def text(value: Any) -> str:
@@ -247,8 +273,14 @@ def live_lookup(args: argparse.Namespace) -> list[dict[str, Any]]:
                         row["platform_match_status"] = "found"
                         row["matched_platform_name"] = text(matched_platform.get("lwerSchnNm"))
                         row["sales_channel_content_id"] = id_text(matched_platform.get("schnCtnsId"))
-                        row["next_action"] = "paste_sales_channel_content_id"
-                        row["contract_gate"] = ""
+                        row["next_action"] = NextAction.PASTE_SALES_CHANNEL_CONTENT_ID
+                        contract_id = first_nonzero_contract_id(matched_platform)
+                        if contract_id:
+                            row["settlement_verification_status"] = "detail_platform_list"
+                            row["settlement_verified_contract_id"] = contract_id
+                            apply_sales_channel_sheet_gate(row)
+                        else:
+                            row["contract_gate"] = "s2_contract_verification_required"
                     else:
                         row["platform_match_status"] = "missing_platform"
                         row["next_action"] = CONTRACT_CHECK_ACTION
@@ -327,7 +359,8 @@ def add_platforms(args: argparse.Namespace) -> list[dict[str, Any]]:
                 row.update(result)
                 row["detail_status"] = "loaded"
                 row["platform_match_status"] = "found"
-                row["next_action"] = "paste_sales_channel_content_id"
+                row["next_action"] = NextAction.PASTE_SALES_CHANNEL_CONTENT_ID
+                apply_sales_channel_sheet_gate(row)
                 row["addition_error"] = ""
             except Exception as exc:  # noqa: BLE001
                 row["addition_status"] = "failed"
@@ -354,36 +387,17 @@ def add_platforms(args: argparse.Namespace) -> list[dict[str, Any]]:
 
 
 def verify_s2(args: argparse.Namespace) -> dict[str, Any]:
-    additions = pd.read_csv(args.additions, dtype=str).fillna("")
-    s2 = pd.read_csv(args.s2_lookup, dtype=str).fillna("")
-    required = {"판매채널콘텐츠ID", "판매채널명", "콘텐츠ID", "콘텐츠명"}
-    missing = required - set(s2.columns)
-    if missing:
-        raise SystemExit(f"S2 lookup missing columns: {sorted(missing)}")
-
-    additions["sales_channel_content_id"] = additions["sales_channel_content_id"].map(id_text)
-    s2["판매채널콘텐츠ID"] = s2["판매채널콘텐츠ID"].map(id_text)
-    s2_ids = set(s2["판매채널콘텐츠ID"])
-    rows: list[dict[str, Any]] = []
-    for _, row in additions.iterrows():
-        channel_id = id_text(row.get("sales_channel_content_id"))
-        if not channel_id:
-            continue
-        matched = s2[s2["판매채널콘텐츠ID"].eq(channel_id)]
-        found = not matched.empty
-        first = matched.iloc[0].to_dict() if found else {}
-        rows.append(
-            {
-                "work_cid": id_text(row.get("work_cid")),
-                "input_platform": text(row.get("input_platform")),
-                "sales_channel_content_id": channel_id,
-                "addition_status": text(row.get("addition_status")),
-                "s2_lookup_found": "Y" if channel_id in s2_ids else "N",
-                "s2_판매채널명": text(first.get("판매채널명")),
-                "s2_콘텐츠ID": id_text(first.get("콘텐츠ID")),
-                "s2_콘텐츠명": text(first.get("콘텐츠명")),
-            }
-        )
+    rows = read_csv_rows(Path(args.additions))
+    s2 = load_s2_lookup(Path(args.s2_lookup))
+    rows = verify_s2_sales_channel_rows(
+        rows,
+        s2,
+        id_column="sales_channel_content_id",
+        platform_column="input_platform",
+        title_column="정제_상품명",
+    )
+    for row in rows:
+        row["s2_lookup_found"] = "Y" if text(row.get("s2_payment_contract_status")) == "contract_nonzero" else "N"
 
     output_path = Path(args.output)
     summary_path = Path(args.summary)
@@ -395,6 +409,7 @@ def verify_s2(args: argparse.Namespace) -> dict[str, Any]:
         "checked_ids": len(rows),
         "found_count": sum(1 for row in rows if row["s2_lookup_found"] == "Y"),
         "missing_count": sum(1 for row in rows if row["s2_lookup_found"] != "Y"),
+        "contract_nonzero_count": sum(1 for row in rows if text(row.get("s2_payment_contract_status")) == "contract_nonzero"),
         "output": str(output_path),
     }
     write_json(summary_path, summary)

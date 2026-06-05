@@ -22,6 +22,12 @@ from ips.core.auth import resolve_env_path
 from ips.core.browser import BrowserSettings
 from ips.core.harness import IPSHarness
 from ips.sites import get_site
+from ips_safety_contract import (
+    NextAction,
+    apply_sheet_upload_gate_fields,
+    classify_sheet_uploadable_sales_channel_row,
+    first_nonzero_contract_id,
+)
 from probe_ips_content_detail import FETCH_DETAIL_SCRIPT
 from work_cid_utils import DEFAULT_WORK_CID_REGISTRY_PATH
 
@@ -759,10 +765,16 @@ def run_lookup(args: argparse.Namespace) -> list[dict[str, Any]]:
                 result_row["platform_match_status"] = "found"
                 result_row["matched_platform_name"] = str(matched_platform.get("lwerSchnNm") or "").strip()
                 result_row["sales_channel_content_id"] = str(matched_platform.get("schnCtnsId") or "").strip()
-                result_row["next_action"] = "paste_sales_channel_content_id"
+                result_row["next_action"] = NextAction.PASTE_SALES_CHANNEL_CONTENT_ID
+                contract_id = first_nonzero_contract_id(matched_platform)
+                if contract_id:
+                    result_row["settlement_verification_status"] = "detail_platform_list"
+                    result_row["settlement_verified_contract_id"] = contract_id
+                decision = classify_sheet_uploadable_sales_channel_row(result_row)
+                result_row.update(apply_sheet_upload_gate_fields(result_row, decision))
             else:
                 result_row["platform_match_status"] = "missing_platform"
-                result_row["next_action"] = "add_platform_in_ips"
+                result_row["next_action"] = NextAction.ADD_PLATFORM_IN_IPS
             results.append(result_row)
 
     return results

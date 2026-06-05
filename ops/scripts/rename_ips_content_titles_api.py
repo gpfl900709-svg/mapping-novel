@@ -15,6 +15,7 @@ from ips.core.auth import resolve_env_path
 from ips.core.browser import BrowserSettings
 from ips.core.harness import IPSHarness
 from ips.sites import get_site
+from secret_redaction import write_json_redacted
 from rename_ips_content_titles import (
     DEFAULT_MANUAL_OVERRIDES_PATH,
     DEFAULT_REVIEW_QUEUE_PATH,
@@ -255,9 +256,7 @@ def process_candidate(
 
     debug_dir = PROJECT_ROOT / "output" / "ips_api_debug"
     debug_dir.mkdir(parents=True, exist_ok=True)
-    (debug_dir / f"put_payload_{candidate.work_cid}.json").write_text(
-        json.dumps(put_payload, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    write_json_redacted(debug_dir / f"put_payload_{candidate.work_cid}.json", put_payload)
 
     put_resp = axios_call(page, "put", SAVE_PATH, put_payload)
     result.put_status = put_resp.get("status")

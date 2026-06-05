@@ -18,6 +18,12 @@ import requests
 import websocket
 
 from chrome_debug_session import DEFAULT_SHORTCUT_PATH, ensure_debug_chrome
+from ips_safety_contract import (
+    SafetyDecision,
+    apply_sheet_upload_gate_fields,
+    classify_sheet_uploadable_sales_channel_row,
+    id_text,
+)
 
 
 DEFAULT_CONNECT_URL = "http://127.0.0.1:9222"
@@ -44,6 +50,12 @@ class UploadRow:
     next_action: str
 
 
+@dataclass
+class UploadPlan:
+    uploads: list[UploadRow]
+    blocked_rows: list[dict[str, Any]]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Write 판매채널콘텐츠ID values from harness output into a Google Sheet via Chrome remote debugging.",
@@ -56,6 +68,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--action-column", default="next_action")
     parser.add_argument("--row-id-columns", default="__row_id,row_index,row_id", help="Comma-separated row id column fallbacks.")
     parser.add_argument("--required-action", default="paste_sales_channel_content_id")
+    parser.add_argument(
+        "--allow-unverified-id",
+        action="store_true",
+        help="Allow a numeric ID without contract/S2 verification. Requires --unverified-id-reason; off by default.",
+    )
+    parser.add_argument("--unverified-id-reason", default="", help="Required when --allow-unverified-id is used.")
     parser.add_argument("--limit", type=int, default=0, help="Optional max number of rows to write.")
     parser.add_argument("--settle-ms", type=int, default=500)
     parser.add_argument("--chrome-shortcut", default=str(DEFAULT_SHORTCUT_PATH))
@@ -121,25 +139,69 @@ def build_upload_rows(
     row_id_columns: list[str],
     column_letter: str,
     limit: int,
+    allow_unverified_id: bool = False,
+    unverified_id_reason: str = "",
 ) -> list[UploadRow]:
+    return build_upload_plan(
+        rows,
+        value_column=value_column,
+        action_column=action_column,
+        required_action=required_action,
+        row_id_columns=row_id_columns,
+        column_letter=column_letter,
+        limit=limit,
+        allow_unverified_id=allow_unverified_id,
+        unverified_id_reason=unverified_id_reason,
+    ).uploads
+
+
+def build_upload_plan(
+    rows: list[dict[str, Any]],
+    *,
+    value_column: str,
+    action_column: str,
+    required_action: str,
+    row_id_columns: list[str],
+    column_letter: str,
+    limit: int,
+    allow_unverified_id: bool = False,
+    unverified_id_reason: str = "",
+) -> UploadPlan:
     uploads: list[UploadRow] = []
+    blocked_rows: list[dict[str, Any]] = []
+    effective_allow_unverified = allow_unverified_id and bool(str(unverified_id_reason or "").strip())
     for row in rows:
         action = str(row.get(action_column) or "").strip()
         value = str(row.get(value_column) or "").strip()
         row_id_value = first_non_empty(row, row_id_columns)
         if action != required_action or not value or not row_id_value:
             continue
-        if required_action == "paste_sales_channel_content_id" and not is_safe_sales_channel_content_id(value):
+        if required_action == "paste_sales_channel_content_id":
+            decision = classify_sheet_uploadable_sales_channel_row(
+                row,
+                value_column=value_column,
+                action_column=action_column,
+                required_action=required_action,
+                allow_unverified_id=effective_allow_unverified,
+            )
+        else:
+            decision = SafetyDecision(True, "passed", "non-sales-channel upload action")
+        if not decision.allowed:
+            blocked_rows.append(apply_sheet_upload_gate_fields(row, decision))
             continue
         try:
             row_number = int(float(row_id_value))
         except ValueError:
+            blocked = dict(row)
+            blocked["sheet_upload_gate_status"] = "blocked_invalid_row_id"
+            blocked["sheet_upload_gate_reason"] = f"invalid row id: {row_id_value}"
+            blocked_rows.append(blocked)
             continue
         uploads.append(
             UploadRow(
                 row_number=row_number,
                 cell_ref=f"{column_letter.upper()}{row_number}",
-                value=value,
+                value=id_text(value),
                 input_title=str(row.get("input_title") or row.get("미매핑_콘텐츠마스터명") or "").strip(),
                 platform=str(row.get("input_platform") or row.get("채널") or "").strip(),
                 next_action=action,
@@ -147,7 +209,7 @@ def build_upload_rows(
         )
         if limit and len(uploads) >= limit:
             break
-    return uploads
+    return UploadPlan(uploads=uploads, blocked_rows=blocked_rows)
 
 
 def find_target_page(browser, target_url: str) -> Page:
@@ -217,9 +279,11 @@ def write_cell(page: Page, cell_ref: str, value: str, settle_ms: int) -> None:
     page.wait_for_timeout(settle_ms)
 
 
-def build_report(rows: list[UploadRow], *, dry_run: bool) -> dict[str, Any]:
+def build_report(rows: list[UploadRow], *, dry_run: bool, blocked_rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    blocked_rows = blocked_rows or []
     return {
         "written_count": len(rows),
+        "blocked_count": len(blocked_rows),
         "dry_run": dry_run,
         "rows": [
             {
@@ -232,6 +296,7 @@ def build_report(rows: list[UploadRow], *, dry_run: bool) -> dict[str, Any]:
             }
             for row in rows
         ],
+        "blocked_rows": blocked_rows,
     }
 
 
@@ -472,9 +537,11 @@ def resolve_output_path(explicit_path: str) -> Path:
 
 
 def run_upload(args: argparse.Namespace) -> dict[str, Any]:
+    if getattr(args, "allow_unverified_id", False) and not str(getattr(args, "unverified_id_reason", "") or "").strip():
+        raise SystemExit("--allow-unverified-id requires --unverified-id-reason.")
     input_path = Path(args.input)
     rows = load_rows(input_path)
-    upload_rows = build_upload_rows(
+    plan = build_upload_plan(
         rows,
         value_column=args.value_column,
         action_column=args.action_column,
@@ -482,11 +549,18 @@ def run_upload(args: argparse.Namespace) -> dict[str, Any]:
         row_id_columns=[item.strip() for item in args.row_id_columns.split(",") if item.strip()],
         column_letter=args.column_letter,
         limit=args.limit,
+        allow_unverified_id=args.allow_unverified_id,
+        unverified_id_reason=args.unverified_id_reason,
     )
+    upload_rows = plan.uploads
     if not upload_rows:
-        raise SystemExit("No uploadable rows found in harness output.")
+        report = build_report(upload_rows, dry_run=args.dry_run, blocked_rows=plan.blocked_rows)
+        report["write_method"] = "no_uploadable_rows"
+        report["verification"] = {}
+        report["debug_chrome"] = {}
+        return report
 
-    report = build_report(upload_rows, dry_run=args.dry_run)
+    report = build_report(upload_rows, dry_run=args.dry_run, blocked_rows=plan.blocked_rows)
     report["write_method"] = "dry_run" if args.dry_run else ""
     report["verification"] = {}
     report["debug_chrome"] = {}

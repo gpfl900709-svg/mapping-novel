@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -11,6 +12,7 @@ if str(OPS_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(OPS_SCRIPTS))
 
 from ips_sales_channel_adder import (
+    add_platform_via_api,
     build_requests,
     channel_from_existing_platform_row,
     classify_unresolved_generated_id,
@@ -27,6 +29,24 @@ from ips_sales_channel_adder import (
     select_channel_row,
     settlement_template_snapshot,
 )
+
+
+class _ApiPage:
+    def evaluate(self, *_args, **_kwargs):
+        return {
+            "detail": {"cprCd": "1000", "ctnsStleCd": "001"},
+            "templateRows": [
+                {
+                    "pymtStd": "지급",
+                    "cntrId": 0,
+                    "pymtSetlSetmId": 1071696,
+                    "schnNm": "무툰(소설 서비스)",
+                }
+            ],
+            "channels": [
+                {"schnId": 63, "schnNm": "무툰(소설 서비스)", "cprCd": "1000"},
+            ],
+        }
 
 
 class IpsSalesChannelAdderTest(unittest.TestCase):
@@ -187,6 +207,16 @@ class IpsSalesChannelAdderTest(unittest.TestCase):
         self.assertEqual(len(requests), 1)
         self.assertEqual(requests[0].source_payment_setup_id, 1071696)
         self.assertEqual(requests[0].source_platform_name, "웹소설 하이북")
+
+    def test_api_add_blocks_payment_setup_only_without_explicit_exception(self) -> None:
+        with patch("ips_sales_channel_adder.fetch_detail_data", return_value={"schnCtnsInfoList": []}):
+            with self.assertRaisesRegex(RuntimeError, "payment_setup_id=1071696"):
+                add_platform_via_api(
+                    _ApiPage(),
+                    "109843",
+                    "무툰(소설 서비스)",
+                    source_payment_setup_id=1071696,
+                )
 
     def test_channel_selection_prefers_matching_company_code_for_duplicate_names(self) -> None:
         channel = select_channel_row(

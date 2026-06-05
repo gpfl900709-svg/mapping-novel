@@ -45,6 +45,12 @@ from dotenv import load_dotenv
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+SCRIPTS_ROOT = PROJECT_ROOT.parent / "scripts"
+if str(SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_ROOT))
+
+from secret_redaction import dumps_redacted, redact_string  # noqa: E402
+
 DEFAULT_ENV_PATH = PROJECT_ROOT / ".env"
 ARTIFACTS_ROOT = PROJECT_ROOT / "output" / "account_harness"
 
@@ -163,7 +169,7 @@ def _save_artifacts(
         print(f"[warn] screenshot 실패: {exc}", file=sys.stderr)
 
     try:
-        html_path.write_text(page.content(), encoding="utf-8")
+        html_path.write_text(redact_string(page.content()), encoding="utf-8")
     except Exception as exc:  # noqa: BLE001
         print(f"[warn] html 저장 실패: {exc}", file=sys.stderr)
 
@@ -177,10 +183,7 @@ def _save_artifacts(
         pass
     if meta:
         metadata.update(meta)
-    meta_path.write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    meta_path.write_text(dumps_redacted(metadata), encoding="utf-8")
 
 
 def _wait_for_login_form(page: Any, *, timeout_ms: int) -> None:

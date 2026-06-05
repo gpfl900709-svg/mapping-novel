@@ -138,6 +138,17 @@ class DummyContractChannelTest(unittest.TestCase):
         with self.assertRaisesRegex(dummy_contract.DummyContractError, "account 확인값과 다릅니다"):
             dummy_contract.validate_account_rs_guard(spec)
 
+    def test_create_dummy_contract_enforces_account_rs_guard_before_page_work(self):
+        spec = dummy_contract.DummyContractSpec(
+            cid="328118",
+            holder_name="AP 북스",
+            pdf_path=Path("dummy.pdf"),
+            rs_rate=50,
+        )
+
+        with self.assertRaisesRegex(dummy_contract.DummyContractError, "account"):
+            dummy_contract.create_dummy_contract(_Page(), spec)
+
     def test_counterparty_search_aliases_cover_vendor_names(self):
         self.assertEqual(dummy_contract.resolve_counterparty_search_name("APBOOKS"), "AP 북스")
         self.assertEqual(dummy_contract.resolve_counterparty_search_name("AP북스"), "AP 북스")

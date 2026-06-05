@@ -12,6 +12,7 @@ from ips_sales_channel_harness import (
     run_lookup,
     write_csv,
 )
+from s2_sales_channel_id_verifier import DEFAULT_S2_LOOKUP, load_s2_lookup, verify_rows as verify_s2_sales_channel_rows
 from work_cid_utils import DEFAULT_WORK_CID_REGISTRY_PATH
 
 
@@ -52,6 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--only-empty-column", default="")
     parser.add_argument("--registry", default=str(DEFAULT_WORK_CID_REGISTRY_PATH))
     parser.add_argument("--manual-overrides", default=str(DEFAULT_MANUAL_OVERRIDES_PATH))
+    parser.add_argument("--s2-lookup", default=str(DEFAULT_S2_LOOKUP))
     parser.add_argument("--env-file", default="")
     parser.add_argument("--connect-url", default="http://127.0.0.1:9222")
     parser.add_argument("--chrome-shortcut", default="")
@@ -64,6 +66,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--required-action", default="paste_sales_channel_content_id")
     parser.add_argument("--source-contract-id", default="", help="Optional explicit source 통합 계약 ID.")
     parser.add_argument("--source-contract-id-column", default="source_contract_id")
+    parser.add_argument(
+        "--allow-payment-setup-only",
+        action="store_true",
+        help="Allow API add from payment setup evidence without a nonzero contract ID. Requires --payment-setup-only-reason.",
+    )
+    parser.add_argument("--payment-setup-only-reason", default="")
     parser.add_argument("--force-add-existing-platform", action="store_true")
     parser.add_argument("--force-add-existing-platform-column", default="force_add_existing_platform")
     parser.add_argument("--settle-ms", type=int, default=500)
@@ -77,6 +85,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-add", action="store_true")
     parser.add_argument("--skip-upload", action="store_true")
     parser.add_argument("--skip-verify", action="store_true")
+    parser.add_argument(
+        "--allow-dangerous-ui-write",
+        action="store_true",
+        help="Permit legacy Google Sheets UI keyboard upload. Use only on a backed-up disposable copy.",
+    )
+    parser.add_argument(
+        "--allow-unverified-id",
+        action="store_true",
+        help="Permit sheet upload without contract/S2 verification. Requires --unverified-id-reason; off by default.",
+    )
+    parser.add_argument("--unverified-id-reason", default="")
     parser.add_argument("--dry-run", action="store_true", help="Preview only. This is also the default when --write is absent.")
     parser.add_argument(
         "--write",
@@ -161,6 +180,8 @@ def main() -> int:
     lookup_json = output_dir / f"{stamp}__pipeline_lookup.json"
     additions_csv = output_dir / f"{stamp}__pipeline_additions.csv"
     additions_json = output_dir / f"{stamp}__pipeline_additions.json"
+    s2_verify_csv = output_dir / f"{stamp}__pipeline_s2_verify.csv"
+    s2_verify_json = output_dir / f"{stamp}__pipeline_s2_verify.json"
     uploader_json = output_dir / f"{stamp}__pipeline_sheet_upload.json"
     summary_json = output_dir / f"{stamp}__pipeline_summary.json"
 
@@ -207,6 +228,8 @@ def main() -> int:
             source_payment_setup_id="",
             source_payment_setup_id_column="source_payment_setup_id",
             source_platform_column="source_platform",
+            allow_payment_setup_only=args.allow_payment_setup_only,
+            payment_setup_only_reason=args.payment_setup_only_reason,
             force_add_existing_platform=args.force_add_existing_platform,
             force_add_existing_platform_column=args.force_add_existing_platform_column,
             limit=0,
@@ -222,11 +245,24 @@ def main() -> int:
     write_csv(additions_csv, addition_rows)
     write_json(additions_json, addition_rows)
 
+    if addition_rows:
+        s2_lookup = load_s2_lookup(Path(args.s2_lookup))
+        addition_rows = verify_s2_sales_channel_rows(
+            addition_rows,
+            s2_lookup,
+            id_column=args.value_column,
+            platform_column=args.platform_column or "input_platform",
+            title_column=args.title_column or "input_title",
+        )
+        write_csv(s2_verify_csv, addition_rows)
+        write_json(s2_verify_json, addition_rows)
+
     upload_report: dict[str, object] = {}
     uploadable_count = count_rows(addition_rows, args.action_column, args.required_action)
     if live_write and not args.skip_upload and uploadable_count:
+        uploader_input = s2_verify_csv if s2_verify_csv.exists() else additions_csv
         upload_args = argparse.Namespace(
-            input=str(additions_csv),
+            input=str(uploader_input),
             sheet_url=args.sheet_url,
             connect_url=args.connect_url,
             column_letter=args.column_letter,
@@ -242,6 +278,9 @@ def main() -> int:
             chrome_start_wait_ms=args.chrome_start_wait_ms,
             ensure_debug_chrome=True,
             skip_verify=args.skip_verify,
+            allow_dangerous_ui_write=args.allow_dangerous_ui_write,
+            allow_unverified_id=args.allow_unverified_id,
+            unverified_id_reason=args.unverified_id_reason,
             verify_wait_ms=args.verify_wait_ms,
             dry_run=False,
             output=str(uploader_json),
@@ -255,11 +294,14 @@ def main() -> int:
         "lookup_json": str(lookup_json),
         "additions_csv": str(additions_csv),
         "additions_json": str(additions_json),
+        "s2_verify_csv": str(s2_verify_csv),
+        "s2_verify_json": str(s2_verify_json),
         "uploader_json": str(uploader_json) if upload_report else "",
         "lookup_count": len(lookup_rows),
         "lookup_missing_platform_count": count_rows(lookup_rows, "next_action", "add_platform_in_ips"),
         "lookup_review_count": count_rows(lookup_rows, "next_action", "review_title_match"),
         "after_add_paste_count": count_rows(addition_rows, "next_action", "paste_sales_channel_content_id"),
+        "s2_contract_nonzero_count": count_rows(addition_rows, "s2_payment_contract_status", "contract_nonzero"),
         "addition_added_count": count_rows(addition_rows, "addition_status", "added"),
         "addition_already_present_count": count_rows(addition_rows, "addition_status", "already_present"),
         "addition_failed_count": count_rows(addition_rows, "addition_status", "failed"),

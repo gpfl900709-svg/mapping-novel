@@ -34,7 +34,9 @@ from clickup_notifications import (
     ClickUpNotificationError,
     build_adapter_failure_clickup_config,
     build_clickup_config,
+    build_mapping_run_clickup_config,
     create_adapter_failure_task,
+    create_mapping_run_task,
     create_s2_refresh_request_task,
     normalize_clickup_secret_values,
     upload_task_attachment,
@@ -138,6 +140,7 @@ S2_ID_MEMORY_STORAGE_KEY = "mapping_novel_s2_id"
 SETTLEMENT_UPLOAD_RESET_COUNTER_KEY = "settlement_upload_reset_counter"
 MAPPING_RESULT_STATE_KEY = "mapping_result_state"
 ADAPTER_FAILURE_REQUEST_STATE_KEY = "adapter_failure_request_state"
+MAPPING_RUN_AUDIT_REQUEST_STATE_KEY = "mapping_run_audit_request_state"
 S2_CHANNEL_SCHEMA_EXAMPLES = (
     "네이버_장르(광고수익)",
     "네이버_장르",
@@ -250,6 +253,16 @@ def adapter_failure_clickup_config():
     config_values.setdefault("CLICKUP_ADAPTER_FAILURE_LIST_ID", ADAPTER_FAILURE_CLICKUP_LIST_ID)
     config_values.setdefault("CLICKUP_ADAPTER_FAILURE_ATTACH_ORIGINAL", "true")
     return build_adapter_failure_clickup_config(config_values)
+
+
+def mapping_run_clickup_config():
+    config_values: dict[str, Any] = {}
+    config_values.update(read_env_file(S2_ENV_FILE))
+    config_values.update(dict(os.environ))
+    config_values.update(streamlit_clickup_secret_values())
+    config_values.setdefault("CLICKUP_APP_URL", STREAMLIT_CLOUD_APP_URL)
+    config_values.setdefault("CLICKUP_MAPPING_RUN_LIST_ID", ADAPTER_FAILURE_CLICKUP_LIST_ID)
+    return build_mapping_run_clickup_config(config_values)
 
 
 def github_adapter_failure_config():
@@ -1681,6 +1694,243 @@ def adapter_failure_attachments(
     return tuple(attachments)
 
 
+def mapping_run_id_from_signature(signature: str) -> str:
+    return f"mapping-run-{sha256_hex(signature.encode('utf-8'))[:12]}"
+
+
+def summary_numeric_total(frame: pd.DataFrame, column: str) -> int:
+    if frame.empty or column not in frame.columns:
+        return 0
+    total = 0
+    for value in frame[column].tolist():
+        total += safe_int(text(value).replace(",", ""))
+    return total
+
+
+def build_mapping_run_audit_payload(mapping_state: dict[str, Any], *, run_signature: str) -> dict[str, object]:
+    summary_frame = mapping_state.get("summary_frame")
+    if not isinstance(summary_frame, pd.DataFrame):
+        summary_frame = pd.DataFrame()
+    status_counts = summary_frame["상태"].value_counts().to_dict() if not summary_frame.empty and "상태" in summary_frame.columns else {}
+    source_names = (
+        [text(value) for value in summary_frame["파일"].tolist() if text(value)]
+        if not summary_frame.empty and "파일" in summary_frame.columns
+        else []
+    )
+    zip_bytes = mapping_state.get("zip_bytes") or b""
+    if not isinstance(zip_bytes, bytes):
+        zip_bytes = b""
+    return {
+        "run_id": mapping_run_id_from_signature(run_signature),
+        "signature_sha256": sha256_hex(run_signature.encode("utf-8")),
+        "app_commit_sha": current_app_commit_sha(),
+        "app_url": STREAMLIT_CLOUD_APP_URL,
+        "file_count": len(source_names),
+        "source_names": source_names,
+        "status_counts": {str(key): safe_int(value) for key, value in status_counts.items()},
+        "review_required_count": summary_numeric_total(summary_frame, "검토필요"),
+        "missing_candidate_count": summary_numeric_total(summary_frame, "누락 후보"),
+        "billing_candidate_count": summary_numeric_total(summary_frame, "청구 후보"),
+        "s2_source_label": text(mapping_state.get("s2_source_label")),
+        "s2_rows": safe_int(mapping_state.get("s2_rows")),
+        "s2_id_rows": safe_int(mapping_state.get("s2_id_rows")),
+        "zip_name": text(mapping_state.get("zip_name")),
+        "zip_size": len(zip_bytes),
+        "zip_sha256": sha256_hex(zip_bytes) if zip_bytes else "",
+        "created_at": datetime.now(KST).isoformat(timespec="seconds"),
+    }
+
+
+def append_mapping_audit_attachment(
+    attachments: list[ClickUpAttachment],
+    skipped: list[str],
+    *,
+    filename: str,
+    content: bytes,
+    content_type: str,
+    max_bytes: int,
+) -> None:
+    if not content:
+        return
+    if max_bytes and len(content) > max_bytes:
+        skipped.append(f"{filename} ({len(content):,} B)")
+        return
+    attachments.append(ClickUpAttachment(filename=filename, content=content, content_type=content_type))
+
+
+def mapping_run_audit_attachments(
+    *,
+    mapping_state: dict[str, Any],
+    settlement_files: list[object],
+    payload: dict[str, object],
+    attach_outputs: bool,
+    attach_inputs: bool,
+    max_attachment_bytes: int = 40 * 1024 * 1024,
+) -> tuple[tuple[ClickUpAttachment, ...], tuple[str, ...]]:
+    attachments: list[ClickUpAttachment] = []
+    skipped: list[str] = []
+    run_id = text(payload.get("run_id")) or "mapping-run"
+    append_mapping_audit_attachment(
+        attachments,
+        skipped,
+        filename=f"{run_id}_payload.json",
+        content=payload_json_bytes(payload),
+        content_type="application/json; charset=utf-8",
+        max_bytes=max_attachment_bytes,
+    )
+    append_mapping_audit_attachment(
+        attachments,
+        skipped,
+        filename=f"{run_id}_batch_summary.csv",
+        content=dataframe_csv_bytes(mapping_state.get("summary_frame", pd.DataFrame())),
+        content_type="text/csv; charset=utf-8",
+        max_bytes=max_attachment_bytes,
+    )
+    append_mapping_audit_attachment(
+        attachments,
+        skipped,
+        filename=f"{run_id}_PD_작업지시_종합리포트.csv",
+        content=mapping_state.get("work_order_csv_bytes") or b"",
+        content_type="text/csv; charset=utf-8",
+        max_bytes=max_attachment_bytes,
+    )
+    append_mapping_audit_attachment(
+        attachments,
+        skipped,
+        filename=f"{run_id}_전체_행별매핑_종합.csv",
+        content=mapping_state.get("combined_csv_bytes") or b"",
+        content_type="text/csv; charset=utf-8",
+        max_bytes=max_attachment_bytes,
+    )
+    if attach_outputs:
+        append_mapping_audit_attachment(
+            attachments,
+            skipped,
+            filename=text(mapping_state.get("zip_name")) or f"{run_id}_mapping_results.zip",
+            content=mapping_state.get("zip_bytes") or b"",
+            content_type="application/zip",
+            max_bytes=max_attachment_bytes,
+        )
+    if attach_inputs:
+        for index, uploaded_file in enumerate(settlement_files, start=1):
+            source_bytes = read_uploaded_file_bytes(uploaded_file)
+            source_name = text(getattr(uploaded_file, "name", "")) or f"uploaded_{index}.xlsx"
+            source_stem = sanitize_output_stem(source_name) or f"uploaded_{index}"
+            append_mapping_audit_attachment(
+                attachments,
+                skipped,
+                filename=f"{run_id}_source_{index:02d}_{source_stem}.xlsx",
+                content=source_bytes,
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                max_bytes=max_attachment_bytes,
+            )
+    return tuple(attachments), tuple(skipped)
+
+
+def create_mapping_run_audit_request(
+    *,
+    mapping_state: dict[str, Any],
+    settlement_files: list[object],
+    run_signature: str,
+    attach_outputs: bool,
+    attach_inputs: bool,
+) -> dict[str, str]:
+    config = mapping_run_clickup_config()
+    if not config.is_configured:
+        raise ClickUpNotificationError("ClickUp 매핑 실행 기록 설정이 없습니다.")
+    payload = build_mapping_run_audit_payload(mapping_state, run_signature=run_signature)
+    attachments, skipped = mapping_run_audit_attachments(
+        mapping_state=mapping_state,
+        settlement_files=settlement_files,
+        payload=payload,
+        attach_outputs=attach_outputs,
+        attach_inputs=attach_inputs,
+    )
+    clickup_result = create_mapping_run_task(
+        config,
+        run_payload=payload,
+        attachments=attachments,
+    )
+    return {
+        "clickup_url": clickup_result.url,
+        "skipped": " | ".join(skipped),
+        "error": "",
+    }
+
+
+def render_mapping_run_audit_panel(
+    *,
+    mapping_state: dict[str, Any],
+    settlement_files: list[object],
+    run_signature: str,
+) -> None:
+    config = mapping_run_clickup_config()
+    payload = build_mapping_run_audit_payload(mapping_state, run_signature=run_signature)
+    run_id = text(payload.get("run_id"))
+    request_state = st.session_state.setdefault(MAPPING_RUN_AUDIT_REQUEST_STATE_KEY, {})
+    if not isinstance(request_state, dict):
+        request_state = {}
+        st.session_state[MAPPING_RUN_AUDIT_REQUEST_STATE_KEY] = request_state
+    existing = request_state.get(run_id, {})
+    if not isinstance(existing, dict):
+        existing = {}
+
+    with st.expander("ClickUp 실행 기록", expanded=False):
+        if not config.is_configured:
+            st.warning("ClickUp 매핑 실행 기록 설정이 없습니다.")
+        audit_cols = st.columns(4)
+        audit_cols[0].metric("입력 파일", f"{safe_int(payload.get('file_count')):,}")
+        audit_cols[1].metric("검토필요", f"{safe_int(payload.get('review_required_count')):,}")
+        audit_cols[2].metric("ZIP", f"{safe_int(payload.get('zip_size')):,} B")
+        audit_cols[3].metric("S2 기준 행", f"{safe_int(payload.get('s2_rows')):,}")
+
+        attach_outputs = st.checkbox(
+            "결과 ZIP 첨부",
+            value=True,
+            key=f"mapping_run_attach_outputs_{run_id}",
+        )
+        attach_inputs = st.checkbox(
+            "원본 xlsx 첨부",
+            value=False,
+            key=f"mapping_run_attach_inputs_{run_id}",
+        )
+        if existing.get("clickup_url"):
+            st.success("이미 이 실행 기록을 생성했습니다.")
+            st.markdown(f"[ClickUp에서 보기]({existing['clickup_url']})")
+            if existing.get("skipped"):
+                st.caption(f"용량 제한으로 제외된 첨부: {existing['skipped']}")
+        if existing.get("error"):
+            st.caption(text(existing.get("error")))
+
+        if st.button(
+            "ClickUp 실행 기록 생성",
+            key=f"mapping_run_audit_send_{run_id}",
+            disabled=not config.is_configured or bool(existing.get("clickup_url")),
+            type="secondary",
+        ):
+            try:
+                with st.spinner("ClickUp 실행 기록과 첨부를 생성하는 중..."):
+                    result_state = create_mapping_run_audit_request(
+                        mapping_state=mapping_state,
+                        settlement_files=settlement_files,
+                        attach_outputs=attach_outputs,
+                        attach_inputs=attach_inputs,
+                        run_signature=run_signature,
+                    )
+                request_state[run_id] = result_state
+                st.success("ClickUp 실행 기록을 생성했습니다.")
+                st.markdown(f"[ClickUp에서 보기]({result_state['clickup_url']})")
+                if result_state.get("skipped"):
+                    st.caption(f"용량 제한으로 제외된 첨부: {result_state['skipped']}")
+            except ClickUpNotificationError as exc:
+                request_state[run_id] = {"clickup_url": "", "skipped": "", "error": str(exc)}
+                st.error("ClickUp 실행 기록 생성에 실패했습니다.")
+                st.caption(str(exc))
+            except Exception as exc:
+                st.error("ClickUp 실행 기록 생성 중 오류가 났습니다.")
+                render_error_detail(exc)
+
+
 def render_adapter_failure_request_panel(mapping_state: dict[str, Any], selected_s2_channel: str) -> None:
     results = [
         result
@@ -2474,6 +2724,31 @@ st.dataframe(
 if not can_run:
     st.caption("실행하려면 준비 상태의 `필요` 또는 `확인 필요` 항목을 먼저 처리하세요.")
 
+mapping_run_audit_config = mapping_run_clickup_config()
+with st.expander("ClickUp 실행 기록", expanded=False):
+    if mapping_run_audit_config.is_configured:
+        st.caption("매핑 실행이 끝나면 ClickUp에 실행 기록 task를 만들고 결과 산출물을 첨부합니다.")
+    else:
+        st.warning("ClickUp 매핑 실행 기록 설정이 없어 자동 기록을 만들 수 없습니다.")
+    auto_clickup_mapping_run = st.checkbox(
+        "매핑 실행 후 ClickUp 기록 생성",
+        value=mapping_run_audit_config.is_configured,
+        disabled=not mapping_run_audit_config.is_configured,
+        key="auto_clickup_mapping_run",
+    )
+    auto_clickup_attach_outputs = st.checkbox(
+        "결과 ZIP 첨부",
+        value=True,
+        disabled=not auto_clickup_mapping_run,
+        key="auto_clickup_attach_outputs",
+    )
+    auto_clickup_attach_inputs = st.checkbox(
+        "원본 xlsx 첨부",
+        value=False,
+        disabled=not auto_clickup_mapping_run,
+        key="auto_clickup_attach_inputs",
+    )
+
 run_signature = mapping_run_signature(
     settlement_files=settlement_files,
     selected_s2_channel=selected_s2_channel,
@@ -2512,6 +2787,25 @@ if run_clicked:
                 s2_source_label=s2_source_label,
                 payment_summary=payment_summary,
             )
+            if auto_clickup_mapping_run:
+                mapping_state_for_audit = st.session_state[MAPPING_RESULT_STATE_KEY]
+                run_id_for_audit = mapping_run_id_from_signature(run_signature)
+                request_state = st.session_state.setdefault(MAPPING_RUN_AUDIT_REQUEST_STATE_KEY, {})
+                if not isinstance(request_state, dict):
+                    request_state = {}
+                    st.session_state[MAPPING_RUN_AUDIT_REQUEST_STATE_KEY] = request_state
+                if not isinstance(request_state.get(run_id_for_audit), dict) or not request_state[run_id_for_audit].get("clickup_url"):
+                    try:
+                        progress_slot.caption("ClickUp 실행 기록 생성 중")
+                        request_state[run_id_for_audit] = create_mapping_run_audit_request(
+                            mapping_state=mapping_state_for_audit,
+                            settlement_files=settlement_files,
+                            run_signature=run_signature,
+                            attach_outputs=auto_clickup_attach_outputs,
+                            attach_inputs=auto_clickup_attach_inputs,
+                        )
+                    except ClickUpNotificationError as exc:
+                        request_state[run_id_for_audit] = {"clickup_url": "", "skipped": "", "error": str(exc)}
         progress_slot.empty()
     except Exception as exc:
         if "progress_slot" in locals():
@@ -2546,6 +2840,11 @@ batch_cols[2].metric("차단", f"{safe_int(status_counts.get('blocked')):,}")
 batch_cols[3].metric("실패", f"{safe_int(status_counts.get('failed')):,}")
 st.dataframe(summary_frame, use_container_width=True, height=min(360, 45 + 35 * max(len(summary_frame), 1)))
 render_adapter_failure_request_panel(mapping_state, selected_s2_channel)
+render_mapping_run_audit_panel(
+    mapping_state=mapping_state,
+    settlement_files=settlement_files,
+    run_signature=run_signature,
+)
 postprocess_stage_seconds = mapping_state.get("postprocess_stage_seconds") or {}
 if postprocess_stage_seconds:
     with st.expander("후처리 시간", expanded=False):

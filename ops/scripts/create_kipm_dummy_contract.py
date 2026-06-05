@@ -16,6 +16,7 @@ from ips.core.auth import resolve_env_path
 from ips.core.browser import BrowserSettings
 from ips.core.harness import IPSHarness, IPSHarnessError
 from ips.sites import get_site
+from secret_redaction import dumps_redacted
 
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "output" / "dummy_contract_runs"
@@ -1559,6 +1560,7 @@ def configure_step4(
 
 
 def create_dummy_contract(page: Any, spec: DummyContractSpec) -> DummyContractResult:
+    validate_account_rs_guard(spec)
     trace_step(spec, "open contract target content registration")
     page.goto(get_site("kipm").resolve_url(DEFAULT_KIPM_PATH), wait_until="domcontentloaded", timeout=20_000)
     try:
@@ -1812,7 +1814,7 @@ def main() -> None:
             harness.ensure_logged_in(path=DEFAULT_KIPM_PATH)
             result = create_dummy_contract(harness.page, spec)
             report_path.write_text(
-                json.dumps(asdict(result), ensure_ascii=False, indent=2),
+                dumps_redacted(asdict(result)),
                 encoding="utf-8",
             )
             print(json.dumps(asdict(result), ensure_ascii=False, indent=2))
@@ -1824,7 +1826,7 @@ def main() -> None:
             "error": str(exc),
             "traceback": traceback.format_exc(),
         }
-        report_path.write_text(json.dumps(failure_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        report_path.write_text(dumps_redacted(failure_payload), encoding="utf-8")
         raise SystemExit(str(exc))
 
 

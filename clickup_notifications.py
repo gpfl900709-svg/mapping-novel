@@ -23,6 +23,10 @@ CLICKUP_ADAPTER_FAILURE_DEFAULT_DUE_DATE_MINUTES = 2
 CLICKUP_ADAPTER_FAILURE_ALERT_COMMENT = (
     "정산서 어댑터 긴급 실패입니다. 모바일 알림 확인용 담당자 지정 댓글입니다."
 )
+CLICKUP_MAPPING_RUN_DEFAULT_LIST_ID = "901818576269"
+CLICKUP_MAPPING_RUN_DEFAULT_PRIORITY = 3
+CLICKUP_MAPPING_RUN_DEFAULT_TAGS = ("mapping-run", "mapping-novel")
+CLICKUP_MAPPING_RUN_DEFAULT_STATUS = "to do"
 KST = timezone(timedelta(hours=9))
 
 
@@ -234,6 +238,30 @@ def normalize_clickup_secret_values(raw_secrets: object) -> dict[str, Any]:
         if adapter_failure_tags:
             values["CLICKUP_ADAPTER_FAILURE_TAGS"] = adapter_failure_tags
 
+        mapping_run_list_id = _first_value(source, ("CLICKUP_MAPPING_RUN_LIST_ID", "mapping_run_list_id"))
+        if mapping_run_list_id:
+            values["CLICKUP_MAPPING_RUN_LIST_ID"] = mapping_run_list_id
+
+        mapping_run_assignee_ids = source.get("CLICKUP_MAPPING_RUN_ASSIGNEE_IDS")
+        if mapping_run_assignee_ids is None:
+            mapping_run_assignee_ids = source.get("mapping_run_assignee_ids")
+        if mapping_run_assignee_ids:
+            values["CLICKUP_MAPPING_RUN_ASSIGNEE_IDS"] = mapping_run_assignee_ids
+
+        mapping_run_status = _first_value(source, ("CLICKUP_MAPPING_RUN_STATUS", "mapping_run_status"))
+        if mapping_run_status:
+            values["CLICKUP_MAPPING_RUN_STATUS"] = mapping_run_status
+
+        mapping_run_priority = _first_value(source, ("CLICKUP_MAPPING_RUN_PRIORITY", "mapping_run_priority"))
+        if mapping_run_priority:
+            values["CLICKUP_MAPPING_RUN_PRIORITY"] = mapping_run_priority
+
+        mapping_run_tags = source.get("CLICKUP_MAPPING_RUN_TAGS")
+        if mapping_run_tags is None:
+            mapping_run_tags = source.get("mapping_run_tags")
+        if mapping_run_tags:
+            values["CLICKUP_MAPPING_RUN_TAGS"] = mapping_run_tags
+
         auto_assign_self = source.get("CLICKUP_AUTO_ASSIGN_SELF")
         if auto_assign_self is None:
             auto_assign_self = source.get("auto_assign_self")
@@ -315,6 +343,40 @@ def build_adapter_failure_clickup_config(values: Mapping[str, Any]) -> ClickUpNo
         tags=tags,
         attach_original=_parse_bool(values.get("CLICKUP_ADAPTER_FAILURE_ATTACH_ORIGINAL"), default=False),
         due_date_minutes=due_date_minutes,
+    )
+
+
+def build_mapping_run_clickup_config(values: Mapping[str, Any]) -> ClickUpNotificationConfig:
+    token = _first_value(
+        values,
+        ("CLICKUP_MAPPING_RUN_TOKEN", "CLICKUP_API_TOKEN", "CLICKUP_TOKEN"),
+    )
+    list_id = _first_value(
+        values,
+        ("CLICKUP_MAPPING_RUN_LIST_ID", "CLICKUP_LIST_ID"),
+    ) or CLICKUP_MAPPING_RUN_DEFAULT_LIST_ID
+    api_base_url = _first_value(values, ("CLICKUP_API_BASE_URL",)) or CLICKUP_API_BASE_URL
+    priority = _parse_int(_first_value(values, ("CLICKUP_MAPPING_RUN_PRIORITY", "CLICKUP_PRIORITY")))
+    if priority is None:
+        priority = CLICKUP_MAPPING_RUN_DEFAULT_PRIORITY
+    if priority not in {1, 2, 3, 4}:
+        priority = None
+    assignee_ids = _parse_int_tuple(
+        values.get("CLICKUP_MAPPING_RUN_ASSIGNEE_IDS") or values.get("CLICKUP_ASSIGNEE_IDS")
+    )
+    tags = _parse_text_tuple(values.get("CLICKUP_MAPPING_RUN_TAGS")) or CLICKUP_MAPPING_RUN_DEFAULT_TAGS
+    return ClickUpNotificationConfig(
+        token=token,
+        list_id=list_id,
+        api_base_url=api_base_url.rstrip("/"),
+        assignee_ids=assignee_ids,
+        auto_assign_self=_parse_bool(values.get("CLICKUP_AUTO_ASSIGN_SELF"), default=True),
+        status=_first_value(values, ("CLICKUP_MAPPING_RUN_STATUS", "CLICKUP_STATUS"))
+        or CLICKUP_MAPPING_RUN_DEFAULT_STATUS,
+        priority=priority,
+        app_url=_first_value(values, ("CLICKUP_MAPPING_RUN_APP_URL", "CLICKUP_APP_URL")),
+        tags=tags,
+        due_date_minutes=0,
     )
 
 
@@ -424,6 +486,64 @@ def build_adapter_failure_task_payload(
         due_date_at = requested_at.astimezone(KST) + timedelta(minutes=config.due_date_minutes)
         payload["due_date"] = int(due_date_at.timestamp() * 1000)
         payload["due_date_time"] = True
+    return payload
+
+
+def build_mapping_run_task_payload(
+    *,
+    config: ClickUpNotificationConfig,
+    run_payload: Mapping[str, Any],
+    requested_at: datetime | None = None,
+    assignee_ids: tuple[int, ...] = (),
+) -> dict[str, Any]:
+    requested_at = requested_at or datetime.now(KST)
+    requested_label = requested_at.astimezone(KST).strftime("%Y-%m-%d %H:%M:%S")
+    title_time = requested_at.astimezone(KST).strftime("%Y-%m-%d %H:%M")
+    status_counts = _as_mapping(run_payload.get("status_counts"))
+    file_count = _parse_int(run_payload.get("file_count")) or 0
+    success_count = _parse_int(status_counts.get("success")) or 0
+    blocked_count = _parse_int(status_counts.get("blocked")) or 0
+    failed_count = _parse_int(status_counts.get("failed")) or 0
+    review_count = _parse_int(run_payload.get("review_required_count")) or 0
+    issue_count = blocked_count + failed_count + review_count
+    app_url_line = f"\n- 앱: {config.app_url}" if config.app_url else ""
+    source_lines = "\n".join(
+        f"  - `{_text(item)}`" for item in (run_payload.get("source_names") or [])[:20]
+    )
+    if file_count > 20:
+        source_lines += f"\n  - ... 외 {file_count - 20:,}개"
+
+    markdown_content = (
+        "## 매핑 실행 기록\n\n"
+        f"- 실행 시각: {requested_label}\n"
+        f"- run id: `{_text(run_payload.get('run_id'))}`\n"
+        f"- 입력 파일: {file_count:,}개\n"
+        f"- 결과: 성공 {success_count:,} / 차단 {blocked_count:,} / 실패 {failed_count:,}\n"
+        f"- 검토필요 행: {review_count:,}\n"
+        f"- S2 기준: {_text(run_payload.get('s2_source_label')) or '확인 필요'}\n"
+        f"- S2 기준 행: {_parse_int(run_payload.get('s2_rows')) or 0:,}\n"
+        f"- S2 ID 행: {_parse_int(run_payload.get('s2_id_rows')) or 0:,}\n"
+        f"- ZIP SHA-256: `{_text(run_payload.get('zip_sha256'))}`"
+        f"{app_url_line}\n\n"
+        "### 입력 파일\n"
+        f"{source_lines or '- 없음'}\n\n"
+        "첨부된 요약 CSV/작업지시 CSV/전체 행별매핑 CSV/결과 ZIP을 기준으로 당시 실행 상태를 재현합니다."
+    )
+
+    payload: dict[str, Any] = {
+        "name": f"[매핑 실행 기록] {title_time} · {file_count}개 · 이슈 {issue_count}",
+        "markdown_content": markdown_content,
+        "notify_all": False,
+        "tags": list(config.tags or CLICKUP_MAPPING_RUN_DEFAULT_TAGS),
+    }
+    if issue_count > 0 and "mapping-issue" not in payload["tags"]:
+        payload["tags"].append("mapping-issue")
+    if config.status:
+        payload["status"] = config.status
+    if config.priority is not None:
+        payload["priority"] = config.priority
+    if assignee_ids:
+        payload["assignees"] = list(assignee_ids)
     return payload
 
 
@@ -642,6 +762,62 @@ def create_adapter_failure_task(
             comment_text=CLICKUP_ADAPTER_FAILURE_ALERT_COMMENT,
             session=session,
         )
+        return result
+    finally:
+        if owns_session:
+            session.close()
+
+
+def create_mapping_run_task(
+    config: ClickUpNotificationConfig,
+    *,
+    run_payload: Mapping[str, Any],
+    attachments: tuple[ClickUpAttachment, ...] = (),
+    requested_at: datetime | None = None,
+    session: requests.Session | None = None,
+) -> ClickUpTaskResult:
+    if not config.is_configured:
+        raise ClickUpNotificationError("ClickUp 매핑 실행 기록 설정이 없습니다.")
+
+    owns_session = session is None
+    session = session or requests.Session()
+    try:
+        assignee_ids = config.assignee_ids
+        if not assignee_ids and config.auto_assign_self:
+            try:
+                user_id = get_authorized_user_id(session, config)
+                assignee_ids = (user_id,) if user_id is not None else ()
+            except ClickUpNotificationError:
+                assignee_ids = ()
+
+        payload = build_mapping_run_task_payload(
+            config=config,
+            run_payload=run_payload,
+            requested_at=requested_at,
+            assignee_ids=assignee_ids,
+        )
+        try:
+            task = _request_json(
+                session,
+                "POST",
+                f"{config.api_base_url}/list/{config.list_id}/task",
+                config=config,
+                json_body=payload,
+            )
+        except ClickUpNotificationError:
+            if "assignees" not in payload:
+                raise
+            payload.pop("assignees", None)
+            task = _request_json(
+                session,
+                "POST",
+                f"{config.api_base_url}/list/{config.list_id}/task",
+                config=config,
+                json_body=payload,
+            )
+        result = ClickUpTaskResult(task_id=_text(task.get("id")), url=_text(task.get("url")))
+        for attachment in attachments:
+            upload_task_attachment(config, task_id=result.task_id, attachment=attachment, session=session)
         return result
     finally:
         if owns_session:

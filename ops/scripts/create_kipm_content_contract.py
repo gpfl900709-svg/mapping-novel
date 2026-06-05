@@ -33,6 +33,7 @@ from ips.core.auth import resolve_env_path
 from ips.core.browser import BrowserSettings
 from ips.core.harness import IPSHarness
 from ips.sites import get_site
+from secret_redaction import dumps_redacted
 from work_cid_utils import DEFAULT_WORK_CID_REGISTRY_PATH
 
 
@@ -90,7 +91,11 @@ class ContentContractSpec:
     counterparty_code: str = ""
     pen_name: str = ""
     existing_cid: str = ""
+    account_rights_code: str = ""
+    account_rights_name: str = ""
+    account_rs_rate: int = 0
     rs_rate: int = 0
+    allow_zero_rs: bool = False
 
 
 @dataclass(frozen=True)
@@ -171,6 +176,10 @@ def parse_args() -> argparse.Namespace:
         help="Skip content creation and continue with this existing CID on write mode.",
     )
     parser.add_argument("--rs-rate", type=int, default=0, help="Optional RS rate override for dummy contract registration.")
+    parser.add_argument("--account-rights-code", default="", help="account에서 확인한 저작권코드.")
+    parser.add_argument("--account-rights-name", default="", help="account에서 확인한 정산명/저작권명.")
+    parser.add_argument("--account-rs-rate", type=int, default=0, help="account에서 확인한 B2C/자체 RS율.")
+    parser.add_argument("--allow-zero-rs", action="store_true", help="account 근거가 0% RS임을 명시적으로 허용.")
     parser.add_argument(
         "--release-date",
         default=DEFAULT_RELEASE_DATE,
@@ -682,7 +691,11 @@ def build_spec(args: argparse.Namespace, registry_match: RegistryMatch | None) -
         counterparty_code=normalize_text(args.counterparty_code),
         pen_name=normalize_text(args.pen_name),
         existing_cid=normalize_text(args.existing_cid),
+        account_rights_code=normalize_text(args.account_rights_code),
+        account_rights_name=normalize_text(args.account_rights_name),
+        account_rs_rate=args.account_rs_rate,
         rs_rate=args.rs_rate,
+        allow_zero_rs=args.allow_zero_rs,
     )
 
 
@@ -715,6 +728,11 @@ def build_report_payload(
             "counterparty_code": spec.counterparty_code,
             "pen_name": spec.pen_name,
             "existing_cid": spec.existing_cid,
+            "account_rights_code": spec.account_rights_code,
+            "account_rights_name": spec.account_rights_name,
+            "account_rs_rate": spec.account_rs_rate,
+            "rs_rate": spec.rs_rate,
+            "allow_zero_rs": spec.allow_zero_rs,
             "content_name": build_content_name(spec.title, spec.author, spec.copyright_code, spec.special_kind),
         },
         "registry_match": asdict(registry_match) if registry_match is not None else None,
@@ -798,6 +816,9 @@ def main() -> None:
                         cid=target_cid,
                         holder_name=spec.holder_name,
                         pdf_path=spec.pdf_path,
+                        account_rights_code=spec.account_rights_code,
+                        account_rights_name=spec.account_rights_name,
+                        account_rs_rate=spec.account_rs_rate,
                         contract_name=spec.contract_name,
                         counterparty_type=spec.counterparty_type,
                         counterparty_code=spec.counterparty_code,
@@ -809,6 +830,7 @@ def main() -> None:
                         detail_genre=DEFAULT_DETAIL_GENRE,
                         content_name=contract_content_name,
                         rs_rate=spec.rs_rate,
+                        allow_zero_rs=spec.allow_zero_rs,
                     ),
                 )
                 contract_result = {"status": "created", **asdict(contract)}
@@ -827,7 +849,7 @@ def main() -> None:
             contract_result=contract_result,
         )
         report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(json.dumps(report_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        report_path.write_text(dumps_redacted(report_payload), encoding="utf-8")
         emit_json(report_payload)
     except Exception as exc:
         failure_payload = {
@@ -846,7 +868,7 @@ def main() -> None:
             },
         }
         report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(json.dumps(failure_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        report_path.write_text(dumps_redacted(failure_payload), encoding="utf-8")
         raise SystemExit(str(exc))
 
 

@@ -339,7 +339,9 @@ def import_payment_settlement_frame(
     cache.parent.mkdir(parents=True, exist_ok=True)
     s2_lookup.parent.mkdir(parents=True, exist_ok=True)
     cache_outputs = write_payment_settlement_cache(replacement, cache, part_rows=cache_part_rows)
-    lookup.to_csv(s2_lookup, index=False, encoding="utf-8-sig")
+    temp_lookup = s2_lookup.with_name(f"{s2_lookup.stem}.tmp{s2_lookup.suffix}")
+    lookup.to_csv(temp_lookup, index=False, encoding="utf-8-sig")
+    temp_lookup.replace(s2_lookup)
     summary = summarize_payment_settlement(replacement)
     change_summary = summarize_s2_change_audit(change_rows)
     summary["s2_change_summary"] = change_summary

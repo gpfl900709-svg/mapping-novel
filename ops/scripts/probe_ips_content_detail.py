@@ -11,6 +11,7 @@ from ips.core.auth import resolve_env_path
 from ips.core.browser import BrowserSettings
 from ips.core.harness import IPSHarness
 from ips.sites import get_site
+from secret_redaction import write_json_redacted
 
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "output" / "ips_probe"
@@ -177,7 +178,7 @@ def main() -> None:
             print(f"[probe] {cid_clean}")
             result = probe_cid(harness, cid_clean, capture_network=args.capture_network)
             dump_path = output_dir / f"detail_{cid_clean}.json"
-            dump_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+            write_json_redacted(dump_path, result)
             summaries.append({
                 "cid": cid_clean,
                 **result["summary"],

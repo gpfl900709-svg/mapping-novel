@@ -29,6 +29,12 @@ from dotenv import load_dotenv
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+SCRIPTS_ROOT = PROJECT_ROOT.parent / "scripts"
+if str(SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_ROOT))
+
+from secret_redaction import dumps_redacted, redact_string  # noqa: E402
+
 DEFAULT_ENV_PATH = PROJECT_ROOT / ".env"
 DEFAULT_ARTIFACT_ROOT = PROJECT_ROOT / "output" / "admin_harness"
 DEFAULT_BASE_URL = "http://admin.barobook.com"
@@ -199,14 +205,12 @@ def save_artifacts(
     except Exception as exc:  # noqa: BLE001
         (directory / "screenshot_error.txt").write_text(str(exc), encoding="utf-8")
     try:
-        (directory / "page.html").write_text(page.content(), encoding="utf-8")
+        (directory / "page.html").write_text(redact_string(page.content()), encoding="utf-8")
     except Exception as exc:  # noqa: BLE001
         (directory / "html_error.txt").write_text(str(exc), encoding="utf-8")
     try:
         cookies = context.cookies()
-        (directory / "cookies.json").write_text(
-            json.dumps(cookies, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        (directory / "cookies.json").write_text(dumps_redacted(cookies), encoding="utf-8")
     except Exception:  # noqa: BLE001
         pass
     meta = {
@@ -216,9 +220,7 @@ def save_artifacts(
         "extra": extra or {},
         "saved_at": datetime.now().isoformat(),
     }
-    (directory / "meta.json").write_text(
-        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    (directory / "meta.json").write_text(dumps_redacted(meta), encoding="utf-8")
 
 
 def _safe_title(page: Any) -> str:

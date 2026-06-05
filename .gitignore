@@ -15,6 +15,11 @@ venv/
 temp/
 ignore/
 igignore/
+output/
+ops/SIAAN Project/output/
+**/cookies.json
+**/*token*.json
+**/*debug*/
 판매채널-지급정산 불일치/
 *.local.env
 /*.csv
