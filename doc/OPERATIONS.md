@@ -35,7 +35,10 @@ api_token = "..."
 list_id = "..."
 assignee_ids = "" # 비우면 토큰 소유자를 자동 조회해 담당자로 넣습니다.
 app_url = "https://mapping-novel-ascmdzm897irzyvzwn9kqo.streamlit.app/"
+s2_request_due_date_minutes = "2"
 ```
+
+S2 최신화 요청 태스크는 담당자, `notify_all`, due date뿐 아니라 생성 직후 담당자 지정 댓글을 한 번 더 남깁니다. ClickUp 모바일 푸시가 태스크 생성 이벤트를 놓쳐도 댓글/할당 이벤트로 한 번 더 울리게 하기 위한 운영 보강입니다.
 
 S2 API가 사내망, VPN, 방화벽 또는 IP 허용 목록으로 제한되어 있으면 Streamlit Cloud에서는 ID/PW가 맞아도 최신화가 실패할 수 있습니다. 이때 로그가 `ConnectTimeout`, `Max retries exceeded`, `timed out`이면 인증 문제가 아니라 Cloud 서버에서 S2 API까지 네트워크 연결이 되지 않는 상태입니다. 이 경우 사내망에서 실행 가능한 서버를 쓰거나, 개발팀에 조회 전용 API/스냅샷/허용 IP 정책을 별도로 요청해야 합니다.
 

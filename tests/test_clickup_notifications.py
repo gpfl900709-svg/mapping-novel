@@ -23,6 +23,7 @@ class ClickUpNotificationsTest(unittest.TestCase):
                     "api_token": "token-123",
                     "list_id": "901817301594",
                     "assignee_ids": "306885786",
+                    "s2_request_due_date_minutes": "3",
                     "app_url": "https://example.test/app",
                 }
             }
@@ -34,6 +35,7 @@ class ClickUpNotificationsTest(unittest.TestCase):
         self.assertEqual(config.token, "token-123")
         self.assertEqual(config.list_id, "901817301594")
         self.assertEqual(config.assignee_ids, (306885786,))
+        self.assertEqual(config.due_date_minutes, 3)
         self.assertEqual(config.app_url, "https://example.test/app")
 
     def test_payload_contains_current_s2_state(self) -> None:
@@ -61,6 +63,8 @@ class ClickUpNotificationsTest(unittest.TestCase):
         self.assertEqual(payload["name"], "S2 최신화 요청 - 2026-05-13 10:30")
         self.assertEqual(payload["assignees"], [306885786])
         self.assertTrue(payload["notify_all"])
+        self.assertTrue(payload["due_date_time"])
+        self.assertEqual(payload["due_date"], 1778635920000)
         self.assertIn("현재 S2 기준 행: 124,755", payload["markdown_content"])
         self.assertIn("계약연결 S2 ID: 124,755", payload["markdown_content"])
         self.assertIn("통합계약ID(cntrId) != 0", payload["markdown_content"])
@@ -88,6 +92,9 @@ class ClickUpNotificationsTest(unittest.TestCase):
         self.assertEqual(result.url, "https://app.clickup.com/t/task-1")
         self.assertEqual(session.post_payloads[0]["assignees"], [306885786])
         self.assertTrue(session.post_payloads[0]["notify_all"])
+        self.assertEqual(session.comment_payloads[0]["assignee"], 306885786)
+        self.assertTrue(session.comment_payloads[0]["notify_all"])
+        self.assertIn("모바일 알림", session.comment_payloads[0]["comment_text"])
 
     def test_adapter_failure_section_secrets_are_normalized(self) -> None:
         values = normalize_clickup_secret_values(
@@ -197,6 +204,8 @@ class ClickUpNotificationsTest(unittest.TestCase):
         )
 
         self.assertEqual(result.task_id, "task-1")
+        self.assertEqual(session.comment_payloads[0]["assignee"], 306885786)
+        self.assertIn("모바일 알림", session.comment_payloads[0]["comment_text"])
         self.assertEqual(len(session.attachment_payloads), 2)
         self.assertEqual(session.attachment_payloads[0]["attachment"][0], "failure_report.md")
 
@@ -215,6 +224,7 @@ class FakeResponse:
 class FakeSession:
     def __init__(self) -> None:
         self.post_payloads: list[dict[str, object]] = []
+        self.comment_payloads: list[dict[str, object]] = []
         self.attachment_payloads: list[dict[str, object]] = []
 
     def request(self, method: str, url: str, **kwargs: object) -> FakeResponse:
@@ -225,6 +235,11 @@ class FakeSession:
             assert isinstance(payload, dict)
             self.post_payloads.append(payload)
             return FakeResponse(200, {"id": "task-1", "url": "https://app.clickup.com/t/task-1"})
+        if method == "POST" and "/task/task-1/comment" in url:
+            payload = kwargs["json"]
+            assert isinstance(payload, dict)
+            self.comment_payloads.append(payload)
+            return FakeResponse(200, {"id": f"comment-{len(self.comment_payloads)}"})
         if method == "POST" and "/task/task-1/attachment" in url:
             files = kwargs["files"]
             assert isinstance(files, dict)

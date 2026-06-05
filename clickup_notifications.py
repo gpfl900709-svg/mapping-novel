@@ -10,12 +10,19 @@ import requests
 CLICKUP_API_BASE_URL = "https://api.clickup.com/api/v2"
 CLICKUP_DEFAULT_PRIORITY = 2
 CLICKUP_DEFAULT_TAGS = ("s2-refresh", "mapping-novel")
+CLICKUP_S2_REQUEST_DEFAULT_DUE_DATE_MINUTES = 2
+CLICKUP_S2_REQUEST_ALERT_COMMENT = (
+    "S2 최신화 요청입니다. 모바일 알림 확인용 담당자 지정 댓글입니다."
+)
 CLICKUP_ADAPTER_FAILURE_DEFAULT_LIST_ID = "901818576269"
 CLICKUP_ADAPTER_FAILURE_DEFAULT_PRIORITY = 1
 CLICKUP_ADAPTER_FAILURE_DEFAULT_TAGS = ("adapter-failure", "mapping-novel")
 CLICKUP_ADAPTER_FAILURE_DEFAULT_ASSIGNEE_IDS = (306885786,)
 CLICKUP_ADAPTER_FAILURE_DEFAULT_STATUS = "to do"
 CLICKUP_ADAPTER_FAILURE_DEFAULT_DUE_DATE_MINUTES = 2
+CLICKUP_ADAPTER_FAILURE_ALERT_COMMENT = (
+    "정산서 어댑터 긴급 실패입니다. 모바일 알림 확인용 담당자 지정 댓글입니다."
+)
 KST = timezone(timedelta(hours=9))
 
 
@@ -167,6 +174,13 @@ def normalize_clickup_secret_values(raw_secrets: object) -> dict[str, Any]:
         if priority:
             values["CLICKUP_PRIORITY"] = priority
 
+        s2_request_due_date_minutes = _first_value(
+            source,
+            ("CLICKUP_S2_REQUEST_DUE_DATE_MINUTES", "s2_request_due_date_minutes"),
+        )
+        if s2_request_due_date_minutes:
+            values["CLICKUP_S2_REQUEST_DUE_DATE_MINUTES"] = s2_request_due_date_minutes
+
         app_url = _first_value(source, ("CLICKUP_S2_REQUEST_APP_URL", "CLICKUP_APP_URL", "app_url"))
         if app_url:
             values["CLICKUP_APP_URL"] = app_url
@@ -238,6 +252,12 @@ def build_clickup_config(values: Mapping[str, Any]) -> ClickUpNotificationConfig
         priority = CLICKUP_DEFAULT_PRIORITY
     if priority not in {1, 2, 3, 4}:
         priority = None
+    due_date_minutes = _parse_int(
+        _first_value(values, ("CLICKUP_S2_REQUEST_DUE_DATE_MINUTES", "CLICKUP_DUE_DATE_MINUTES"))
+    )
+    if due_date_minutes is None:
+        due_date_minutes = CLICKUP_S2_REQUEST_DEFAULT_DUE_DATE_MINUTES
+    due_date_minutes = max(0, due_date_minutes)
 
     return ClickUpNotificationConfig(
         token=token,
@@ -250,6 +270,7 @@ def build_clickup_config(values: Mapping[str, Any]) -> ClickUpNotificationConfig
         status=_first_value(values, ("CLICKUP_S2_REQUEST_STATUS", "CLICKUP_STATUS")),
         priority=priority,
         app_url=_first_value(values, ("CLICKUP_S2_REQUEST_APP_URL", "CLICKUP_APP_URL")),
+        due_date_minutes=due_date_minutes,
     )
 
 
@@ -342,6 +363,10 @@ def build_s2_refresh_task_payload(
         payload["priority"] = config.priority
     if assignee_ids:
         payload["assignees"] = list(assignee_ids)
+    if config.due_date_minutes > 0:
+        due_date_at = requested_at.astimezone(KST) + timedelta(minutes=config.due_date_minutes)
+        payload["due_date"] = int(due_date_at.timestamp() * 1000)
+        payload["due_date_time"] = True
     return payload
 
 
@@ -444,6 +469,43 @@ def _request_multipart_json(
     return payload if isinstance(payload, dict) else {}
 
 
+def build_task_alert_comment_payload(comment_text: str, *, assignee_id: int | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "comment_text": comment_text,
+        "notify_all": True,
+    }
+    if assignee_id is not None:
+        payload["assignee"] = assignee_id
+    return payload
+
+
+def create_task_alert_comments(
+    config: ClickUpNotificationConfig,
+    *,
+    task_id: str,
+    assignee_ids: tuple[int, ...],
+    comment_text: str,
+    session: requests.Session,
+) -> tuple[str, ...]:
+    if not task_id:
+        return ()
+    target_assignees = assignee_ids or (None,)
+    comment_ids: list[str] = []
+    for assignee_id in target_assignees:
+        payload = build_task_alert_comment_payload(comment_text, assignee_id=assignee_id)
+        comment = _request_json(
+            session,
+            "POST",
+            f"{config.api_base_url}/task/{task_id}/comment",
+            config=config,
+            json_body=payload,
+        )
+        comment_id = _text(comment.get("id"))
+        if comment_id:
+            comment_ids.append(comment_id)
+    return tuple(comment_ids)
+
+
 def get_authorized_user_id(session: requests.Session, config: ClickUpNotificationConfig) -> int | None:
     payload = _request_json(session, "GET", f"{config.api_base_url}/user", config=config)
     user_id = _parse_int((_as_mapping(payload.get("user"))).get("id"))
@@ -501,6 +563,7 @@ def create_s2_refresh_request_task(
             if "assignees" not in payload:
                 raise
             payload.pop("assignees", None)
+            assignee_ids = ()
             task = _request_json(
                 session,
                 "POST",
@@ -508,7 +571,15 @@ def create_s2_refresh_request_task(
                 config=config,
                 json_body=payload,
             )
-        return ClickUpTaskResult(task_id=_text(task.get("id")), url=_text(task.get("url")))
+        result = ClickUpTaskResult(task_id=_text(task.get("id")), url=_text(task.get("url")))
+        create_task_alert_comments(
+            config,
+            task_id=result.task_id,
+            assignee_ids=assignee_ids,
+            comment_text=CLICKUP_S2_REQUEST_ALERT_COMMENT,
+            session=session,
+        )
+        return result
     finally:
         if owns_session:
             session.close()
@@ -555,6 +626,7 @@ def create_adapter_failure_task(
             if "assignees" not in payload:
                 raise
             payload.pop("assignees", None)
+            assignee_ids = ()
             task = _request_json(
                 session,
                 "POST",
@@ -562,7 +634,15 @@ def create_adapter_failure_task(
                 config=config,
                 json_body=payload,
             )
-        return ClickUpTaskResult(task_id=_text(task.get("id")), url=_text(task.get("url")))
+        result = ClickUpTaskResult(task_id=_text(task.get("id")), url=_text(task.get("url")))
+        create_task_alert_comments(
+            config,
+            task_id=result.task_id,
+            assignee_ids=assignee_ids,
+            comment_text=CLICKUP_ADAPTER_FAILURE_ALERT_COMMENT,
+            session=session,
+        )
+        return result
     finally:
         if owns_session:
             session.close()

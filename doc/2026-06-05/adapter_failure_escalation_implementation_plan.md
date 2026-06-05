@@ -11,7 +11,7 @@
 - 원본 `.xlsx`는 ClickUp Task attachment로만 붙인다.
 - GitHub Issue에는 원본 파일을 붙이지 않고, 실패 사유/헤더 후보/ClickUp 링크/커밋 SHA/파일 해시만 올린다.
 - ClickUp Docs는 실패 원본 보관 위치로 쓰지 않는다. 누적 운영 문서나 월간 회고용이면 나중에 별도 확장한다.
-- 폰 알림은 ClickUp 댓글이 아니라 새 태스크 + assignee `306885786` + due date 현재 시각 + 2분으로 만든다. 댓글 `notify_all=true`는 API 유저 활동이면 모바일 푸시가 씹힐 수 있으므로 보조 수단으로만 본다.
+- 폰 알림은 새 태스크 + assignee `306885786` + due date 현재 시각 + 2분을 기본으로 두고, 생성 직후 담당자 지정 댓글도 추가한다. 태스크 생성 이벤트가 모바일 푸시에서 씹히는 경우 댓글/할당 이벤트로 한 번 더 울리게 한다.
 - 운영 ClickUp은 전용 Folder와 전용 List를 만든다. 앱이 실제로 쓰는 값은 Folder ID가 아니라 그 안의 실패 티켓 List ID다.
 
 ## 조사 근거
@@ -65,6 +65,7 @@
 - priority 높게 설정
 - 담당자 지정: 기본 `306885786`
 - due date: 기본 현재 시각 + 2분, `due_date_time=true`
+- 담당자 지정 댓글: 생성 직후 `notify_all=true`, `assignee=306885786`
 - 태그: `adapter-failure`, `mapping-novel`, `{platform}`, `{s2_sales_channel}`
 - 원본 `.xlsx` 첨부
 - `failure_report.md` 첨부
