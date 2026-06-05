@@ -455,8 +455,35 @@ def run_s2_full_replace() -> tuple[subprocess.CompletedProcess[str], str]:
     return combined, f"{refresh_scope} + 누락/청구/판매채널콘텐츠 보조 기준"
 
 
-def run_s2_direct_refresh_once() -> dict[str, Any]:
+def format_elapsed_seconds(value: object) -> str:
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if seconds < 60:
+        return f"{seconds:.1f}초"
+    minutes = int(seconds // 60)
+    remainder = int(round(seconds % 60))
+    if remainder >= 60:
+        minutes += 1
+        remainder = 0
+    return f"{minutes}분 {remainder:02d}초"
+
+
+def run_s2_direct_refresh_once(
+    progress_callback: Callable[[str, int, float], None] | None = None,
+) -> dict[str, Any]:
     started_at = datetime.now(KST)
+    timer_started = time.perf_counter()
+
+    def elapsed() -> float:
+        return round(time.perf_counter() - timer_started, 1)
+
+    def update_progress(label: str, value: int) -> None:
+        if progress_callback is not None:
+            progress_callback(label, value, elapsed())
+
+    update_progress("로그인 확인 중", 5)
     auth_completed = run_s2_auth_check()
     if auth_completed.returncode != 0:
         return {
@@ -465,10 +492,52 @@ def run_s2_direct_refresh_once() -> dict[str, Any]:
             "refresh_scope": "로그인 확인",
             "started_at": started_at.isoformat(),
             "finished_at": datetime.now(KST).isoformat(),
+            "elapsed_seconds": elapsed(),
             "log": ui_safe_refresh_log(f"{auth_completed.stdout}\n{auth_completed.stderr}")[-5000:],
         }
 
-    completed, refresh_scope = run_s2_full_replace()
+    refresh_scope = f"{S2_REFRESH_START_DATE.isoformat()} ~ {date.today().isoformat()}"
+    update_progress("지급정산 S2 lookup 최신화 중", 20)
+    payment_completed = run_s2_refresh("full-replace")
+    if payment_completed.returncode != 0:
+        finished_at = datetime.now(KST)
+        return {
+            "status": "error",
+            "message": s2_refresh_error_message(payment_completed, refresh_scope),
+            "refresh_scope": refresh_scope,
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
+            "elapsed_seconds": elapsed(),
+            "log": ui_safe_refresh_log(f"{payment_completed.stdout}\n{payment_completed.stderr}")[-5000:],
+        }
+
+    update_progress("누락/청구 guard 최신화 중", 55)
+    guard_completed = run_s2_guard_refresh()
+    guard_scope = f"{refresh_scope} + 누락/청구 guard"
+    if guard_completed.returncode != 0:
+        finished_at = datetime.now(KST)
+        return {
+            "status": "error",
+            "message": s2_refresh_error_message(guard_completed, guard_scope),
+            "refresh_scope": guard_scope,
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
+            "elapsed_seconds": elapsed(),
+            "log": ui_safe_refresh_log(
+                f"{payment_completed.stdout}\n{guard_completed.stdout}\n"
+                f"{payment_completed.stderr}\n{guard_completed.stderr}"
+            )[-5000:],
+        }
+
+    update_progress("판매채널콘텐츠 lookup 최신화 중", 75)
+    service_content_completed = run_s2_service_content_refresh()
+    refresh_scope = f"{refresh_scope} + 누락/청구/판매채널콘텐츠 보조 기준"
+    completed = subprocess.CompletedProcess(
+        args=[payment_completed.args, guard_completed.args, service_content_completed.args],
+        returncode=service_content_completed.returncode,
+        stdout=f"{payment_completed.stdout}\n{guard_completed.stdout}\n{service_content_completed.stdout}",
+        stderr=f"{payment_completed.stderr}\n{guard_completed.stderr}\n{service_content_completed.stderr}",
+    )
     finished_at = datetime.now(KST)
     if completed.returncode != 0:
         return {
@@ -477,16 +546,21 @@ def run_s2_direct_refresh_once() -> dict[str, Any]:
             "refresh_scope": refresh_scope,
             "started_at": started_at.isoformat(),
             "finished_at": finished_at.isoformat(),
+            "elapsed_seconds": elapsed(),
             "log": ui_safe_refresh_log(f"{completed.stdout}\n{completed.stderr}")[-5000:],
         }
 
+    update_progress("최신화 결과 반영 중", 95)
     metrics = cache_metrics(S2_SOURCE_LOOKUP)
+    total_elapsed = elapsed()
+    update_progress("완료", 100)
     return {
         "status": "success",
         "message": "S2 기준을 최신화했습니다.",
         "refresh_scope": refresh_scope,
         "started_at": started_at.isoformat(),
         "finished_at": finished_at.isoformat(),
+        "elapsed_seconds": total_elapsed,
         "s2_rows": metrics["rows"],
         "s2_id_rows": metrics["contract_linked_rows"],
         "log": ui_safe_refresh_log(f"{completed.stdout}\n{completed.stderr}")[-5000:],
@@ -2486,42 +2560,39 @@ def render_s2_direct_refresh_panel(*, direct_config: object, has_credentials: bo
 
     provided_token = ""
     result_state = st.session_state.get(S2_DIRECT_REFRESH_RESULT_STATE_KEY)
-    with st.expander("관리자 직접 S2 최신화", expanded=isinstance(result_state, dict) and bool(result_state)):
-        if isinstance(result_state, dict) and result_state:
-            if result_state.get("status") == "success":
-                st.success(
-                    f"{result_state.get('message', 'S2 기준을 최신화했습니다.')} "
-                    f"({format_update_timestamp(result_state.get('finished_at'))})"
-                )
-                st.caption(
-                    f"S2 기준 행 {safe_int(result_state.get('s2_rows')):,} / "
-                    f"계약연결 S2 ID {safe_int(result_state.get('s2_id_rows')):,}"
-                )
-            else:
-                st.error(text(result_state.get("message")) or "S2 최신화에 실패했습니다.")
-            if text(result_state.get("refresh_scope")):
-                st.caption(f"범위: {result_state.get('refresh_scope')}")
-            if text(result_state.get("log")):
-                with st.expander("실행 로그", expanded=False):
-                    st.code(text(result_state.get("log"))[-5000:])
-
-        if not has_credentials:
-            st.warning("S2 ID/PW 또는 access token이 없어 직접 최신화를 실행할 수 없습니다.")
-        if not getattr(direct_config, "token_ready", False):
-            st.warning("직접 최신화가 켜져 있지만 관리자 토큰이 설정되지 않았습니다.")
-
-        if getattr(direct_config, "require_token", True):
-            provided_token = st.text_input(
-                "관리자 실행 키",
-                type="password",
-                key=S2_DIRECT_REFRESH_ADMIN_TOKEN_INPUT_KEY,
-                help="Streamlit secrets 또는 env의 S2_DIRECT_REFRESH_TOKEN 값과 일치해야 실행됩니다.",
+    if isinstance(result_state, dict) and result_state:
+        elapsed_label = format_elapsed_seconds(result_state.get("elapsed_seconds"))
+        if result_state.get("status") == "success":
+            message = f"{result_state.get('message', 'S2 기준을 최신화했습니다.')}"
+            if elapsed_label:
+                message = f"{message} ({elapsed_label})"
+            st.success(message)
+            st.caption(
+                f"S2 기준 행 {safe_int(result_state.get('s2_rows')):,} / "
+                f"계약연결 S2 ID {safe_int(result_state.get('s2_id_rows')):,} / "
+                f"완료 {format_update_timestamp(result_state.get('finished_at'))}"
             )
-
-        if has_credentials and getattr(direct_config, "token_ready", False):
-            st.caption("아래 `S2 최신화` 버튼이 직접 최신화를 실행합니다.")
         else:
-            st.caption("직접 실행 조건이 맞지 않으면 아래 버튼은 비활성화됩니다.")
+            st.error(text(result_state.get("message")) or "S2 최신화에 실패했습니다.")
+            if elapsed_label:
+                st.caption(f"실패까지 경과 {elapsed_label}")
+
+        if text(result_state.get("log")):
+            with st.expander("실행 로그", expanded=False):
+                st.code(text(result_state.get("log"))[-5000:])
+
+    if not has_credentials:
+        st.warning("S2 ID/PW 또는 access token이 없어 직접 최신화를 실행할 수 없습니다.")
+    if not getattr(direct_config, "token_ready", False):
+        st.warning("직접 최신화가 켜져 있지만 관리자 토큰이 설정되지 않았습니다.")
+
+    if getattr(direct_config, "require_token", True):
+        provided_token = st.text_input(
+            "관리자 실행 키",
+            type="password",
+            key=S2_DIRECT_REFRESH_ADMIN_TOKEN_INPUT_KEY,
+            help="Streamlit secrets 또는 env의 S2_DIRECT_REFRESH_TOKEN 값과 일치해야 실행됩니다.",
+        )
     return provided_token
 
 
@@ -2657,8 +2728,16 @@ with st.sidebar:
     )
     if request_clicked:
         if direct_refresh_enabled:
-            with st.spinner("S2 기준 전체 최신화 실행 중..."):
-                st.session_state[S2_DIRECT_REFRESH_RESULT_STATE_KEY] = run_s2_direct_refresh_once()
+            progress_bar = st.progress(0)
+            progress_text = st.empty()
+
+            def direct_refresh_progress(label: str, progress_value: int, elapsed_seconds: float) -> None:
+                bounded_value = max(0, min(100, int(progress_value)))
+                progress_bar.progress(bounded_value)
+                elapsed_label = format_elapsed_seconds(elapsed_seconds)
+                progress_text.caption(f"{label} · 경과 {elapsed_label}")
+
+            st.session_state[S2_DIRECT_REFRESH_RESULT_STATE_KEY] = run_s2_direct_refresh_once(direct_refresh_progress)
             st.rerun()
         else:
             try:

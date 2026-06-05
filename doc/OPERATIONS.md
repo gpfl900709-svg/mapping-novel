@@ -32,6 +32,8 @@ S2 API 접속 정보는 기본적으로 Streamlit Cloud Secrets에 넣지 않습
 - `S2_DIRECT_REFRESH_ENABLED=true`이고 S2 인증값과 관리자 실행 키가 준비된 관리자 환경: 버튼이 실제 S2 최신화를 실행합니다.
 - 직접 최신화가 꺼진 일반 Cloud 환경: 버튼이 ClickUp 태스크를 생성합니다. 사용자는 로그인 없이 버튼만 누르고, 관리자는 ClickUp 모바일 알림으로 요청을 받습니다.
 
+직접 최신화는 보통 1~2분 정도 걸립니다. 실행 중에는 로그인 확인, 지급정산 lookup, 누락/청구 guard, 판매채널콘텐츠 lookup 단계와 경과시간을 진행바로 표시합니다.
+
 ClickUp 요청 모드의 Streamlit Cloud Secrets에는 아래 값만 넣습니다.
 
 ```toml
