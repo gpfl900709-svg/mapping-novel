@@ -30,7 +30,7 @@
 공식 API 기준:
 
 - ClickUp 태스크 생성: `POST /api/v2/list/{list_id}/task`, body에 `name`, `assignees`, `tags`, `priority`, `notify_all`, `markdown_content` 사용 가능.
-- ClickUp 태스크 첨부: `POST /api/v2/task/{task_id}/attachment`, `multipart/form-data`, `attachment[]` 파일 업로드. 공식 문서상 최대 파일 크기 1GB, 파일 타입 제한 없음.
+- ClickUp 태스크 첨부: `POST /api/v2/task/{task_id}/attachment`, `multipart/form-data`, `attachment` 파일 업로드. 공식 문서상 최대 파일 크기 1GB, 파일 타입 제한 없음.
 - GitHub Issue 생성: `POST /repos/{owner}/{repo}/issues`, fine-grained token은 Issues write 권한 필요.
 
 참조:
@@ -288,7 +288,7 @@ create_adapter_failure_task_with_attachments(
 테스트:
 
 - 태스크 payload에 `notify_all`, `priority`, `assignees`, `tags` 포함
-- multipart 요청이 `attachment[0]` 또는 `attachment` 형식으로 전송되는지 확인
+- multipart 요청이 `attachment` 필드명으로 전송되는지 확인
 - 원본 첨부 flag off면 `.xlsx` 미첨부
 - ClickUp 첨부 실패 시 사용자에게 ClickUp task URL과 실패 상세 표시
 

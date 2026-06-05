@@ -403,7 +403,7 @@ def _request_multipart_json(
 ) -> dict[str, Any]:
     headers = {"Authorization": config.token, "Accept": "application/json"}
     files = {
-        "attachment[0]": (
+        "attachment": (
             attachment.filename,
             attachment.content,
             attachment.content_type,

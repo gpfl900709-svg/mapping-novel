@@ -168,7 +168,7 @@ class ClickUpNotificationsTest(unittest.TestCase):
 
         self.assertEqual(result.task_id, "task-1")
         self.assertEqual(len(session.attachment_payloads), 2)
-        self.assertEqual(session.attachment_payloads[0]["attachment[0]"][0], "failure_report.md")
+        self.assertEqual(session.attachment_payloads[0]["attachment"][0], "failure_report.md")
 
 
 class FakeResponse:
