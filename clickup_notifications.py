@@ -10,6 +10,9 @@ import requests
 CLICKUP_API_BASE_URL = "https://api.clickup.com/api/v2"
 CLICKUP_DEFAULT_PRIORITY = 2
 CLICKUP_DEFAULT_TAGS = ("s2-refresh", "mapping-novel")
+CLICKUP_ADAPTER_FAILURE_DEFAULT_LIST_ID = "901818576269"
+CLICKUP_ADAPTER_FAILURE_DEFAULT_PRIORITY = 1
+CLICKUP_ADAPTER_FAILURE_DEFAULT_TAGS = ("adapter-failure", "mapping-novel")
 KST = timezone(timedelta(hours=9))
 
 
@@ -27,6 +30,8 @@ class ClickUpNotificationConfig:
     status: str = ""
     priority: int | None = CLICKUP_DEFAULT_PRIORITY
     app_url: str = ""
+    tags: tuple[str, ...] = CLICKUP_DEFAULT_TAGS
+    attach_original: bool = False
     timeout_seconds: int = 15
 
     @property
@@ -38,6 +43,13 @@ class ClickUpNotificationConfig:
 class ClickUpTaskResult:
     task_id: str
     url: str
+
+
+@dataclass(frozen=True)
+class ClickUpAttachment:
+    filename: str
+    content: bytes
+    content_type: str = "application/octet-stream"
 
 
 def _text(value: object) -> str:
@@ -84,6 +96,14 @@ def _parse_int_tuple(value: object) -> tuple[int, ...]:
     else:
         parsed = [_parse_int(part) for part in _text(value).replace(";", ",").split(",")]
     return tuple(item for item in parsed if item is not None)
+
+
+def _parse_text_tuple(value: object) -> tuple[str, ...]:
+    if isinstance(value, (list, tuple, set)):
+        parts = [text for text in (_text(item) for item in value) if text]
+    else:
+        parts = [part.strip() for part in _text(value).replace(";", ",").split(",") if part.strip()]
+    return tuple(parts)
 
 
 def normalize_clickup_secret_values(raw_secrets: object) -> dict[str, Any]:
@@ -147,6 +167,48 @@ def normalize_clickup_secret_values(raw_secrets: object) -> dict[str, Any]:
         if app_url:
             values["CLICKUP_APP_URL"] = app_url
 
+        adapter_failure_list_id = _first_value(
+            source,
+            (
+                "CLICKUP_ADAPTER_FAILURE_LIST_ID",
+                "adapter_failure_list_id",
+            ),
+        )
+        if adapter_failure_list_id:
+            values["CLICKUP_ADAPTER_FAILURE_LIST_ID"] = adapter_failure_list_id
+
+        adapter_failure_assignee_ids = source.get("CLICKUP_ADAPTER_FAILURE_ASSIGNEE_IDS")
+        if adapter_failure_assignee_ids is None:
+            adapter_failure_assignee_ids = source.get("adapter_failure_assignee_ids")
+        if adapter_failure_assignee_ids:
+            values["CLICKUP_ADAPTER_FAILURE_ASSIGNEE_IDS"] = adapter_failure_assignee_ids
+
+        adapter_failure_status = _first_value(
+            source,
+            ("CLICKUP_ADAPTER_FAILURE_STATUS", "adapter_failure_status"),
+        )
+        if adapter_failure_status:
+            values["CLICKUP_ADAPTER_FAILURE_STATUS"] = adapter_failure_status
+
+        adapter_failure_priority = _first_value(
+            source,
+            ("CLICKUP_ADAPTER_FAILURE_PRIORITY", "adapter_failure_priority"),
+        )
+        if adapter_failure_priority:
+            values["CLICKUP_ADAPTER_FAILURE_PRIORITY"] = adapter_failure_priority
+
+        adapter_failure_attach_original = source.get("CLICKUP_ADAPTER_FAILURE_ATTACH_ORIGINAL")
+        if adapter_failure_attach_original is None:
+            adapter_failure_attach_original = source.get("adapter_failure_attach_original")
+        if adapter_failure_attach_original is not None:
+            values["CLICKUP_ADAPTER_FAILURE_ATTACH_ORIGINAL"] = adapter_failure_attach_original
+
+        adapter_failure_tags = source.get("CLICKUP_ADAPTER_FAILURE_TAGS")
+        if adapter_failure_tags is None:
+            adapter_failure_tags = source.get("adapter_failure_tags")
+        if adapter_failure_tags:
+            values["CLICKUP_ADAPTER_FAILURE_TAGS"] = adapter_failure_tags
+
         auto_assign_self = source.get("CLICKUP_AUTO_ASSIGN_SELF")
         if auto_assign_self is None:
             auto_assign_self = source.get("auto_assign_self")
@@ -177,6 +239,39 @@ def build_clickup_config(values: Mapping[str, Any]) -> ClickUpNotificationConfig
         status=_first_value(values, ("CLICKUP_S2_REQUEST_STATUS", "CLICKUP_STATUS")),
         priority=priority,
         app_url=_first_value(values, ("CLICKUP_S2_REQUEST_APP_URL", "CLICKUP_APP_URL")),
+    )
+
+
+def build_adapter_failure_clickup_config(values: Mapping[str, Any]) -> ClickUpNotificationConfig:
+    token = _first_value(
+        values,
+        ("CLICKUP_ADAPTER_FAILURE_TOKEN", "CLICKUP_API_TOKEN", "CLICKUP_TOKEN"),
+    )
+    list_id = _first_value(
+        values,
+        ("CLICKUP_ADAPTER_FAILURE_LIST_ID", "CLICKUP_LIST_ID"),
+    ) or CLICKUP_ADAPTER_FAILURE_DEFAULT_LIST_ID
+    api_base_url = _first_value(values, ("CLICKUP_API_BASE_URL",)) or CLICKUP_API_BASE_URL
+    priority = _parse_int(_first_value(values, ("CLICKUP_ADAPTER_FAILURE_PRIORITY", "CLICKUP_PRIORITY")))
+    if priority is None:
+        priority = CLICKUP_ADAPTER_FAILURE_DEFAULT_PRIORITY
+    if priority not in {1, 2, 3, 4}:
+        priority = None
+    tags = _parse_text_tuple(values.get("CLICKUP_ADAPTER_FAILURE_TAGS")) or CLICKUP_ADAPTER_FAILURE_DEFAULT_TAGS
+
+    return ClickUpNotificationConfig(
+        token=token,
+        list_id=list_id,
+        api_base_url=api_base_url.rstrip("/"),
+        assignee_ids=_parse_int_tuple(
+            values.get("CLICKUP_ADAPTER_FAILURE_ASSIGNEE_IDS") or values.get("CLICKUP_ASSIGNEE_IDS")
+        ),
+        auto_assign_self=_parse_bool(values.get("CLICKUP_AUTO_ASSIGN_SELF"), default=True),
+        status=_first_value(values, ("CLICKUP_ADAPTER_FAILURE_STATUS", "CLICKUP_STATUS")),
+        priority=priority,
+        app_url=_first_value(values, ("CLICKUP_ADAPTER_FAILURE_APP_URL", "CLICKUP_APP_URL")),
+        tags=tags,
+        attach_original=_parse_bool(values.get("CLICKUP_ADAPTER_FAILURE_ATTACH_ORIGINAL"), default=False),
     )
 
 
@@ -227,6 +322,59 @@ def build_s2_refresh_task_payload(
     return payload
 
 
+def build_adapter_failure_task_payload(
+    *,
+    config: ClickUpNotificationConfig,
+    failure_payload: Mapping[str, Any],
+    requested_at: datetime | None = None,
+    assignee_ids: tuple[int, ...] = (),
+    github_issue_url: str = "",
+) -> dict[str, Any]:
+    requested_at = requested_at or datetime.now(KST)
+    requested_label = requested_at.astimezone(KST).strftime("%Y-%m-%d %H:%M:%S")
+    platform = _text(failure_payload.get("effective_platform")) or "플랫폼 확인 필요"
+    channel = _text(failure_payload.get("detected_s2_channel")) or _text(failure_payload.get("selected_s2_channel"))
+    channel = channel or "판매채널 확인 필요"
+    source_name = _text(failure_payload.get("source_name")) or "uploaded.xlsx"
+    failure_category = _text(failure_payload.get("failure_category")) or "unexpected_exception"
+    app_url_line = f"\n- 앱: {config.app_url}" if config.app_url else ""
+    github_line = f"\n- GitHub Issue: {github_issue_url}" if github_issue_url else ""
+
+    markdown_content = (
+        "## 정산서 어댑터 실패\n\n"
+        f"- 요청 시각: {requested_label}\n"
+        f"- 실패 분류: `{failure_category}`\n"
+        f"- 실패 사유: {_text(failure_payload.get('failure_reason')) or '확인 필요'}\n"
+        f"- 파일명: `{source_name}`\n"
+        f"- 판매채널: {channel}\n"
+        f"- 플랫폼: {platform}\n"
+        f"- 파일 SHA-256: `{_text(failure_payload.get('source_sha256'))}`\n"
+        f"- 앱 커밋: `{_text(failure_payload.get('app_commit_sha')) or 'unknown'}`"
+        f"{app_url_line}"
+        f"{github_line}\n\n"
+        "첨부된 `failure_report.md`, `failure_payload.json`, 원본 정산서 xlsx를 기준으로 어댑터를 수정합니다."
+    )
+
+    payload: dict[str, Any] = {
+        "name": f"[긴급][정산서 어댑터 실패] {channel} / {source_name}",
+        "markdown_content": markdown_content,
+        "notify_all": True,
+        "tags": list(config.tags or CLICKUP_ADAPTER_FAILURE_DEFAULT_TAGS),
+    }
+    platform_tag = platform.strip()
+    if platform_tag and platform_tag not in payload["tags"]:
+        payload["tags"].append(platform_tag)
+    if channel and channel not in payload["tags"]:
+        payload["tags"].append(channel)
+    if config.status:
+        payload["status"] = config.status
+    if config.priority is not None:
+        payload["priority"] = config.priority
+    if assignee_ids:
+        payload["assignees"] = list(assignee_ids)
+    return payload
+
+
 def _request_json(
     session: requests.Session,
     method: str,
@@ -239,6 +387,29 @@ def _request_json(
     if json_body is not None:
         headers["Content-Type"] = "application/json"
     response = session.request(method, url, headers=headers, json=json_body, timeout=config.timeout_seconds)
+    if response.status_code >= 400:
+        detail = response.text[:500] if response.text else response.reason
+        raise ClickUpNotificationError(f"ClickUp API 오류 {response.status_code}: {detail}")
+    payload = response.json()
+    return payload if isinstance(payload, dict) else {}
+
+
+def _request_multipart_json(
+    session: requests.Session,
+    url: str,
+    *,
+    config: ClickUpNotificationConfig,
+    attachment: ClickUpAttachment,
+) -> dict[str, Any]:
+    headers = {"Authorization": config.token, "Accept": "application/json"}
+    files = {
+        "attachment[0]": (
+            attachment.filename,
+            attachment.content,
+            attachment.content_type,
+        )
+    }
+    response = session.request("POST", url, headers=headers, files=files, timeout=config.timeout_seconds)
     if response.status_code >= 400:
         detail = response.text[:500] if response.text else response.reason
         raise ClickUpNotificationError(f"ClickUp API 오류 {response.status_code}: {detail}")
@@ -311,6 +482,113 @@ def create_s2_refresh_request_task(
                 json_body=payload,
             )
         return ClickUpTaskResult(task_id=_text(task.get("id")), url=_text(task.get("url")))
+    finally:
+        if owns_session:
+            session.close()
+
+
+def create_adapter_failure_task(
+    config: ClickUpNotificationConfig,
+    *,
+    failure_payload: Mapping[str, Any],
+    requested_at: datetime | None = None,
+    github_issue_url: str = "",
+    session: requests.Session | None = None,
+) -> ClickUpTaskResult:
+    if not config.is_configured:
+        raise ClickUpNotificationError("ClickUp 어댑터 실패 큐 설정이 없습니다.")
+
+    owns_session = session is None
+    session = session or requests.Session()
+    try:
+        assignee_ids = config.assignee_ids
+        if not assignee_ids and config.auto_assign_self:
+            try:
+                user_id = get_authorized_user_id(session, config)
+                assignee_ids = (user_id,) if user_id is not None else ()
+            except ClickUpNotificationError:
+                assignee_ids = ()
+
+        payload = build_adapter_failure_task_payload(
+            config=config,
+            failure_payload=failure_payload,
+            requested_at=requested_at,
+            assignee_ids=assignee_ids,
+            github_issue_url=github_issue_url,
+        )
+        try:
+            task = _request_json(
+                session,
+                "POST",
+                f"{config.api_base_url}/list/{config.list_id}/task",
+                config=config,
+                json_body=payload,
+            )
+        except ClickUpNotificationError:
+            if "assignees" not in payload:
+                raise
+            payload.pop("assignees", None)
+            task = _request_json(
+                session,
+                "POST",
+                f"{config.api_base_url}/list/{config.list_id}/task",
+                config=config,
+                json_body=payload,
+            )
+        return ClickUpTaskResult(task_id=_text(task.get("id")), url=_text(task.get("url")))
+    finally:
+        if owns_session:
+            session.close()
+
+
+def upload_task_attachment(
+    config: ClickUpNotificationConfig,
+    *,
+    task_id: str,
+    attachment: ClickUpAttachment,
+    session: requests.Session | None = None,
+) -> None:
+    if not config.is_configured:
+        raise ClickUpNotificationError("ClickUp 어댑터 실패 큐 설정이 없습니다.")
+    if not task_id:
+        raise ClickUpNotificationError("ClickUp task id가 없어 첨부할 수 없습니다.")
+
+    owns_session = session is None
+    session = session or requests.Session()
+    try:
+        _request_multipart_json(
+            session,
+            f"{config.api_base_url}/task/{task_id}/attachment",
+            config=config,
+            attachment=attachment,
+        )
+    finally:
+        if owns_session:
+            session.close()
+
+
+def create_adapter_failure_task_with_attachments(
+    config: ClickUpNotificationConfig,
+    *,
+    failure_payload: Mapping[str, Any],
+    attachments: tuple[ClickUpAttachment, ...],
+    requested_at: datetime | None = None,
+    github_issue_url: str = "",
+    session: requests.Session | None = None,
+) -> ClickUpTaskResult:
+    owns_session = session is None
+    session = session or requests.Session()
+    try:
+        result = create_adapter_failure_task(
+            config,
+            failure_payload=failure_payload,
+            requested_at=requested_at,
+            github_issue_url=github_issue_url,
+            session=session,
+        )
+        for attachment in attachments:
+            upload_task_attachment(config, task_id=result.task_id, attachment=attachment, session=session)
+        return result
     finally:
         if owns_session:
             session.close()

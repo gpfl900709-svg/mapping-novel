@@ -21,11 +21,29 @@ from batch_reports import (
     build_pd_work_order_report_frame,
     build_pd_work_order_report_frame_from_combined,
 )
+from adapter_failure_diagnostics import (
+    build_adapter_failure_payload,
+    default_failure_artifact_stem,
+    payload_json_bytes,
+    read_uploaded_file_bytes,
+    render_failure_report_markdown,
+    sha256_hex,
+)
 from clickup_notifications import (
+    ClickUpAttachment,
     ClickUpNotificationError,
+    build_adapter_failure_clickup_config,
     build_clickup_config,
+    create_adapter_failure_task,
     create_s2_refresh_request_task,
     normalize_clickup_secret_values,
+    upload_task_attachment,
+)
+from github_notifications import (
+    GitHubNotificationError,
+    build_github_issue_config,
+    create_adapter_failure_issue,
+    normalize_github_secret_values,
 )
 from kiss_refresh_history import latest_refresh_runs, latest_s2_refresh_changes
 from kiss_payment_settlement import load_payment_settlement_list, summarize_payment_settlement, to_s2_lookup
@@ -98,6 +116,8 @@ S2_REFRESH_STALE_AFTER_HOURS = 12
 S2_GUARD_SUMMARY_NAME = "s2_reference_guards_refresh_summary.json"
 S2_SERVICE_CONTENT_SUMMARY_NAME = "s2_sales_channel_contents_refresh_summary.json"
 STREAMLIT_CLOUD_APP_URL = "https://mapping-novel-ascmdzm897irzyvzwn9kqo.streamlit.app/"
+ADAPTER_FAILURE_CLICKUP_LIST_ID = "901818576269"
+GITHUB_ADAPTER_FAILURE_REPO = "macximin/mapping-novel"
 KST = timezone(timedelta(hours=9))
 AUTO_PLATFORM_OPTION = "엑셀 파일명으로 자동감지"
 S2_SESSION_USERNAME_KEY = "s2_session_username"
@@ -108,6 +128,7 @@ S2_ID_MEMORY_CLEAR_COUNTER_KEY = "s2_id_memory_clear_counter"
 S2_ID_MEMORY_STORAGE_KEY = "mapping_novel_s2_id"
 SETTLEMENT_UPLOAD_RESET_COUNTER_KEY = "settlement_upload_reset_counter"
 MAPPING_RESULT_STATE_KEY = "mapping_result_state"
+ADAPTER_FAILURE_REQUEST_STATE_KEY = "adapter_failure_request_state"
 S2_CHANNEL_SCHEMA_EXAMPLES = (
     "네이버_장르(광고수익)",
     "네이버_장르",
@@ -192,6 +213,13 @@ def streamlit_clickup_secret_values() -> dict[str, Any]:
         return {}
 
 
+def streamlit_github_secret_values() -> dict[str, Any]:
+    try:
+        return normalize_github_secret_values(st.secrets)
+    except (FileNotFoundError, KeyError, RuntimeError):
+        return {}
+
+
 def clickup_notification_config():
     config_values: dict[str, Any] = {}
     config_values.update(read_env_file(S2_ENV_FILE))
@@ -199,6 +227,46 @@ def clickup_notification_config():
     config_values.update(streamlit_clickup_secret_values())
     config_values.setdefault("CLICKUP_APP_URL", STREAMLIT_CLOUD_APP_URL)
     return build_clickup_config(config_values)
+
+
+def adapter_failure_clickup_config():
+    config_values: dict[str, Any] = {}
+    config_values.update(read_env_file(S2_ENV_FILE))
+    config_values.update(dict(os.environ))
+    config_values.update(streamlit_clickup_secret_values())
+    config_values.setdefault("CLICKUP_APP_URL", STREAMLIT_CLOUD_APP_URL)
+    config_values.setdefault("CLICKUP_ADAPTER_FAILURE_LIST_ID", ADAPTER_FAILURE_CLICKUP_LIST_ID)
+    config_values.setdefault("CLICKUP_ADAPTER_FAILURE_ATTACH_ORIGINAL", "true")
+    return build_adapter_failure_clickup_config(config_values)
+
+
+def github_adapter_failure_config():
+    config_values: dict[str, Any] = {}
+    config_values.update(read_env_file(S2_ENV_FILE))
+    config_values.update(dict(os.environ))
+    config_values.update(streamlit_github_secret_values())
+    config_values.setdefault("GITHUB_ADAPTER_FAILURE_REPO", GITHUB_ADAPTER_FAILURE_REPO)
+    return build_github_issue_config(config_values)
+
+
+def current_app_commit_sha() -> str:
+    for key in ("GIT_COMMIT_SHA", "STREAMLIT_GIT_COMMIT", "SOURCE_VERSION"):
+        value = text(os.environ.get(key))
+        if value:
+            return value[:12]
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            timeout=5,
+        )
+        if completed.returncode == 0:
+            return text(completed.stdout)
+    except Exception:
+        return ""
+    return ""
 
 
 def session_s2_login_values() -> dict[str, str]:
@@ -950,6 +1018,9 @@ def build_mapping_session_state(
 ) -> dict[str, Any]:
     stage_seconds: dict[str, float] = {}
     results = ordered_mapping_results(results)
+    for result in results:
+        if text(result.get("status")) == "success":
+            result.pop("_source_bytes", None)
     stage_started = time.perf_counter()
     summary_frame = batch_summary_frame(results)
     stage_seconds["summary_frame_seconds"] = round(time.perf_counter() - stage_started, 3)
@@ -987,6 +1058,7 @@ def build_mapping_session_state(
         "s2_rows": len(s2_df),
         "s2_id_rows": s2_id_nonblank_count(s2_df),
         "payment_summary": payment_summary,
+        "results": results,
         "summary_frame": summary_frame,
         "work_order_csv_bytes": work_order_csv_bytes,
         "combined_csv_bytes": combined_csv_bytes,
@@ -1029,7 +1101,8 @@ def mapping_failed_result(
     source_name = text(getattr(settlement_file, "name", "")) or text(settlement_file) or "uploaded.xlsx"
     s2_channel = s2_channel_for_file(settlement_file, selected_s2_channel)
     effective_platform = effective_platform_for_file(settlement_file, selected_s2_channel)
-    return {
+    source_payload = read_uploaded_file_bytes(settlement_file)
+    result = {
         "source_name": source_name,
         "output_stem": output_stem,
         "platform": effective_platform,
@@ -1048,6 +1121,11 @@ def mapping_failed_result(
         "elapsed_seconds": "",
         "stage_seconds": {},
     }
+    if source_payload:
+        result["source_size"] = len(source_payload)
+        result["source_sha256"] = sha256_hex(source_payload)
+        result["_source_bytes"] = source_payload
+    return result
 
 
 def safe_progress_callback(progress_callback: Callable[[str], None] | None, stage: str) -> None:
@@ -1100,6 +1178,11 @@ def process_settlement_batch_item(
         "elapsed_seconds": "",
         "stage_seconds": stage_seconds,
     }
+    source_payload = read_uploaded_file_bytes(settlement_file)
+    if source_payload:
+        result["source_size"] = len(source_payload)
+        result["source_sha256"] = sha256_hex(source_payload)
+        result["_source_bytes"] = source_payload
 
     def record_stage(name: str, started: float) -> None:
         stage_seconds[name] = round(time.perf_counter() - started, 3)
@@ -1534,6 +1617,184 @@ def build_batch_zip(
                 error_text = text(result.get("error")) or "처리하지 못했습니다."
                 write_zip_bytes(archive, used_names, f"{output_stem}_오류.txt", error_text.encode("utf-8"))
     return buffer.getvalue()
+
+
+def adapter_failure_attachments(
+    *,
+    payload: dict[str, object],
+    source_bytes: bytes,
+    attach_original: bool,
+) -> tuple[ClickUpAttachment, ...]:
+    stem = default_failure_artifact_stem(payload)
+    attachments = [
+        ClickUpAttachment(
+            filename=f"{stem}_failure_report.md",
+            content=render_failure_report_markdown(payload).encode("utf-8"),
+            content_type="text/markdown; charset=utf-8",
+        ),
+        ClickUpAttachment(
+            filename=f"{stem}_failure_payload.json",
+            content=payload_json_bytes(payload),
+            content_type="application/json; charset=utf-8",
+        ),
+    ]
+    source_name = text(payload.get("source_name")) or "uploaded.xlsx"
+    if attach_original and source_bytes:
+        attachments.append(
+            ClickUpAttachment(
+                filename=f"source_{source_name}",
+                content=source_bytes,
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        )
+    return tuple(attachments)
+
+
+def render_adapter_failure_request_panel(mapping_state: dict[str, Any], selected_s2_channel: str) -> None:
+    results = [
+        result
+        for result in mapping_state.get("results", [])
+        if text(result.get("status")) in {"blocked", "failed"}
+    ]
+    if not results:
+        return
+
+    clickup_config = adapter_failure_clickup_config()
+    github_config = github_adapter_failure_config()
+    request_state = st.session_state.setdefault(ADAPTER_FAILURE_REQUEST_STATE_KEY, {})
+    if not isinstance(request_state, dict):
+        request_state = {}
+        st.session_state[ADAPTER_FAILURE_REQUEST_STATE_KEY] = request_state
+
+    st.subheader("어댑터 실패 요청")
+    st.caption("실패/차단된 정산서만 전용 ClickUp 큐로 보냅니다. GitHub Issue는 설정이 있을 때만 같이 생성합니다.")
+    if not clickup_config.is_configured:
+        st.warning("ClickUp 어댑터 실패 큐 설정이 없습니다. 진단 리포트는 다운로드할 수 있습니다.")
+    elif not github_config.is_configured:
+        st.caption("GitHub Issue 설정이 없어 ClickUp 태스크와 첨부만 생성합니다.")
+
+    app_commit_sha = current_app_commit_sha()
+    for index, result in enumerate(results):
+        source_bytes = result.get("_source_bytes") or b""
+        if not isinstance(source_bytes, bytes):
+            source_bytes = b""
+        payload = build_adapter_failure_payload(
+            result=result,
+            source_bytes=source_bytes,
+            selected_s2_channel=selected_s2_channel,
+            app_commit_sha=app_commit_sha,
+            app_version="streamlit-mapping-novel",
+            app_url=STREAMLIT_CLOUD_APP_URL,
+        )
+        event_id = text(payload.get("event_id")) or f"adapter-failure-{index}"
+        existing = request_state.get(event_id, {})
+        if not isinstance(existing, dict):
+            existing = {}
+        title = f"{text(payload.get('source_name'))} · {text(payload.get('failure_category'))}"
+        with st.expander(title, expanded=False):
+            st.write(text(payload.get("failure_reason")) or "실패 사유 확인 필요")
+            summary_cols = st.columns(4)
+            summary_cols[0].metric("상태", text(payload.get("status")) or "-")
+            summary_cols[1].metric("플랫폼", text(payload.get("effective_platform")) or "-")
+            summary_cols[2].metric("S2 판매채널", text(payload.get("detected_s2_channel")) or "-")
+            summary_cols[3].metric("파일 크기", f"{safe_int(payload.get('source_size')):,} B")
+
+            download_cols = st.columns(2)
+            report_bytes = render_failure_report_markdown(payload).encode("utf-8")
+            json_bytes = payload_json_bytes(payload)
+            with download_cols[0]:
+                st.download_button(
+                    "진단 리포트 받기",
+                    report_bytes,
+                    file_name=f"{default_failure_artifact_stem(payload)}_failure_report.md",
+                    mime="text/markdown",
+                    key=f"adapter_failure_report_{event_id}",
+                    on_click="ignore",
+                )
+            with download_cols[1]:
+                st.download_button(
+                    "진단 JSON 받기",
+                    json_bytes,
+                    file_name=f"{default_failure_artifact_stem(payload)}_failure_payload.json",
+                    mime="application/json",
+                    key=f"adapter_failure_payload_{event_id}",
+                    on_click="ignore",
+                )
+
+            if existing:
+                st.success("이미 요청을 생성했습니다.")
+                if existing.get("clickup_url"):
+                    st.markdown(f"[ClickUp에서 보기]({existing['clickup_url']})")
+                if existing.get("github_url"):
+                    st.markdown(f"[GitHub Issue 보기]({existing['github_url']})")
+                if existing.get("error"):
+                    st.caption(text(existing.get("error")))
+
+            request_clicked = st.button(
+                "ClickUp 긴급 태스크 생성",
+                key=f"adapter_failure_send_{event_id}",
+                disabled=not clickup_config.is_configured,
+                type="secondary",
+            )
+            if request_clicked:
+                clickup_result = None
+                github_url = ""
+                try:
+                    with st.spinner("ClickUp 태스크와 첨부를 생성하는 중..."):
+                        clickup_result = create_adapter_failure_task(
+                            clickup_config,
+                            failure_payload=payload,
+                        )
+                        payload["clickup_task_id"] = clickup_result.task_id
+                        payload["clickup_task_url"] = clickup_result.url
+
+                        if github_config.is_configured:
+                            try:
+                                github_result = create_adapter_failure_issue(
+                                    github_config,
+                                    failure_payload=payload,
+                                    clickup_url=clickup_result.url,
+                                )
+                                github_url = github_result.url
+                                payload["github_issue_url"] = github_url
+                            except GitHubNotificationError as exc:
+                                payload["github_issue_error"] = str(exc)
+
+                        for attachment in adapter_failure_attachments(
+                            payload=payload,
+                            source_bytes=source_bytes,
+                            attach_original=clickup_config.attach_original,
+                        ):
+                            upload_task_attachment(
+                                clickup_config,
+                                task_id=clickup_result.task_id,
+                                attachment=attachment,
+                            )
+
+                    request_state[event_id] = {
+                        "clickup_url": clickup_result.url,
+                        "github_url": github_url,
+                        "error": text(payload.get("github_issue_error")),
+                    }
+                    st.success("어댑터 실패 요청을 생성했습니다.")
+                    st.markdown(f"[ClickUp에서 보기]({clickup_result.url})")
+                    if github_url:
+                        st.markdown(f"[GitHub Issue 보기]({github_url})")
+                    elif payload.get("github_issue_error"):
+                        st.caption(f"GitHub Issue는 생성하지 못했습니다: {payload['github_issue_error']}")
+                    if clickup_config.attach_original and not source_bytes:
+                        st.caption("원본 xlsx bytes를 찾지 못해 진단 리포트와 JSON만 첨부했습니다.")
+                except ClickUpNotificationError as exc:
+                    request_state[event_id] = {
+                        "clickup_url": getattr(clickup_result, "url", ""),
+                        "github_url": github_url,
+                        "error": str(exc),
+                    }
+                    st.error("ClickUp 요청 생성에 실패했습니다.")
+                    st.caption(str(exc))
+                except Exception as exc:
+                    st.error("어댑터 실패 요청 생성 중 오류가 났습니다.")
+                    render_error_detail(exc)
 
 
 def inject_compact_layout_css() -> None:
@@ -2253,6 +2514,7 @@ batch_cols[1].metric("성공", f"{safe_int(status_counts.get('success')):,}")
 batch_cols[2].metric("차단", f"{safe_int(status_counts.get('blocked')):,}")
 batch_cols[3].metric("실패", f"{safe_int(status_counts.get('failed')):,}")
 st.dataframe(summary_frame, use_container_width=True, height=min(360, 45 + 35 * max(len(summary_frame), 1)))
+render_adapter_failure_request_panel(mapping_state, selected_s2_channel)
 postprocess_stage_seconds = mapping_state.get("postprocess_stage_seconds") or {}
 if postprocess_stage_seconds:
     with st.expander("후처리 시간", expanded=False):

@@ -4,8 +4,12 @@ import unittest
 from datetime import datetime, timezone
 
 from clickup_notifications import (
+    ClickUpAttachment,
+    build_adapter_failure_clickup_config,
+    build_adapter_failure_task_payload,
     build_clickup_config,
     build_s2_refresh_task_payload,
+    create_adapter_failure_task_with_attachments,
     create_s2_refresh_request_task,
     normalize_clickup_secret_values,
 )
@@ -83,6 +87,89 @@ class ClickUpNotificationsTest(unittest.TestCase):
         self.assertEqual(session.post_payloads[0]["assignees"], [306885786])
         self.assertTrue(session.post_payloads[0]["notify_all"])
 
+    def test_adapter_failure_section_secrets_are_normalized(self) -> None:
+        values = normalize_clickup_secret_values(
+            {
+                "clickup": {
+                    "api_token": "token-123",
+                    "adapter_failure_list_id": "901818576269",
+                    "adapter_failure_assignee_ids": "306885786",
+                    "adapter_failure_attach_original": "true",
+                    "adapter_failure_tags": "adapter-failure,mapping-novel,네이버",
+                }
+            }
+        )
+
+        config = build_adapter_failure_clickup_config(values)
+
+        self.assertTrue(config.is_configured)
+        self.assertEqual(config.list_id, "901818576269")
+        self.assertEqual(config.assignee_ids, (306885786,))
+        self.assertTrue(config.attach_original)
+        self.assertIn("adapter-failure", config.tags)
+
+    def test_adapter_failure_payload_uses_dedicated_list_shape(self) -> None:
+        config = build_adapter_failure_clickup_config(
+            {
+                "CLICKUP_API_TOKEN": "token-123",
+                "CLICKUP_ADAPTER_FAILURE_LIST_ID": "901818576269",
+                "CLICKUP_ADAPTER_FAILURE_ASSIGNEE_IDS": "306885786",
+                "CLICKUP_APP_URL": "https://example.test/app",
+            }
+        )
+
+        payload = build_adapter_failure_task_payload(
+            config=config,
+            failure_payload={
+                "source_name": "네이버.xlsx",
+                "effective_platform": "네이버",
+                "detected_s2_channel": "네이버_일반",
+                "failure_category": "header_not_found",
+                "failure_reason": "헤더를 찾지 못했습니다.",
+                "source_sha256": "abc",
+                "app_commit_sha": "def",
+            },
+            requested_at=datetime(2026, 6, 5, 1, 30, tzinfo=timezone.utc),
+            assignee_ids=(306885786,),
+        )
+
+        self.assertEqual(payload["name"], "[긴급][정산서 어댑터 실패] 네이버_일반 / 네이버.xlsx")
+        self.assertEqual(payload["priority"], 1)
+        self.assertEqual(payload["assignees"], [306885786])
+        self.assertIn("adapter-failure", payload["tags"])
+        self.assertIn("네이버_일반", payload["tags"])
+        self.assertIn("header_not_found", payload["markdown_content"])
+
+    def test_create_adapter_failure_task_uploads_attachments(self) -> None:
+        config = build_adapter_failure_clickup_config(
+            {
+                "CLICKUP_API_TOKEN": "token-123",
+                "CLICKUP_ADAPTER_FAILURE_LIST_ID": "901818576269",
+                "CLICKUP_ADAPTER_FAILURE_ASSIGNEE_IDS": "306885786",
+            }
+        )
+        session = FakeSession()
+
+        result = create_adapter_failure_task_with_attachments(
+            config,
+            failure_payload={
+                "source_name": "네이버.xlsx",
+                "effective_platform": "네이버",
+                "detected_s2_channel": "네이버_일반",
+                "failure_category": "header_not_found",
+                "failure_reason": "헤더를 찾지 못했습니다.",
+            },
+            attachments=(
+                ClickUpAttachment("failure_report.md", b"# report", "text/markdown"),
+                ClickUpAttachment("failure_payload.json", b"{}", "application/json"),
+            ),
+            session=session,  # type: ignore[arg-type]
+        )
+
+        self.assertEqual(result.task_id, "task-1")
+        self.assertEqual(len(session.attachment_payloads), 2)
+        self.assertEqual(session.attachment_payloads[0]["attachment[0]"][0], "failure_report.md")
+
 
 class FakeResponse:
     def __init__(self, status_code: int, payload: dict[str, object]) -> None:
@@ -98,15 +185,21 @@ class FakeResponse:
 class FakeSession:
     def __init__(self) -> None:
         self.post_payloads: list[dict[str, object]] = []
+        self.attachment_payloads: list[dict[str, object]] = []
 
     def request(self, method: str, url: str, **kwargs: object) -> FakeResponse:
         if method == "GET" and url.endswith("/user"):
             return FakeResponse(200, {"user": {"id": 306885786}})
-        if method == "POST" and "/list/901817301594/task" in url:
+        if method == "POST" and ("/list/901817301594/task" in url or "/list/901818576269/task" in url):
             payload = kwargs["json"]
             assert isinstance(payload, dict)
             self.post_payloads.append(payload)
             return FakeResponse(200, {"id": "task-1", "url": "https://app.clickup.com/t/task-1"})
+        if method == "POST" and "/task/task-1/attachment" in url:
+            files = kwargs["files"]
+            assert isinstance(files, dict)
+            self.attachment_payloads.append(files)
+            return FakeResponse(200, {"ok": True})
         return FakeResponse(404, {"err": "not found"})
 
 
