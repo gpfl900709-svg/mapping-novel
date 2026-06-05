@@ -350,6 +350,8 @@ def _read_only_workbook_enabled(platform: str) -> bool:
 def _header_fallback_enabled(spec: AdapterSpec) -> bool:
     if spec.blocks_default_feed:
         return False
+    if spec.platform == "네이버":
+        return True
     if spec.parser_contract != "single_header":
         return False
     rule = spec.source_sheet_rule.strip()
@@ -738,7 +740,7 @@ def _standardize(
     out["row_status"] = "data"
     out[STANDARD_TITLE_COLUMN] = title.map(text)
     out["작가명"] = author.map(text)
-    out["외부콘텐츠ID"] = _pick_series(data, spec.external_id_candidates).map(text)
+    out["외부콘텐츠ID"] = _pick_series(data, spec.external_id_candidates).map(_identifier_text)
     out["판매금액_후보"] = _pick_series(data, spec.sale_amount_candidates).map(_number_or_blank)
     out["정산기준액_후보"] = _pick_series(data, spec.settlement_amount_candidates).map(_number_or_blank)
     out["상계금액_후보"] = _offset_amount_series(data, spec).map(_number_or_blank)
@@ -814,6 +816,13 @@ def _pick_series(df: pd.DataFrame, candidates: Iterable[str]) -> pd.Series:
         if column_norm in candidate_norms:
             return df[column]
     return pd.Series([""] * len(df), index=df.index, dtype=object)
+
+
+def _identifier_text(value: Any) -> str:
+    value_text = text(value)
+    if re.fullmatch(r"\d+\.0", value_text):
+        return value_text[:-2]
+    return value_text
 
 
 def _offset_amount_series(df: pd.DataFrame, spec: AdapterSpec) -> pd.Series:

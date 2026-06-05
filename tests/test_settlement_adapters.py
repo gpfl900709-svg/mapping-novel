@@ -84,6 +84,31 @@ class SettlementAdapterRegistryTest(unittest.TestCase):
         self.assertEqual(feed["상품명"].iloc[0], "24/7")
         self.assertEqual(result.rows["정제_상품명"].iloc[0], "24/7")
 
+    def test_naver_uses_header_fallback_when_sheet_name_changes(self) -> None:
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "2026년 5월 네이버 일반 정산상세"
+        sheet.append(["이용권 포함 컨텐츠별 매출 통계"])
+        sheet.append([])
+        sheet.append(["컨텐츠", "컨텐츠No", "공급자코드", "CP명", "작가명", "합계", "마켓수수료(추정치)"])
+        sheet.append([None, None, None, None, None, None, None])
+        sheet.append(["테스트 작품", 113935, "87997", "바로북_일반도서", "테스트 작가", 7200, 0])
+        sheet.append(["합계", None, None, None, None, 7200, 0])
+        payload = io.BytesIO()
+        workbook.save(payload)
+        payload.seek(0)
+
+        result = normalize_settlement(payload, platform="네이버", source_name="2026년 5월 네이버 일반 정산상세.xlsx")
+        feed = result.to_mapping_feed()
+        audit = adapter_audit_dataframe(result)
+
+        self.assertEqual(len(feed), 1)
+        self.assertEqual(feed["상품명"].iloc[0], "테스트 작품")
+        self.assertEqual(feed["외부콘텐츠ID"].iloc[0], "113935")
+        self.assertEqual(feed["판매금액_후보"].iloc[0], 7200)
+        self.assertEqual(adapter_blocking_messages(result), [])
+        self.assertIn("parsed_sheet_rule_fallback", audit["status"].tolist())
+
     def test_hana_areum_summary_rows_are_excluded(self) -> None:
         workbook = Workbook()
         sheet = workbook.active
