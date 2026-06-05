@@ -96,18 +96,9 @@ from s2_reference_guards import (
 )
 from s2_auth import (
     S2_AUTH_ERROR_MESSAGE,
-    S2_AUTH_FAILURE_HINT,
-    S2_NETWORK_FAILURE_HINT,
-    has_s2_credentials,
-    looks_like_s2_auth_failure,
-    looks_like_s2_network_failure,
     normalize_s2_login_values,
     normalize_s2_secret_values,
     read_env_file,
-)
-from s2_direct_refresh import (
-    build_s2_direct_refresh_config,
-    normalize_s2_direct_refresh_secret_values,
 )
 
 
@@ -119,12 +110,8 @@ S2_BILLING_LOOKUP = DATA_DIR / "s2_billing_settlement_lookup.csv"
 S2_SERVICE_CONTENTS_LOOKUP = DATA_DIR / "s2_sales_channel_content_lookup.csv"
 S2_HISTORY_DB = DATA_DIR / "kiss_refresh_history.sqlite"
 S2_BASELINE_SUMMARY_NAME = "kiss_payment_settlement_refresh_summary.json"
-S2_REFRESH_SCRIPT = ROOT / "scripts" / "refresh_kiss_payment_settlement.py"
-S2_GUARD_REFRESH_SCRIPT = ROOT / "scripts" / "refresh_s2_reference_guards.py"
-S2_SERVICE_CONTENT_REFRESH_SCRIPT = ROOT / "scripts" / "refresh_s2_sales_channel_contents.py"
 S2_ENV_FILE = ROOT / ".env"
 S2_REFRESH_START_DATE = date(1900, 1, 1)
-S2_FAST_PAGE_SIZE = "1000000"
 S2_NOVEL_CONTENT_STYLE_CODE = "102"
 S2_PAYMENT_MANAGEMENT_URL = "https://kiss.kld.kr/mst/stmi/pymt-setl"
 S2_DAILY_REFRESH_TIME_LABEL = "매일 12:00, 24:00"
@@ -147,8 +134,6 @@ MAPPING_RESULT_STATE_KEY = "mapping_result_state"
 ADAPTER_FAILURE_REQUEST_STATE_KEY = "adapter_failure_request_state"
 MAPPING_RUN_AUDIT_REQUEST_STATE_KEY = "mapping_run_audit_request_state"
 DEFAULT_MAPPING_RUN_ATTACH_INPUTS = True
-S2_DIRECT_REFRESH_RESULT_STATE_KEY = "s2_direct_refresh_result_state"
-S2_DIRECT_REFRESH_ADMIN_TOKEN_INPUT_KEY = "s2_direct_refresh_admin_token"
 S2_CHANNEL_SCHEMA_EXAMPLES = (
     "네이버_장르(광고수익)",
     "네이버_장르",
@@ -229,13 +214,6 @@ def streamlit_s2_secret_values() -> dict[str, str]:
         return {}
 
 
-def streamlit_s2_direct_refresh_secret_values() -> dict[str, str]:
-    try:
-        return normalize_s2_direct_refresh_secret_values(st.secrets)
-    except (FileNotFoundError, KeyError, RuntimeError):
-        return {}
-
-
 def streamlit_clickup_secret_values() -> dict[str, Any]:
     try:
         return normalize_clickup_secret_values(st.secrets)
@@ -257,14 +235,6 @@ def clickup_notification_config():
     config_values.update(streamlit_clickup_secret_values())
     config_values.setdefault("CLICKUP_APP_URL", STREAMLIT_CLOUD_APP_URL)
     return build_clickup_config(config_values)
-
-
-def s2_direct_refresh_config():
-    config_values: dict[str, Any] = {}
-    config_values.update(read_env_file(S2_ENV_FILE))
-    config_values.update(dict(os.environ))
-    config_values.update(streamlit_s2_direct_refresh_secret_values())
-    return build_s2_direct_refresh_config(config_values)
 
 
 def adapter_failure_clickup_config():
@@ -375,200 +345,6 @@ def s2_runtime_auth_config() -> dict[str, str]:
     return config
 
 
-def s2_refresh_environment() -> dict[str, str]:
-    runtime_env = os.environ.copy()
-    runtime_env.update(streamlit_s2_secret_values())
-    runtime_env.update(session_s2_login_values())
-    return runtime_env
-
-
-def run_s2_refresh(mode: str, start_date: date | None = None, end_date: date | None = None) -> subprocess.CompletedProcess[str]:
-    command = [
-        sys.executable,
-        str(S2_REFRESH_SCRIPT),
-        "--env-file",
-        str(S2_ENV_FILE),
-        "--mode",
-        mode,
-        "--lookup-only",
-        "--page-size",
-        S2_FAST_PAGE_SIZE,
-        "--content-style-code",
-        S2_NOVEL_CONTENT_STYLE_CODE,
-    ]
-    if mode == "custom" and start_date is not None and end_date is not None:
-        command.extend(["--start-date", start_date.isoformat(), "--end-date", end_date.isoformat()])
-    return subprocess.run(command, cwd=ROOT, text=True, capture_output=True, timeout=900, env=s2_refresh_environment())
-
-
-def run_s2_guard_refresh() -> subprocess.CompletedProcess[str]:
-    command = [
-        sys.executable,
-        str(S2_GUARD_REFRESH_SCRIPT),
-        "--env-file",
-        str(S2_ENV_FILE),
-        "--page-size",
-        S2_FAST_PAGE_SIZE,
-        "--content-style-code",
-        S2_NOVEL_CONTENT_STYLE_CODE,
-    ]
-    return subprocess.run(command, cwd=ROOT, text=True, capture_output=True, timeout=300, env=s2_refresh_environment())
-
-
-def run_s2_service_content_refresh() -> subprocess.CompletedProcess[str]:
-    command = [
-        sys.executable,
-        str(S2_SERVICE_CONTENT_REFRESH_SCRIPT),
-        "--env-file",
-        str(S2_ENV_FILE),
-        "--content-style-code",
-        S2_NOVEL_CONTENT_STYLE_CODE,
-    ]
-    return subprocess.run(command, cwd=ROOT, text=True, capture_output=True, timeout=900, env=s2_refresh_environment())
-
-
-def run_s2_auth_check() -> subprocess.CompletedProcess[str]:
-    command = [
-        sys.executable,
-        str(S2_REFRESH_SCRIPT),
-        "--env-file",
-        str(S2_ENV_FILE),
-        "--check-auth-only",
-        "--auth-timeout",
-        "10",
-    ]
-    return subprocess.run(command, cwd=ROOT, text=True, capture_output=True, timeout=30, env=s2_refresh_environment())
-
-
-def run_s2_full_replace() -> tuple[subprocess.CompletedProcess[str], str]:
-    payment_completed = run_s2_refresh("full-replace")
-    refresh_scope = f"{S2_REFRESH_START_DATE.isoformat()} ~ {date.today().isoformat()}"
-    if payment_completed.returncode != 0:
-        return payment_completed, refresh_scope
-
-    guard_completed = run_s2_guard_refresh()
-    service_content_completed = run_s2_service_content_refresh()
-    combined = subprocess.CompletedProcess(
-        args=[payment_completed.args, guard_completed.args, service_content_completed.args],
-        returncode=guard_completed.returncode or service_content_completed.returncode,
-        stdout=f"{payment_completed.stdout}\n{guard_completed.stdout}\n{service_content_completed.stdout}",
-        stderr=f"{payment_completed.stderr}\n{guard_completed.stderr}\n{service_content_completed.stderr}",
-    )
-    return combined, f"{refresh_scope} + 누락/청구/판매채널콘텐츠 보조 기준"
-
-
-def format_elapsed_seconds(value: object) -> str:
-    try:
-        seconds = float(value)
-    except (TypeError, ValueError):
-        return ""
-    if seconds < 60:
-        return f"{seconds:.1f}초"
-    minutes = int(seconds // 60)
-    remainder = int(round(seconds % 60))
-    if remainder >= 60:
-        minutes += 1
-        remainder = 0
-    return f"{minutes}분 {remainder:02d}초"
-
-
-def run_s2_direct_refresh_once(
-    progress_callback: Callable[[str, int, float], None] | None = None,
-) -> dict[str, Any]:
-    started_at = datetime.now(KST)
-    timer_started = time.perf_counter()
-
-    def elapsed() -> float:
-        return round(time.perf_counter() - timer_started, 1)
-
-    def update_progress(label: str, value: int) -> None:
-        if progress_callback is not None:
-            progress_callback(label, value, elapsed())
-
-    update_progress("로그인 확인 중", 5)
-    auth_completed = run_s2_auth_check()
-    if auth_completed.returncode != 0:
-        return {
-            "status": "error",
-            "message": s2_refresh_error_message(auth_completed, "로그인 확인"),
-            "refresh_scope": "로그인 확인",
-            "started_at": started_at.isoformat(),
-            "finished_at": datetime.now(KST).isoformat(),
-            "elapsed_seconds": elapsed(),
-            "log": ui_safe_refresh_log(f"{auth_completed.stdout}\n{auth_completed.stderr}")[-5000:],
-        }
-
-    refresh_scope = f"{S2_REFRESH_START_DATE.isoformat()} ~ {date.today().isoformat()}"
-    update_progress("지급정산 S2 lookup 최신화 중", 20)
-    payment_completed = run_s2_refresh("full-replace")
-    if payment_completed.returncode != 0:
-        finished_at = datetime.now(KST)
-        return {
-            "status": "error",
-            "message": s2_refresh_error_message(payment_completed, refresh_scope),
-            "refresh_scope": refresh_scope,
-            "started_at": started_at.isoformat(),
-            "finished_at": finished_at.isoformat(),
-            "elapsed_seconds": elapsed(),
-            "log": ui_safe_refresh_log(f"{payment_completed.stdout}\n{payment_completed.stderr}")[-5000:],
-        }
-
-    update_progress("누락/청구 guard 최신화 중", 55)
-    guard_completed = run_s2_guard_refresh()
-    guard_scope = f"{refresh_scope} + 누락/청구 guard"
-    if guard_completed.returncode != 0:
-        finished_at = datetime.now(KST)
-        return {
-            "status": "error",
-            "message": s2_refresh_error_message(guard_completed, guard_scope),
-            "refresh_scope": guard_scope,
-            "started_at": started_at.isoformat(),
-            "finished_at": finished_at.isoformat(),
-            "elapsed_seconds": elapsed(),
-            "log": ui_safe_refresh_log(
-                f"{payment_completed.stdout}\n{guard_completed.stdout}\n"
-                f"{payment_completed.stderr}\n{guard_completed.stderr}"
-            )[-5000:],
-        }
-
-    update_progress("판매채널콘텐츠 lookup 최신화 중", 75)
-    service_content_completed = run_s2_service_content_refresh()
-    refresh_scope = f"{refresh_scope} + 누락/청구/판매채널콘텐츠 보조 기준"
-    completed = subprocess.CompletedProcess(
-        args=[payment_completed.args, guard_completed.args, service_content_completed.args],
-        returncode=service_content_completed.returncode,
-        stdout=f"{payment_completed.stdout}\n{guard_completed.stdout}\n{service_content_completed.stdout}",
-        stderr=f"{payment_completed.stderr}\n{guard_completed.stderr}\n{service_content_completed.stderr}",
-    )
-    finished_at = datetime.now(KST)
-    if completed.returncode != 0:
-        return {
-            "status": "error",
-            "message": s2_refresh_error_message(completed, refresh_scope),
-            "refresh_scope": refresh_scope,
-            "started_at": started_at.isoformat(),
-            "finished_at": finished_at.isoformat(),
-            "elapsed_seconds": elapsed(),
-            "log": ui_safe_refresh_log(f"{completed.stdout}\n{completed.stderr}")[-5000:],
-        }
-
-    update_progress("최신화 결과 반영 중", 95)
-    metrics = cache_metrics(S2_SOURCE_LOOKUP)
-    total_elapsed = elapsed()
-    update_progress("완료", 100)
-    return {
-        "status": "success",
-        "message": "S2 기준을 최신화했습니다.",
-        "refresh_scope": refresh_scope,
-        "started_at": started_at.isoformat(),
-        "finished_at": finished_at.isoformat(),
-        "elapsed_seconds": total_elapsed,
-        "s2_rows": metrics["rows"],
-        "s2_id_rows": metrics["contract_linked_rows"],
-        "log": ui_safe_refresh_log(f"{completed.stdout}\n{completed.stderr}")[-5000:],
-    }
-
-
 def create_sidebar_s2_refresh_request(
     *,
     clickup_config: object,
@@ -590,84 +366,6 @@ def create_sidebar_s2_refresh_request(
         service_content_rows=service_content_rows,
         requested_at=datetime.now(KST),
     )
-
-
-def add_s2_refresh_request_fallback(
-    result_state: dict[str, Any],
-    *,
-    clickup_config: object,
-    baseline_updated_at: str,
-    usage_label: str,
-    current_cache: dict[str, Any],
-    missing_guard_rows: int,
-    billing_guard_rows: int,
-    service_content_rows: int,
-) -> dict[str, Any]:
-    if result_state.get("status") == "success":
-        return result_state
-    if not looks_like_s2_network_failure(result_state.get("log")):
-        return result_state
-    if not getattr(clickup_config, "is_configured", False):
-        result_state["fallback_message"] = "ClickUp 요청 설정이 없어 자동 요청을 남기지 못했습니다."
-        return result_state
-    try:
-        clickup_result = create_sidebar_s2_refresh_request(
-            clickup_config=clickup_config,
-            baseline_updated_at=baseline_updated_at,
-            usage_label=usage_label,
-            current_cache=current_cache,
-            missing_guard_rows=missing_guard_rows,
-            billing_guard_rows=billing_guard_rows,
-            service_content_rows=service_content_rows,
-        )
-    except ClickUpNotificationError as exc:
-        result_state["fallback_message"] = f"ClickUp 최신화 요청 전환도 실패했습니다: {exc}"
-        return result_state
-
-    result_state["fallback_message"] = "Cloud 직접 최신화가 막혀 ClickUp 최신화 요청으로 전환했습니다."
-    result_state["clickup_url"] = clickup_result.url
-    return result_state
-
-
-def s2_refresh_error_message(completed: subprocess.CompletedProcess[str], refresh_scope: str) -> str:
-    output = f"{completed.stdout}\n{completed.stderr}"
-    if looks_like_s2_network_failure(output):
-        return (
-            f"{S2_NETWORK_FAILURE_HINT} Streamlit Cloud에서는 사내망/IP 허용 목록 제한으로 "
-            f"직접 최신화가 실패할 수 있습니다. ({refresh_scope})"
-        )
-    if looks_like_s2_auth_failure(output):
-        return f"{S2_AUTH_FAILURE_HINT} API 다운로드를 진행하지 못했습니다. ({refresh_scope})"
-    if refresh_scope == "로그인 확인":
-        if detail:
-            return f"S2 로그인 확인 실패: API 다운로드를 시작하지 않았습니다. ({refresh_scope}) 원인 로그: {detail}"
-        return f"S2 로그인 확인 실패: API 다운로드를 시작하지 않았습니다. ({refresh_scope})"
-    return f"S2 기준 전체 교체 실패: {refresh_scope}"
-
-
-def ui_safe_refresh_log(raw_text: str) -> str:
-    replacements = (
-        ("kiss_payment_settlement", "s2_source"),
-        ("payment_settlement", "s2_source"),
-        ("kiss_refresh", "s2_refresh"),
-        ("kiss_api", "s2_api"),
-        ("KISS_API_BASE_URL", "S2_API_BASE_URL"),
-        ("KIPM", "IPS"),
-        ("KISS", "S2"),
-        ("kiss", "s2"),
-        ("pymt-setl", "s2-source"),
-        ("pymtSetl", "s2Source"),
-        ("cache_rows", "local_s2_rows"),
-        ("cache=", "local_s2="),
-        ("cache_path", "local_s2_path"),
-        ("지급 정산 관리 목록", "S2 원천 목록"),
-        ("지급 정산", "S2"),
-        ("지급정산", "S2"),
-    )
-    safe_text = raw_text
-    for old, new in replacements:
-        safe_text = safe_text.replace(old, new)
-    return safe_text
 
 
 def load_manual_s2_reference(uploaded_file: object) -> tuple[pd.DataFrame, str, dict[str, object] | None]:
@@ -2615,52 +2313,6 @@ def render_s2_status_card(updated_at: str, usage_label: str, usage_tone: str) ->
     )
 
 
-def render_s2_direct_refresh_panel(*, direct_config: object, has_credentials: bool) -> str:
-    if not getattr(direct_config, "enabled", False):
-        return ""
-
-    provided_token = ""
-    result_state = st.session_state.get(S2_DIRECT_REFRESH_RESULT_STATE_KEY)
-    if isinstance(result_state, dict) and result_state:
-        elapsed_label = format_elapsed_seconds(result_state.get("elapsed_seconds"))
-        if result_state.get("status") == "success":
-            message = f"{result_state.get('message', 'S2 기준을 최신화했습니다.')}"
-            if elapsed_label:
-                message = f"{message} ({elapsed_label})"
-            st.success(message)
-            st.caption(
-                f"S2 기준 행 {safe_int(result_state.get('s2_rows')):,} / "
-                f"계약연결 S2 ID {safe_int(result_state.get('s2_id_rows')):,} / "
-                f"완료 {format_update_timestamp(result_state.get('finished_at'))}"
-            )
-        else:
-            st.error(text(result_state.get("message")) or "S2 최신화에 실패했습니다.")
-            if elapsed_label:
-                st.caption(f"실패까지 경과 {elapsed_label}")
-            if text(result_state.get("fallback_message")):
-                st.info(text(result_state.get("fallback_message")))
-            if text(result_state.get("clickup_url")):
-                st.markdown(f"[ClickUp에서 보기]({result_state.get('clickup_url')})")
-
-        if text(result_state.get("log")):
-            with st.expander("실행 로그", expanded=False):
-                st.code(text(result_state.get("log"))[-5000:])
-
-    if not has_credentials:
-        st.warning("S2 ID/PW 또는 access token이 없어 직접 최신화를 실행할 수 없습니다.")
-    if not getattr(direct_config, "token_ready", False):
-        st.warning("직접 최신화가 켜져 있지만 관리자 토큰이 설정되지 않았습니다.")
-
-    if getattr(direct_config, "require_token", True):
-        provided_token = st.text_input(
-            "관리자 실행 키",
-            type="password",
-            key=S2_DIRECT_REFRESH_ADMIN_TOKEN_INPUT_KEY,
-            help="Streamlit secrets 또는 env의 S2_DIRECT_REFRESH_TOKEN 값과 일치해야 실행됩니다.",
-        )
-    return provided_token
-
-
 def render_sidebar_roadmap_notice() -> None:
     st.markdown(
         """
@@ -2670,7 +2322,7 @@ def render_sidebar_roadmap_notice() -> None:
           <ol class="sidebar-roadmap-list">
             <li>매핑 실패 시 ClickUp 자동 전송 (완료)</li>
             <li>수동 매핑 기능</li>
-            <li>"관리자에게 S2 최신화 요청" 기능을 "S2 최신화 버튼"으로 변경 (완료)</li>
+            <li>"S2 최신화" 직접 실행 실험 원복: 관리자 요청 버튼 유지 (완료)</li>
             <li>매핑 실패 시 LLM 진단/Codex 연결</li>
           </ol>
         </div>
@@ -2746,8 +2398,6 @@ with st.sidebar:
     billing_guard_rows = lookup_row_count(S2_BILLING_LOOKUP)
     service_content_rows = lookup_row_count(S2_SERVICE_CONTENTS_LOOKUP)
     clickup_config = clickup_notification_config()
-    direct_refresh_config = s2_direct_refresh_config()
-    direct_refresh_has_credentials = has_s2_credentials(s2_runtime_auth_config())
     render_s2_status_card(baseline_updated_at, usage_label, usage_tone)
     st.caption(f"*{S2_DAILY_REFRESH_TIME_LABEL} KST 정규 업데이트됩니다.")
 
@@ -2767,80 +2417,35 @@ with st.sidebar:
     guard_cols[1].metric("청구 guard", f"{billing_guard_rows:,}")
     guard_cols[2].metric("콘텐츠 lookup", f"{service_content_rows:,}")
 
-    direct_refresh_admin_token = render_s2_direct_refresh_panel(
-        direct_config=direct_refresh_config,
-        has_credentials=direct_refresh_has_credentials,
-    )
-    direct_refresh_enabled = bool(getattr(direct_refresh_config, "enabled", False))
-    direct_refresh_authorized = bool(getattr(direct_refresh_config, "is_authorized")(direct_refresh_admin_token))
-    direct_refresh_ready = bool(
-        direct_refresh_enabled
-        and direct_refresh_has_credentials
-        and getattr(direct_refresh_config, "token_ready", False)
-        and direct_refresh_authorized
-    )
-    direct_refresh_blocked = direct_refresh_enabled and not direct_refresh_ready
-    if direct_refresh_enabled:
-        refresh_button_disabled = direct_refresh_blocked
-    else:
-        refresh_button_disabled = not clickup_config.is_configured
-
     request_clicked = st.button(
-        "S2 최신화",
+        "관리자에게 S2 최신화 요청",
         type="secondary",
         use_container_width=True,
-        disabled=refresh_button_disabled,
+        disabled=not clickup_config.is_configured,
     )
     if request_clicked:
-        if direct_refresh_enabled:
-            progress_bar = st.progress(0)
-            progress_text = st.empty()
-
-            def direct_refresh_progress(label: str, progress_value: int, elapsed_seconds: float) -> None:
-                bounded_value = max(0, min(100, int(progress_value)))
-                progress_bar.progress(bounded_value)
-                elapsed_label = format_elapsed_seconds(elapsed_seconds)
-                progress_text.caption(f"{label} · 경과 {elapsed_label}")
-
-            direct_result_state = run_s2_direct_refresh_once(direct_refresh_progress)
-            st.session_state[S2_DIRECT_REFRESH_RESULT_STATE_KEY] = add_s2_refresh_request_fallback(
-                direct_result_state,
-                clickup_config=clickup_config,
-                baseline_updated_at=baseline_updated_at,
-                usage_label=usage_label,
-                current_cache=current_cache,
-                missing_guard_rows=missing_guard_rows,
-                billing_guard_rows=billing_guard_rows,
-                service_content_rows=service_content_rows,
-            )
-            st.rerun()
-        else:
-            try:
-                with st.spinner("관리자에게 요청 보내는 중..."):
-                    clickup_result = create_sidebar_s2_refresh_request(
-                        clickup_config=clickup_config,
-                        baseline_updated_at=baseline_updated_at,
-                        usage_label=usage_label,
-                        current_cache=current_cache,
-                        missing_guard_rows=missing_guard_rows,
-                        billing_guard_rows=billing_guard_rows,
-                        service_content_rows=service_content_rows,
-                    )
-                st.success("S2 최신화 요청을 보냈습니다.")
-                if clickup_result.url:
-                    st.markdown(f"[ClickUp에서 보기]({clickup_result.url})")
-            except ClickUpNotificationError as exc:
-                st.error("ClickUp 요청 전송에 실패했습니다.")
-                st.caption(str(exc))
-            except Exception as exc:
-                st.error("ClickUp 요청 전송에 실패했습니다.")
-                render_error_detail(exc)
-    if direct_refresh_blocked:
-        st.caption("직접 최신화 설정이 켜져 있지만 S2 인증값 또는 관리자 실행 키가 없어 버튼이 비활성화됐습니다.")
-    elif not direct_refresh_enabled and not clickup_config.is_configured:
-        st.caption("직접 최신화 또는 ClickUp 요청 secrets를 설정하면 S2 최신화 버튼이 활성화됩니다.")
-    elif not direct_refresh_enabled:
-        st.caption("현재 환경은 ClickUp 요청 모드입니다. 직접 최신화는 관리자 환경에서만 켜집니다.")
+        try:
+            with st.spinner("관리자에게 요청 보내는 중..."):
+                clickup_result = create_sidebar_s2_refresh_request(
+                    clickup_config=clickup_config,
+                    baseline_updated_at=baseline_updated_at,
+                    usage_label=usage_label,
+                    current_cache=current_cache,
+                    missing_guard_rows=missing_guard_rows,
+                    billing_guard_rows=billing_guard_rows,
+                    service_content_rows=service_content_rows,
+                )
+            st.success("S2 최신화 요청을 보냈습니다.")
+            if clickup_result.url:
+                st.markdown(f"[ClickUp에서 보기]({clickup_result.url})")
+        except ClickUpNotificationError as exc:
+            st.error("ClickUp 요청 전송에 실패했습니다.")
+            st.caption(str(exc))
+        except Exception as exc:
+            st.error("ClickUp 요청 전송에 실패했습니다.")
+            render_error_detail(exc)
+    if not clickup_config.is_configured:
+        st.caption("ClickUp 알림 secrets를 설정하면 S2 최신화 요청 버튼이 활성화됩니다.")
     render_sidebar_roadmap_notice()
 
 
