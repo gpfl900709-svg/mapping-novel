@@ -2178,7 +2178,7 @@ def render_sidebar_roadmap_notice() -> None:
           <div class="sidebar-roadmap-title">업데이트 예정</div>
           <div class="sidebar-roadmap-date">26.06.05 기준</div>
           <ol class="sidebar-roadmap-list">
-            <li>매핑 실패 시 ClickUp 자동 전송</li>
+            <li>매핑 실패 시 ClickUp 자동 전송 (완료)</li>
             <li>수동 매핑 기능</li>
           </ol>
         </div>
