@@ -1,0 +1,249 @@
+{
+  "created_at": "2026-06-05T11:16:15",
+  "cid": "317038",
+  "counterparty_type": "",
+  "terms": [
+    {
+      "term": "주식회사 지그",
+      "row_count": 1,
+      "rows": [
+        "4348601415 주식회사 지그 사업자 4348601415"
+      ],
+      "visible_values": [
+        {
+          "label": "",
+          "value": "on",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": ""
+        },
+        {
+          "label": "",
+          "value": "",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": ""
+        },
+        {
+          "label": "",
+          "value": "10",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "10"
+        },
+        {
+          "label": "거래처명 | 거래처명",
+          "value": "주식회사 지그",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "거래처명"
+        },
+        {
+          "label": "거래처 구분 | 거래처 구분",
+          "value": "",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "거래처 구분"
+        },
+        {
+          "label": "사업자번호 | 사업자번호",
+          "value": "",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "사업자번호"
+        },
+        {
+          "label": "",
+          "value": "on",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": ""
+        },
+        {
+          "label": "",
+          "value": "",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": ""
+        },
+        {
+          "label": "",
+          "value": "10",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "10"
+        }
+      ]
+    },
+    {
+      "term": "지그",
+      "row_count": 1,
+      "rows": [
+        "4348601415 주식회사 지그 사업자 4348601415"
+      ],
+      "visible_values": [
+        {
+          "label": "",
+          "value": "on",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": ""
+        },
+        {
+          "label": "",
+          "value": "",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": ""
+        },
+        {
+          "label": "",
+          "value": "10",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "10"
+        },
+        {
+          "label": "거래처명 | 거래처명",
+          "value": "지그",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "거래처명"
+        },
+        {
+          "label": "거래처 구분 | 거래처 구분",
+          "value": "",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "거래처 구분"
+        },
+        {
+          "label": "사업자번호 | 사업자번호",
+          "value": "",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "사업자번호"
+        },
+        {
+          "label": "",
+          "value": "on",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": ""
+        },
+        {
+          "label": "",
+          "value": "",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": ""
+        },
+        {
+          "label": "",
+          "value": "10",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "10"
+        }
+      ]
+    },
+    {
+      "term": "갈드",
+      "row_count": 0,
+      "rows": [],
+      "visible_values": [
+        {
+          "label": "",
+          "value": "on",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": ""
+        },
+        {
+          "label": "",
+          "value": "",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": ""
+        },
+        {
+          "label": "",
+          "value": "10",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "10"
+        },
+        {
+          "label": "거래처명 | 거래처명",
+          "value": "갈드",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "거래처명"
+        },
+        {
+          "label": "거래처 구분 | 거래처 구분",
+          "value": "",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "거래처 구분"
+        },
+        {
+          "label": "사업자번호 | 사업자번호",
+          "value": "",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "사업자번호"
+        },
+        {
+          "label": "",
+          "value": "on",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": ""
+        },
+        {
+          "label": "",
+          "value": "",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": ""
+        },
+        {
+          "label": "",
+          "value": "10",
+          "placeholder": "",
+          "readonly": "N",
+          "disabled": "N",
+          "text": "10"
+        }
+      ]
+    }
+  ],
+  "artifact_dir": "C:\\Users\\wjjo\\Desktop\\mapping-novel\\output\\2026-06-05_sheet_backfill_jo\\19_counterparty_probe_317038\\kipm\\20260605_112203_counterparty_modal_debug"
+}

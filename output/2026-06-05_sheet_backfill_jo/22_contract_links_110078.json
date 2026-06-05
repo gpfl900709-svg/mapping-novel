@@ -1,0 +1,86 @@
+{
+  "summary": {
+    "ips_export": "C:\\Users\\wjjo\\Desktop\\mapping-novel\\ips_20260515.xlsx",
+    "sheet_name": "콘텐츠 목록",
+    "target_count": 1,
+    "missing_requested_cids": [],
+    "workers": 1,
+    "page_size": 1000,
+    "status_counts": {
+      "contract_tab_only": 1
+    },
+    "rows_with_any_contract_id": 1,
+    "rows_without_contract_id": 0,
+    "edge_count": 1,
+    "elapsed_seconds": 0.922,
+    "summary_csv": "output\\2026-06-05_sheet_backfill_jo\\22_contract_links_110078.csv",
+    "edges_csv": "output\\2026-06-05_sheet_backfill_jo\\22_contract_links_110078_edges.csv",
+    "json_output": "output\\2026-06-05_sheet_backfill_jo\\22_contract_links_110078.json"
+  },
+  "rows": [
+    {
+      "cid": "110078",
+      "content_name": "용사 노릇이 지겨워서 마왕군에 들어갔더니 하루하루가 행복해서 인생 절반 손해봤다_FlowerJhin_1005302_선인세없음_확정",
+      "content_type": "소설",
+      "owning_company": "키다리스튜디오",
+      "department": "소설편집팀",
+      "manager_name": "조원재",
+      "status": "contract_tab_only",
+      "all_contract_ids": [
+        "55184"
+      ],
+      "contract_tab_total": 1,
+      "contract_tab_visible_ids": [
+        "55184"
+      ],
+      "contract_tab_unity_ids": [
+        "55184"
+      ],
+      "contract_tab_lookup_ids": [
+        "55184"
+      ],
+      "settlement_total": 14,
+      "settlement_contract_ids": [],
+      "settlement_blank_contract_rows": 14,
+      "contracts": [
+        {
+          "visible_contract_id": "55184",
+          "unity_contract_id": "55184",
+          "main_contract_id": "",
+          "lookup_contract_id": "55184",
+          "contract_name": "배타적 발행권 설정계약서_FlowerJhin_(성인)_80퍼센트",
+          "contract_kind": "-",
+          "contract_kind_code": "",
+          "is_primary_contract": "",
+          "contract_status": "유지",
+          "counterparty_name": "김관표",
+          "contract_date": "2024-01-12",
+          "attachment_name": "배타적 발행권 설정계약서_FlowerJhin_(성인)_80퍼센트.pdf",
+          "contract_manager_name": "김정원"
+        }
+      ],
+      "settlement_contracts": [],
+      "error": ""
+    }
+  ],
+  "edges": [
+    {
+      "cid": "110078",
+      "content_name": "용사 노릇이 지겨워서 마왕군에 들어갔더니 하루하루가 행복해서 인생 절반 손해봤다_FlowerJhin_1005302_선인세없음_확정",
+      "department": "소설편집팀",
+      "manager_name": "조원재",
+      "source": "contract_tab",
+      "contract_id": "55184",
+      "visible_contract_id": "55184",
+      "unity_contract_id": "55184",
+      "main_contract_id": "",
+      "contract_kind": "-",
+      "contract_status": "유지",
+      "counterparty_name": "김관표",
+      "contract_name": "배타적 발행권 설정계약서_FlowerJhin_(성인)_80퍼센트",
+      "settlement_row_count": "",
+      "channels": "",
+      "payment_settlement_ids": ""
+    }
+  ]
+}

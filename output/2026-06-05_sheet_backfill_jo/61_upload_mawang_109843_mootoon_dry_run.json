@@ -1,0 +1,17 @@
+{
+  "written_count": 1,
+  "dry_run": true,
+  "rows": [
+    {
+      "row_number": 3917,
+      "cell_ref": "E3917",
+      "value": "488418",
+      "input_title": "마왕이 나노머신을 숨김",
+      "platform": "무툰(소설 서비스)",
+      "next_action": "paste_sales_channel_content_id"
+    }
+  ],
+  "write_method": "dry_run",
+  "verification": {},
+  "debug_chrome": {}
+}

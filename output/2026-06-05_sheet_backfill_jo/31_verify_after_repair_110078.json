@@ -1,0 +1,23 @@
+{
+  "path": "output\\2026-06-05_sheet_backfill_jo\\30_current_sheet_after_repair_110078.csv",
+  "checks": [
+    {
+      "csv_row": 7835,
+      "A": "",
+      "B": "",
+      "C": "",
+      "D": "",
+      "E": "",
+      "F": "#N/A"
+    },
+    {
+      "csv_row": 15669,
+      "A": "",
+      "B": "",
+      "C": "",
+      "D": "",
+      "E": "",
+      "F": "#N/A"
+    }
+  ]
+}

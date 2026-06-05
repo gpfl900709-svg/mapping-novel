@@ -1,0 +1,14 @@
+{
+  "actions": [
+    {
+      "cell_ref": "E3918",
+      "action": "write",
+      "value": "110602"
+    },
+    {
+      "cell_ref": "E7835",
+      "action": "clear",
+      "value": ""
+    }
+  ]
+}

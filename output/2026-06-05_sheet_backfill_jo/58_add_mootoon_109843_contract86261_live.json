@@ -1,0 +1,26 @@
+[
+  {
+    "work_cid": "109843",
+    "input_platform": "무툰(소설 서비스)",
+    "next_action": "paste_sales_channel_content_id",
+    "source_contract_id": "86261",
+    "force_add_existing_platform": "Y",
+    "detail_view_url": "https://kipm.kld.kr/ip/cntsd/cntslt/ctns-detail?parCtnsId=109843",
+    "addition_status": "added_existing_platform_settlement",
+    "sales_channel_content_id": "488418",
+    "matched_platform_name": "무툰(소설 서비스)",
+    "existing_platform_snapshot": "카카오페이지(창작지원금):632829 | 카카오페이지(선투자):567746 | 네이버_연재(광고수익):180283 | 네이버_연재:110365 | 네이버_장르:804407 | 무툰(소설 서비스):488418 | 한아름(P000003716):568128 | 스낵북(알에스):631389 | 조아라(소설):591957 | 구글(소설):568127 | 교보문고(소설):907438 | 리디북스(소설):180284 | 원스토어(소설):488417 | 미스터블루(소설):180285",
+    "selected_channel_id": "63",
+    "settlement_source_contract_id": "86261",
+    "settlement_source_payment_setup_id": "1073835",
+    "settlement_source_row_status": "contract_linked",
+    "settlement_verification_status": "settlement_template",
+    "settlement_verified_contract_id": "86261",
+    "settlement_verified_payment_setup_id": "1073836",
+    "settlement_verified_channel_id": "63",
+    "settlement_template_snapshot": "무툰(소설 서비스):pymtSetlSetmId=620371:schnId=63 | 무툰(소설 서비스):cntrId=86261:pymtSetlSetmId=1073836:schnId=63",
+    "detail_status": "loaded",
+    "platform_match_status": "found",
+    "addition_error": ""
+  }
+]

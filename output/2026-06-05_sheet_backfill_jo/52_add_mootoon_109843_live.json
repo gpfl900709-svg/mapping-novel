@@ -1,0 +1,16 @@
+[
+  {
+    "work_cid": "109843",
+    "input_platform": "무툰(소설 서비스)",
+    "next_action": "check_source_contract_id",
+    "source_contract_id": "72343",
+    "force_add_existing_platform": "Y",
+    "detail_view_url": "https://kipm.kld.kr/ip/cntsd/cntslt/ctns-detail?parCtnsId=109843",
+    "addition_status": "needs_explicit_contract",
+    "addition_error": "명시한 source_contract_id=72343 정산 기준행을 찾지 못했습니다.",
+    "sales_channel_content_id": "",
+    "addition_review_note": "인간 판단 필요 : 통합 계약 ID 복수",
+    "platform_match_status": "needs_explicit_contract",
+    "contract_gate": "source_contract_id_required"
+  }
+]

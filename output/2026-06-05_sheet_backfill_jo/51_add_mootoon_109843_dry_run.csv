@@ -1,0 +1,2 @@
+﻿work_cid,input_platform,next_action,source_contract_id,force_add_existing_platform,detail_view_url,addition_status,addition_error
+109843,무툰(소설 서비스),add_platform_in_ips,72343,Y,https://kipm.kld.kr/ip/cntsd/cntslt/ctns-detail?parCtnsId=109843,dry_run,

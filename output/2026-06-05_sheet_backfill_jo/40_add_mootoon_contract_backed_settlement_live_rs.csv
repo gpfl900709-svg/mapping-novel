@@ -1,0 +1,2 @@
+﻿work_cid,input_platform,next_action,source_contract_id,force_add_existing_platform,detail_view_url,addition_status,addition_error
+110078,무툰(소설 서비스),add_platform_in_ips,86248,Y,https://kipm.kld.kr/ip/cntsd/cntslt/ctns-detail?parCtnsId=110078,failed,판매채널 저장 후에도 선택한 플랫폼/채널이 보이지 않습니다: 무툰(소설 서비스) schnId=63 cntrId=86248

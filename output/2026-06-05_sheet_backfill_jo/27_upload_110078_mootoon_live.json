@@ -1,0 +1,43 @@
+{
+  "written_count": 1,
+  "dry_run": false,
+  "rows": [
+    {
+      "row_number": 7835,
+      "cell_ref": "E7835",
+      "value": "110602",
+      "input_title": "용사 노릇이 지겨워서 마왕군에 들어갔더니 하루하루가 행복해서 인생 절반",
+      "platform": "무툰(소설 서비스)",
+      "next_action": "paste_sales_channel_content_id"
+    }
+  ],
+  "write_method": "playwright_cdp",
+  "verification": {
+    "first_pass": {
+      "match_count": 1,
+      "mismatch_count": 0,
+      "matches": [
+        {
+          "row_number": 7835,
+          "cell_ref": "E7835",
+          "expected": "110602",
+          "actual": "110602",
+          "input_title": "용사 노릇이 지겨워서 마왕군에 들어갔더니 하루하루가 행복해서 인생 절반"
+        }
+      ],
+      "mismatches": []
+    }
+  },
+  "debug_chrome": {
+    "launched": false,
+    "connect_url": "http://127.0.0.1:9222",
+    "http_base": "http://127.0.0.1:9222",
+    "chrome_path": "",
+    "working_directory": "",
+    "shortcut_path": "C:\\Users\\wjjo\\Desktop\\크롬디버깅.lnk",
+    "sheet_url": "https://docs.google.com/spreadsheets/d/1jG0Q6LKzJ_q2VqdqtoDHSEwl8hfOEUrxRuxXq7KSazY/edit?gid=1569459807#gid=1569459807",
+    "port_ready": true
+  },
+  "verified_count": 1,
+  "mismatch_count": 0
+}

@@ -1,0 +1,2 @@
+﻿work_cid,input_platform,next_action,source_contract_id,force_add_existing_platform,detail_view_url,addition_status,addition_error,sales_channel_content_id,addition_review_note,platform_match_status,contract_gate
+109843,무툰(소설 서비스),check_source_contract_id,72343,Y,https://kipm.kld.kr/ip/cntsd/cntslt/ctns-detail?parCtnsId=109843,needs_explicit_contract,명시한 source_contract_id=72343 정산 기준행을 찾지 못했습니다.,,인간 판단 필요 : 통합 계약 ID 복수,needs_explicit_contract,source_contract_id_required

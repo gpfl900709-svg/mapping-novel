@@ -1,0 +1,119 @@
+{
+  "summary": {
+    "ips_export": "C:\\Users\\wjjo\\Desktop\\mapping-novel\\ips_20260515.xlsx",
+    "sheet_name": "콘텐츠 목록",
+    "target_count": 1,
+    "missing_requested_cids": [],
+    "workers": 1,
+    "page_size": 1000,
+    "status_counts": {
+      "contract_tab_only": 1
+    },
+    "rows_with_any_contract_id": 1,
+    "rows_without_contract_id": 0,
+    "edge_count": 2,
+    "elapsed_seconds": 0.719,
+    "summary_csv": "output\\2026-06-05_sheet_backfill_jo\\54_contract_links_109843_after_timeout.csv",
+    "edges_csv": "output\\2026-06-05_sheet_backfill_jo\\54_contract_links_109843_after_timeout_edges.csv",
+    "json_output": "output\\2026-06-05_sheet_backfill_jo\\54_contract_links_109843_after_timeout.json"
+  },
+  "rows": [
+    {
+      "cid": "109843",
+      "content_name": "(사용안함)_마왕이 나노머신을 숨김·갈드_중복",
+      "content_type": "소설",
+      "owning_company": "키다리스튜디오",
+      "department": "소설편집팀",
+      "manager_name": "조원재",
+      "status": "contract_tab_only",
+      "all_contract_ids": [
+        "72343"
+      ],
+      "contract_tab_total": 2,
+      "contract_tab_visible_ids": [
+        "72343"
+      ],
+      "contract_tab_unity_ids": [
+        "72343"
+      ],
+      "contract_tab_lookup_ids": [
+        "72343"
+      ],
+      "settlement_total": 13,
+      "settlement_contract_ids": [],
+      "settlement_blank_contract_rows": 13,
+      "contracts": [
+        {
+          "visible_contract_id": "72343",
+          "unity_contract_id": "72343",
+          "main_contract_id": "",
+          "lookup_contract_id": "72343",
+          "contract_name": "부속합의서",
+          "contract_kind": "-",
+          "contract_kind_code": "",
+          "is_primary_contract": "",
+          "contract_status": "-",
+          "counterparty_name": "주식회사 지그",
+          "contract_date": "2024-04-30",
+          "attachment_name": "블라이스 셀렉트 서비스 부속합의서_고인물, 무림에가다, 마왕이 나노머신을 숨김(5월).pdf",
+          "contract_manager_name": "김주현"
+        },
+        {
+          "visible_contract_id": "72343",
+          "unity_contract_id": "72343",
+          "main_contract_id": "",
+          "lookup_contract_id": "72343",
+          "contract_name": "부속합의서",
+          "contract_kind": "-",
+          "contract_kind_code": "",
+          "is_primary_contract": "",
+          "contract_status": "-",
+          "counterparty_name": "주식회사 지그",
+          "contract_date": "2024-04-30",
+          "attachment_name": "블라이스 셀렉트 서비스 부속합의서_고인물, 무림에가다, 마왕이 나노머신을 숨김(5월).pdf",
+          "contract_manager_name": "김주현"
+        }
+      ],
+      "settlement_contracts": [],
+      "error": ""
+    }
+  ],
+  "edges": [
+    {
+      "cid": "109843",
+      "content_name": "(사용안함)_마왕이 나노머신을 숨김·갈드_중복",
+      "department": "소설편집팀",
+      "manager_name": "조원재",
+      "source": "contract_tab",
+      "contract_id": "72343",
+      "visible_contract_id": "72343",
+      "unity_contract_id": "72343",
+      "main_contract_id": "",
+      "contract_kind": "-",
+      "contract_status": "-",
+      "counterparty_name": "주식회사 지그",
+      "contract_name": "부속합의서",
+      "settlement_row_count": "",
+      "channels": "",
+      "payment_settlement_ids": ""
+    },
+    {
+      "cid": "109843",
+      "content_name": "(사용안함)_마왕이 나노머신을 숨김·갈드_중복",
+      "department": "소설편집팀",
+      "manager_name": "조원재",
+      "source": "contract_tab",
+      "contract_id": "72343",
+      "visible_contract_id": "72343",
+      "unity_contract_id": "72343",
+      "main_contract_id": "",
+      "contract_kind": "-",
+      "contract_status": "-",
+      "counterparty_name": "주식회사 지그",
+      "contract_name": "부속합의서",
+      "settlement_row_count": "",
+      "channels": "",
+      "payment_settlement_ids": ""
+    }
+  ]
+}

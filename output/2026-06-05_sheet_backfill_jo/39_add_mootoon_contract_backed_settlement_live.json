@@ -1,0 +1,12 @@
+[
+  {
+    "work_cid": "110078",
+    "input_platform": "무툰(소설 서비스)",
+    "next_action": "add_platform_in_ips",
+    "source_contract_id": "86248",
+    "force_add_existing_platform": "Y",
+    "detail_view_url": "https://kipm.kld.kr/ip/cntsd/cntslt/ctns-detail?parCtnsId=110078",
+    "addition_status": "failed",
+    "addition_error": "판매채널 API 추가 실패: {'ok': False, 'status': 400, 'data': {'code': 'INVALID_REQUEST', 'message': '유효한 요청 이(가) 아닙니다.', 'data': [{'rsSetlMthCd': 'RS정산방법은 필수 입력값 입니다.', 'rsMgStoffTrgYn': 'MG상계대상 여부는 필수 입력값 입니다.'}]}, 'message': 'AxiosError: Request failed with status code 400'}"
+  }
+]

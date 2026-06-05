@@ -1,0 +1,12 @@
+[
+  {
+    "work_cid": "109843",
+    "input_platform": "무툰(소설 서비스)",
+    "next_action": "add_platform_in_ips",
+    "source_contract_id": "72343",
+    "force_add_existing_platform": "Y",
+    "detail_view_url": "https://kipm.kld.kr/ip/cntsd/cntslt/ctns-detail?parCtnsId=109843",
+    "addition_status": "dry_run",
+    "addition_error": ""
+  }
+]

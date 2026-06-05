@@ -1,0 +1,4 @@
+﻿cid,content_name,content_type,owning_company,department,manager_name,status,all_contract_ids,contract_tab_total,contract_tab_visible_ids,contract_tab_unity_ids,contract_tab_lookup_ids,settlement_total,settlement_contract_ids,settlement_blank_contract_rows,error
+317038,[카카오]마왕이 나노머신을 숨김 단행본,소설,키다리스튜디오,소설유통팀,김성경,settlement_rows_without_contract,,0,,,,10,,10,
+247289,(사용안함)_마왕이나노머신을숨김·갈드_중복,소설,키다리스튜디오,소설편집팀,조원재,settlement_rows_without_contract,,0,,,,17,,17,
+109843,(사용안함)_마왕이 나노머신을 숨김·갈드_중복,소설,키다리스튜디오,소설편집팀,조원재,contract_tab_only,72343,2,72343,72343,72343,13,,13,

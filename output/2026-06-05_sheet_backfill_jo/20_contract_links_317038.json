@@ -1,0 +1,62 @@
+{
+  "summary": {
+    "ips_export": "C:\\Users\\wjjo\\Desktop\\mapping-novel\\ips_20260515.xlsx",
+    "sheet_name": "콘텐츠 목록",
+    "target_count": 1,
+    "missing_requested_cids": [],
+    "workers": 1,
+    "page_size": 1000,
+    "status_counts": {
+      "settlement_rows_without_contract": 1
+    },
+    "rows_with_any_contract_id": 0,
+    "rows_without_contract_id": 1,
+    "edge_count": 1,
+    "elapsed_seconds": 0.657,
+    "summary_csv": "output\\2026-06-05_sheet_backfill_jo\\20_contract_links_317038.csv",
+    "edges_csv": "output\\2026-06-05_sheet_backfill_jo\\20_contract_links_317038_edges.csv",
+    "json_output": "output\\2026-06-05_sheet_backfill_jo\\20_contract_links_317038.json"
+  },
+  "rows": [
+    {
+      "cid": "317038",
+      "content_name": "[카카오]마왕이 나노머신을 숨김 단행본",
+      "content_type": "소설",
+      "owning_company": "키다리스튜디오",
+      "department": "소설유통팀",
+      "manager_name": "김성경",
+      "status": "settlement_rows_without_contract",
+      "all_contract_ids": [],
+      "contract_tab_total": 0,
+      "contract_tab_visible_ids": [],
+      "contract_tab_unity_ids": [],
+      "contract_tab_lookup_ids": [],
+      "settlement_total": 10,
+      "settlement_contract_ids": [],
+      "settlement_blank_contract_rows": 10,
+      "contracts": [],
+      "settlement_contracts": [],
+      "error": ""
+    }
+  ],
+  "edges": [
+    {
+      "cid": "317038",
+      "content_name": "[카카오]마왕이 나노머신을 숨김 단행본",
+      "department": "소설유통팀",
+      "manager_name": "김성경",
+      "source": "settlement_rows_without_contract",
+      "contract_id": "",
+      "visible_contract_id": "",
+      "unity_contract_id": "",
+      "main_contract_id": "",
+      "contract_kind": "",
+      "contract_status": "",
+      "counterparty_name": "",
+      "contract_name": "",
+      "settlement_row_count": "",
+      "channels": "",
+      "payment_settlement_ids": ""
+    }
+  ]
+}
