@@ -111,6 +111,10 @@ function Publish-RefreshArtifacts {
         (Join-Path $RepoRoot "data\s2_payment_missing_lookup.csv"),
         (Join-Path $RepoRoot "data\s2_billing_settlement_lookup.csv"),
         (Join-Path $RepoRoot "data\s2_sales_channel_content_lookup.csv"),
+        (Join-Path $RepoRoot "data\kiss_payment_settlement_s2_lookup.csv.meta.json"),
+        (Join-Path $RepoRoot "data\s2_payment_missing_lookup.csv.meta.json"),
+        (Join-Path $RepoRoot "data\s2_billing_settlement_lookup.csv.meta.json"),
+        (Join-Path $RepoRoot "data\s2_sales_channel_content_lookup.csv.meta.json"),
         (Join-Path $RepoRoot "data\all_contents.xlsx"),
         (Join-Path $RepoRoot "data\kidari_contents.xlsx"),
         (Join-Path $RepoRoot "data\kidari_webtoon.xlsx"),
@@ -118,6 +122,7 @@ function Publish-RefreshArtifacts {
         (Join-Path $docDir "s2_reference_guards_refresh_summary.json"),
         (Join-Path $docDir "s2_sales_channel_contents_refresh_audit.csv"),
         (Join-Path $docDir "s2_sales_channel_contents_refresh_summary.json"),
+        (Join-Path $docDir "s2_refresh_all_manifest.json"),
         (Join-Path $docDir "ips_auxiliary_refresh_summary.json")
     ) | Where-Object { Test-Path $_ }
 
@@ -170,32 +175,25 @@ try {
         "--auth-timeout", "10"
     )
 
-    Invoke-Step "S2 payment settlement full replace" @(
-        "scripts\refresh_kiss_payment_settlement.py",
+    Invoke-Step "S2 all refresh epoch" @(
+        "scripts\refresh_s2_all.py",
         "--env-file", $envFile,
-        "--mode", "full-replace",
-        "--lookup-only",
-        "--page-size", "1000000",
+        "--today", $today,
+        "--python", $Python,
+        "--payment-page-size", "1000000",
+        "--guard-page-size", "1000000",
         "--content-style-code", "102"
     )
 
-    Invoke-Step "S2 reference guards refresh" @(
-        "scripts\refresh_s2_reference_guards.py",
-        "--env-file", $envFile,
-        "--page-size", "1000000",
-        "--content-style-code", "102"
-    )
-
-    Invoke-Step "S2 sales-channel contents refresh" @(
-        "scripts\refresh_s2_sales_channel_contents.py",
-        "--env-file", $envFile,
-        "--content-style-code", "102"
-    )
-
-    Invoke-Step "IPS auxiliary content refresh" @(
-        "scripts\refresh_ips_auxiliary_data.py",
-        "--env-file", $envFile
-    )
+    try {
+        Invoke-Step "IPS auxiliary content refresh" @(
+            "scripts\refresh_ips_auxiliary_data.py",
+            "--env-file", $envFile
+        )
+    }
+    catch {
+        Write-Log "WARN IPS auxiliary content refresh skipped after failure: $($_.Exception.Message)"
+    }
 
     Publish-RefreshArtifacts
 

@@ -24,6 +24,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--today", default="")
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument("--manifest", default="")
+    parser.add_argument("--payment-page-size", type=int, default=1_000_000)
+    parser.add_argument("--guard-page-size", type=int, default=1_000_000)
+    parser.add_argument("--content-style-code", default="102")
     parser.add_argument("--skip-payment", action="store_true")
     parser.add_argument("--skip-sales-channel-contents", action="store_true")
     parser.add_argument("--skip-reference-guards", action="store_true")
@@ -83,9 +86,15 @@ def main() -> int:
                     "scripts/refresh_kiss_payment_settlement.py",
                     "--env-file",
                     args.env_file,
+                    "--mode",
+                    "full-replace",
                     "--today",
                     today.isoformat(),
                     "--lookup-only",
+                    "--page-size",
+                    str(args.payment_page_size),
+                    "--content-style-code",
+                    args.content_style_code,
                 ],
             )
         )
@@ -101,6 +110,8 @@ def main() -> int:
                     args.env_file,
                     "--today",
                     today.isoformat(),
+                    "--content-style-code",
+                    args.content_style_code,
                 ],
             )
         )
@@ -116,30 +127,38 @@ def main() -> int:
                     args.env_file,
                     "--today",
                     today.isoformat(),
+                    "--page-size",
+                    str(args.guard_page_size),
+                    "--content-style-code",
+                    args.content_style_code,
                 ],
             )
         )
 
-    outputs = [
-        write_lookup_meta(ROOT / "data" / "kiss_payment_settlement_s2_lookup.csv", manifest_id=manifest_id, step="payment_settlement"),
-        write_lookup_meta(ROOT / "data" / "s2_sales_channel_content_lookup.csv", manifest_id=manifest_id, step="sales_channel_contents"),
-        write_lookup_meta(ROOT / "data" / "s2_payment_missing_lookup.csv", manifest_id=manifest_id, step="reference_guards"),
-        write_lookup_meta(ROOT / "data" / "s2_billing_settlement_lookup.csv", manifest_id=manifest_id, step="reference_guards"),
-    ]
+    failed_steps = [step["name"] for step in steps if step["returncode"] != 0]
+    outputs: list[dict[str, Any]] = []
+    if not failed_steps:
+        outputs = [
+            write_lookup_meta(ROOT / "data" / "kiss_payment_settlement_s2_lookup.csv", manifest_id=manifest_id, step="payment_settlement"),
+            write_lookup_meta(ROOT / "data" / "s2_sales_channel_content_lookup.csv", manifest_id=manifest_id, step="sales_channel_contents"),
+            write_lookup_meta(ROOT / "data" / "s2_payment_missing_lookup.csv", manifest_id=manifest_id, step="reference_guards"),
+            write_lookup_meta(ROOT / "data" / "s2_billing_settlement_lookup.csv", manifest_id=manifest_id, step="reference_guards"),
+        ]
 
     manifest = {
         "manifest_id": manifest_id,
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "today": today.isoformat(),
+        "content_style_code": args.content_style_code,
         "steps": steps,
         "outputs": outputs,
-        "failed_steps": [step["name"] for step in steps if step["returncode"] != 0],
+        "failed_steps": failed_steps,
     }
     manifest_path = Path(args.manifest) if args.manifest else ROOT / "doc" / today.isoformat() / "s2_refresh_all_manifest.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(dumps_redacted(manifest), encoding="utf-8")
     print(json.dumps({"manifest": str(manifest_path), "failed_steps": manifest["failed_steps"]}, ensure_ascii=False, indent=2))
-    return 1 if manifest["failed_steps"] else 0
+    return 1 if failed_steps else 0
 
 
 if __name__ == "__main__":
