@@ -9,6 +9,7 @@ from settlement_status_gate import (
     COL_DEPARTMENT,
     COL_DISABLED_MARKER,
     COL_MIXED_RISK,
+    COL_PAYMENT_CONTRACT_ID,
     COL_PAYMENT_EXISTS,
     COL_SALES_CHANNEL_CONTENT_ID,
     COL_STATUS,
@@ -92,6 +93,7 @@ class SettlementStatusGateTest(unittest.TestCase):
                     COL_CONTENT_ID: "",
                     COL_CONTENT_TITLE: "공란 정상",
                     COL_PAYMENT_EXISTS: "Y",
+                    COL_PAYMENT_CONTRACT_ID: "999",
                     COL_DISABLED_MARKER: "N",
                 },
                 {
@@ -99,6 +101,7 @@ class SettlementStatusGateTest(unittest.TestCase):
                     COL_CONTENT_ID: "",
                     COL_CONTENT_TITLE: "공란 보류",
                     COL_PAYMENT_EXISTS: "N",
+                    COL_PAYMENT_CONTRACT_ID: "0",
                     COL_DISABLED_MARKER: "N",
                 },
             ]
@@ -145,6 +148,26 @@ class SettlementStatusGateTest(unittest.TestCase):
         self.assertEqual(summary["mixed_risk"], 1)
         self.assertEqual(summary["mixed_content_ids"], 1)
 
+    def test_contract_id_zero_overrides_legacy_payment_exists_yes(self) -> None:
+        judgement = pd.DataFrame(
+            [
+                {
+                    COL_SALES_CHANNEL_CONTENT_ID: "S-ZERO",
+                    COL_CONTENT_ID: "C-ZERO",
+                    COL_CONTENT_TITLE: "계약 0 작품",
+                    COL_PAYMENT_EXISTS: "Y",
+                    COL_PAYMENT_CONTRACT_ID: "0",
+                    COL_DISABLED_MARKER: "N",
+                }
+            ]
+        )
+
+        table = build_status_table(judgement)
+
+        self.assertEqual(table.loc[0, COL_PAYMENT_EXISTS], "N")
+        self.assertEqual(table.loc[0, COL_STATUS], STATUS_HOLD_NO_PAYMENT_SETTLEMENT)
+        self.assertIn("통합 계약 ID", table.loc[0, "정산상태사유"])
+
 
 def sample_judgement() -> pd.DataFrame:
     return pd.DataFrame(
@@ -155,6 +178,7 @@ def sample_judgement() -> pd.DataFrame:
                 COL_CONTENT_TITLE: "정상 작품",
                 COL_CONTENT_SHAPE: "소설",
                 COL_PAYMENT_EXISTS: "Y",
+                COL_PAYMENT_CONTRACT_ID: "999",
                 COL_DISABLED_MARKER: "N",
             },
             {
@@ -163,6 +187,7 @@ def sample_judgement() -> pd.DataFrame:
                 COL_CONTENT_TITLE: "혼합 작품",
                 COL_CONTENT_SHAPE: "소설",
                 COL_PAYMENT_EXISTS: "N",
+                COL_PAYMENT_CONTRACT_ID: "0",
                 COL_DISABLED_MARKER: "N",
             },
             {
@@ -171,6 +196,7 @@ def sample_judgement() -> pd.DataFrame:
                 COL_CONTENT_TITLE: "보류 작품",
                 COL_CONTENT_SHAPE: "소설",
                 COL_PAYMENT_EXISTS: "N",
+                COL_PAYMENT_CONTRACT_ID: "0",
                 COL_DISABLED_MARKER: "N",
             },
             {
@@ -179,6 +205,7 @@ def sample_judgement() -> pd.DataFrame:
                 COL_CONTENT_TITLE: "차단 작품",
                 COL_CONTENT_SHAPE: "웹툰",
                 COL_PAYMENT_EXISTS: "N",
+                COL_PAYMENT_CONTRACT_ID: "0",
                 COL_DISABLED_MARKER: "Y",
             },
         ]

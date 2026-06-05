@@ -19,6 +19,16 @@ OOXML_NS = {
     "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
 }
 
+CONTRACT_ID_COLUMN = "통합계약ID"
+CONTRACT_ID_COLUMN_ALIASES = (
+    CONTRACT_ID_COLUMN,
+    "통합 계약 ID",
+    "통합계약 ID",
+    "cntrId",
+    "unityCntrId",
+    "srcCntrId",
+)
+
 REQUIRED_COLUMNS = [
     "승인상태",
     "지급정산상태",
@@ -44,9 +54,10 @@ API_RAW_COLUMN_ALIASES = {
     "ctnsId": "콘텐츠ID",
     "schnCtnsId": "판매채널콘텐츠ID",
     "cretDtm": "지급정산마스터 등록 일자",
+    "cntrId": CONTRACT_ID_COLUMN,
 }
 
-S2_AUDIT_COLUMNS = ["콘텐츠명", "S2마스터ID", "콘텐츠ID", "작가정보"]
+S2_AUDIT_COLUMNS = ["콘텐츠명", "S2마스터ID", "콘텐츠ID", CONTRACT_ID_COLUMN, "작가정보"]
 AUTHOR_COLUMN_TOKENS = ("작가", "저자", "author", "writer")
 DEFAULT_CACHE_PART_ROWS = 75_000
 
@@ -91,6 +102,7 @@ def load_payment_settlement_list(source: str | Path | BinaryIO) -> pd.DataFrame:
 def _prepare_payment_settlement_frame(frame: pd.DataFrame) -> pd.DataFrame:
     frame = _normalize_frame(frame)
     validate_payment_settlement_columns(frame)
+    frame = normalize_payment_contract_id_column(frame)
     for column in DATE_COLUMNS:
         if column in frame.columns:
             frame[column] = frame[column].map(normalize_excel_date)
@@ -153,11 +165,56 @@ def validate_payment_settlement_columns(frame: pd.DataFrame) -> None:
         raise ValueError(f"S2 원천 엑셀 필수 컬럼이 없습니다: {missing}. 현재 컬럼: {available}")
 
 
+def normalize_payment_contract_id_column(frame: pd.DataFrame) -> pd.DataFrame:
+    result = frame.copy()
+    contract_column = pick_payment_contract_id_column(result, required=False)
+    if contract_column:
+        if CONTRACT_ID_COLUMN not in result.columns:
+            result[CONTRACT_ID_COLUMN] = result[contract_column]
+        elif contract_column != CONTRACT_ID_COLUMN:
+            current = result[CONTRACT_ID_COLUMN].map(_id_text)
+            result[CONTRACT_ID_COLUMN] = result[CONTRACT_ID_COLUMN].where(current.ne(""), result[contract_column])
+    return result
+
+
+def pick_payment_contract_id_column(frame: pd.DataFrame, *, required: bool = True) -> str:
+    normalized_to_original = {normalize_header(column): column for column in frame.columns}
+    for candidate in CONTRACT_ID_COLUMN_ALIASES:
+        column = normalized_to_original.get(normalize_header(candidate))
+        if column is not None:
+            return str(column)
+    if required:
+        available = ", ".join(map(str, frame.columns))
+        raise ValueError(
+            "S2 원천에 통합 계약 ID(cntrId) 컬럼이 없어 지급정산 유무를 판정할 수 없습니다. "
+            f"최신 S2 지급정산 원천으로 다시 최신화하세요. 현재 컬럼: {available}"
+        )
+    return ""
+
+
+def contract_id_text(value: Any) -> str:
+    return _id_text(value)
+
+
+def has_nonzero_contract_id(value: Any) -> bool:
+    return contract_id_text(value) not in {"", "0"}
+
+
+def contract_id_nonzero_mask(frame: pd.DataFrame) -> pd.Series:
+    working = normalize_payment_contract_id_column(frame)
+    pick_payment_contract_id_column(working, required=True)
+    return working[CONTRACT_ID_COLUMN].map(has_nonzero_contract_id)
+
+
 def to_s2_lookup(frame: pd.DataFrame) -> pd.DataFrame:
-    validate_payment_settlement_columns(frame)
-    working = drop_disabled_rows(frame)
+    working = normalize_payment_contract_id_column(frame)
+    validate_payment_settlement_columns(working)
+    pick_payment_contract_id_column(working, required=True)
+    working = drop_disabled_rows(working)
     working["판매채널콘텐츠ID"] = working["판매채널콘텐츠ID"].map(_id_text)
+    working[CONTRACT_ID_COLUMN] = working[CONTRACT_ID_COLUMN].map(contract_id_text)
     working = working[working["판매채널콘텐츠ID"].ne("")].copy()
+    working = working[working[CONTRACT_ID_COLUMN].map(has_nonzero_contract_id)].copy()
     if "지급정산마스터 등록 일자" in working.columns:
         working = working.sort_values("지급정산마스터 등록 일자", ascending=False, kind="stable")
     working = working.drop_duplicates(subset=["판매채널콘텐츠ID"], keep="first")
@@ -173,6 +230,7 @@ def to_s2_lookup(frame: pd.DataFrame) -> pd.DataFrame:
             "승인상태": working["승인상태"].map(text),
             "지급정산마스터ID": working["지급정산마스터ID"].map(_id_text),
             "지급정산상세ID": working["지급정산상세ID"].map(_id_text),
+            CONTRACT_ID_COLUMN: working[CONTRACT_ID_COLUMN],
         }
     )
     if "지급정산마스터 등록 일자" in working.columns:
@@ -182,11 +240,19 @@ def to_s2_lookup(frame: pd.DataFrame) -> pd.DataFrame:
 
 def summarize_payment_settlement(frame: pd.DataFrame) -> dict[str, Any]:
     validate_payment_settlement_columns(frame)
+    frame = normalize_payment_contract_id_column(frame)
     frame = drop_disabled_rows(frame)
     dates = frame.get("지급정산마스터 등록 일자", pd.Series(dtype=object)).map(text)
     nonblank_dates = dates[dates.ne("")]
     sale_channel_ids = frame["판매채널콘텐츠ID"].map(_id_text)
     content_ids = frame["콘텐츠ID"].map(_id_text)
+    contract_column_present = CONTRACT_ID_COLUMN in frame.columns
+    contract_ids = (
+        frame[CONTRACT_ID_COLUMN].map(contract_id_text)
+        if contract_column_present
+        else pd.Series([""] * len(frame), index=frame.index, dtype=object)
+    )
+    contract_nonzero = contract_ids.map(has_nonzero_contract_id)
     conflict_counts = sales_channel_content_conflict_counts(frame)
     return {
         "rows": len(frame),
@@ -199,6 +265,10 @@ def summarize_payment_settlement(frame: pd.DataFrame) -> dict[str, Any]:
         "content_id_unique": int(content_ids[content_ids.ne("")].nunique()),
         "sales_channel_content_id_nonblank": int(sale_channel_ids.ne("").sum()),
         "sales_channel_content_id_unique": int(sale_channel_ids[sale_channel_ids.ne("")].nunique()),
+        "contract_id_column_present": bool(contract_column_present),
+        "contract_id_nonzero": int(contract_nonzero.sum()),
+        "contract_id_zero_or_blank": int((~contract_nonzero).sum()),
+        "contract_linked_sales_channel_content_id_unique": int(sale_channel_ids[sale_channel_ids.ne("") & contract_nonzero].nunique()),
         "registered_at_min": nonblank_dates.min() if not nonblank_dates.empty else "",
         "registered_at_max": nonblank_dates.max() if not nonblank_dates.empty else "",
         **conflict_counts,
@@ -439,6 +509,8 @@ def build_s2_change_audit(existing: pd.DataFrame | None, incoming: pd.DataFrame)
         "신규_S2마스터ID",
         "이전_콘텐츠ID",
         "신규_콘텐츠ID",
+        f"이전_{CONTRACT_ID_COLUMN}",
+        f"신규_{CONTRACT_ID_COLUMN}",
         "이전_작가정보",
         "신규_작가정보",
     ]
@@ -482,7 +554,7 @@ def _s2_audit_snapshot(frame: pd.DataFrame | None) -> pd.DataFrame:
     if frame is None or frame.empty:
         return pd.DataFrame(columns=S2_AUDIT_COLUMNS).rename_axis("판매채널콘텐츠ID")
 
-    working = drop_disabled_rows(_normalize_frame(frame.copy()))
+    working = normalize_payment_contract_id_column(drop_disabled_rows(_normalize_frame(frame.copy())))
     if "판매채널콘텐츠ID" not in working.columns:
         return pd.DataFrame(columns=S2_AUDIT_COLUMNS).rename_axis("판매채널콘텐츠ID")
 
@@ -500,6 +572,7 @@ def _s2_audit_snapshot(frame: pd.DataFrame | None) -> pd.DataFrame:
     snapshot["콘텐츠명"] = working["콘텐츠명"].map(extract_master_work_title).map(text).to_list() if "콘텐츠명" in working.columns else ""
     snapshot["S2마스터ID"] = working["지급정산마스터ID"].map(_id_text).to_list() if "지급정산마스터ID" in working.columns else ""
     snapshot["콘텐츠ID"] = working["콘텐츠ID"].map(_id_text).to_list() if "콘텐츠ID" in working.columns else ""
+    snapshot[CONTRACT_ID_COLUMN] = working[CONTRACT_ID_COLUMN].map(contract_id_text).to_list() if CONTRACT_ID_COLUMN in working.columns else ""
     snapshot["작가정보"] = working.apply(lambda row: _join_author_values(row, author_columns), axis=1).to_list() if author_columns else ""
     snapshot.index.name = "판매채널콘텐츠ID"
     return snapshot
@@ -542,6 +615,8 @@ def _change_row(
         "신규_S2마스터ID": _snapshot_value(new_row, "S2마스터ID"),
         "이전_콘텐츠ID": _snapshot_value(old_row, "콘텐츠ID"),
         "신규_콘텐츠ID": _snapshot_value(new_row, "콘텐츠ID"),
+        f"이전_{CONTRACT_ID_COLUMN}": _snapshot_value(old_row, CONTRACT_ID_COLUMN),
+        f"신규_{CONTRACT_ID_COLUMN}": _snapshot_value(new_row, CONTRACT_ID_COLUMN),
         "이전_작가정보": _snapshot_value(old_row, "작가정보"),
         "신규_작가정보": _snapshot_value(new_row, "작가정보"),
     }

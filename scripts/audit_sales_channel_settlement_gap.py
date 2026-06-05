@@ -19,6 +19,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from cleaning_rules import clean_master_title, clean_title, has_disabled_row_marker, text
+from kiss_payment_settlement import (
+    CONTRACT_ID_COLUMN,
+    contract_id_text,
+    has_nonzero_contract_id,
+    normalize_payment_contract_id_column,
+    pick_payment_contract_id_column,
+)
 from matching_rules import PLATFORM_EXACT_CHANNELS, SPECIAL_EXACT_CHANNELS
 from scripts.refresh_kiss_payment_settlement import create_authenticated_session, load_env
 from settlement_adapters import normalize_settlement
@@ -110,9 +117,13 @@ def load_settlement_lookup(path: Path) -> pd.DataFrame:
     missing = required - set(frame.columns)
     if missing:
         raise SystemExit(f"S2 lookup missing columns: {sorted(missing)}")
+    frame = normalize_payment_contract_id_column(frame)
+    pick_payment_contract_id_column(frame, required=True)
     frame = frame.copy()
     frame["판매채널콘텐츠ID"] = frame["판매채널콘텐츠ID"].map(id_text)
+    frame[CONTRACT_ID_COLUMN] = frame[CONTRACT_ID_COLUMN].map(contract_id_text)
     frame = frame[frame["판매채널콘텐츠ID"].ne("")].copy()
+    frame = frame[frame[CONTRACT_ID_COLUMN].map(has_nonzero_contract_id)].copy()
     return frame
 
 
@@ -354,6 +365,7 @@ def classify_rows(
     frame["지급정산관리_판매채널명"] = payment_info.map(lambda row: text(row.get("판매채널명")) if row else "")
     frame["지급정산관리_콘텐츠명"] = payment_info.map(lambda row: text(row.get("콘텐츠명")) if row else "")
     frame["지급정산관리_콘텐츠ID"] = payment_info.map(lambda row: id_text(row.get("콘텐츠ID")) if row else "")
+    frame["지급정산관리_통합계약ID"] = payment_info.map(lambda row: contract_id_text(row.get(CONTRACT_ID_COLUMN)) if row else "")
 
     frame["판정등급"] = frame.apply(classify_grade, axis=1)
     frame["조치"] = frame["판정등급"].map(action_for_grade)
@@ -371,6 +383,7 @@ def classify_rows(
         "정제키",
         "판매채널콘텐츠_콘텐츠형태",
         "지급정산관리_존재",
+        "지급정산관리_통합계약ID",
         "정산서샘플_등장",
         "사용안함_사용금지_표식",
         "지급정산관리_판매채널명",

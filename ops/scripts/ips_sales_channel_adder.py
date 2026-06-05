@@ -193,6 +193,14 @@ def get_row_channel_id(row: dict[str, Any]) -> int:
     return 0
 
 
+def get_row_platform_name(row: dict[str, Any]) -> str:
+    for key in ("schnNm", "lwerSchnNm", "lewrSchnNm"):
+        value = str(row.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
 def choose_settlement_template_row(
     template_rows: list[dict[str, Any]],
     *,
@@ -250,6 +258,61 @@ def choose_settlement_template_row(
         "현재 정산 템플릿의 통합 계약 ID와 지급정산 설정 ID가 모두 0입니다. "
         "계약변경등록(/ip/cntr/cntrchg/cntr-chg-reg?cntrId=...)에서 계약/정산 연결을 먼저 보강하세요."
     )
+
+
+def find_settlement_template_row_for_contract(
+    template_rows: list[dict[str, Any]],
+    platform_name: str,
+    contract_id: int,
+    *,
+    expected_channel_id: int = 0,
+) -> dict[str, Any] | None:
+    requested_keys = platform_match_keys(platform_name)
+    if not requested_keys or contract_id <= 0:
+        return None
+
+    rows = [row for row in template_rows if isinstance(row, dict)]
+    payment_rows = [row for row in rows if str(row.get("pymtStd") or "") == "지급"]
+    candidates = payment_rows or rows
+    matches: list[dict[str, Any]] = []
+    for row in candidates:
+        row_name = get_row_platform_name(row)
+        if platform_key(row_name) not in requested_keys:
+            continue
+        if get_row_contract_id(row) != contract_id:
+            continue
+        matches.append(row)
+
+    if expected_channel_id > 0:
+        channel_matches = [row for row in matches if get_row_channel_id(row) == expected_channel_id]
+        if channel_matches:
+            return channel_matches[-1]
+        if any(get_row_channel_id(row) > 0 for row in matches) or len(matches) > 1:
+            return None
+    return matches[-1] if matches else None
+
+
+def settlement_template_snapshot(template_rows: list[dict[str, Any]], platform_name: str) -> str:
+    requested_keys = platform_match_keys(platform_name)
+    snapshot = []
+    for row in template_rows:
+        if not isinstance(row, dict):
+            continue
+        row_name = get_row_platform_name(row)
+        if requested_keys and platform_key(row_name) not in requested_keys:
+            continue
+        contract_id = get_row_contract_id(row)
+        setup_id = get_row_payment_setup_id(row)
+        channel_id = get_row_channel_id(row)
+        parts = [row_name or "-"]
+        if contract_id:
+            parts.append(f"cntrId={contract_id}")
+        if setup_id:
+            parts.append(f"pymtSetlSetmId={setup_id}")
+        if channel_id:
+            parts.append(f"schnId={channel_id}")
+        snapshot.append(":".join(parts))
+    return " | ".join(snapshot)
 
 
 def classify_unresolved_generated_id(error_text: str) -> tuple[str, str]:
@@ -680,6 +743,42 @@ def fetch_detail_data(page: Any, cid: str) -> dict[str, Any]:
     return detail_resp.get("data") if isinstance(detail_resp.get("data"), dict) else {}
 
 
+def fetch_settlement_template_rows(page: Any, cid: str, *, company_code: str = "") -> list[dict[str, Any]]:
+    result = page.evaluate(
+        """
+        async ({ cid, path, cpr }) => {
+          const axios = document.querySelector('#app').__vue_app__._context.provides['$axios'];
+          try {
+            const response = await axios.get(path, {
+              params: {
+                pageNum: 1,
+                pageSize: 1000,
+                srchCntrId: 0,
+                srcCntrClCd: '',
+                srcCtnsId: String(cid),
+                srcCprCd: cpr || '1000',
+                srcBcncCd: '',
+                pymtSetlSetmId: '',
+              },
+            });
+            return { ok: true, rows: response.data?.list || [] };
+          } catch (error) {
+            return {
+              ok: false,
+              status: error?.response?.status || null,
+              data: error?.response?.data || null,
+              message: String(error),
+            };
+          }
+        }
+        """,
+        {"cid": cid, "path": SETTLEMENT_TEMPLATE_PATH, "cpr": company_code},
+    )
+    if not result.get("ok"):
+        raise RuntimeError(f"정산 템플릿 재조회 실패: {result}")
+    return [row for row in (result.get("rows") or []) if isinstance(row, dict)]
+
+
 def add_platform_via_api(
     page: Any,
     cid: str,
@@ -833,22 +932,55 @@ def add_platform_via_api(
         source_contract_id,
         expected_channel_id=selected_channel_id,
     )
-    _, snapshot = platform_snapshot(detail_data, platform_name)
-    if matched_platform is None:
-        raise RuntimeError(
-            f"판매채널 저장 후에도 선택한 플랫폼/채널이 보이지 않습니다: "
-            f"{platform_name} schnId={selected_channel_id or '-'} cntrId={source_contract_id or '-'}"
+    visible_platform, snapshot = platform_snapshot(detail_data, platform_name)
+    verification_status = "detail_platform_list"
+    settlement_verified_row: dict[str, Any] | None = None
+    settlement_snapshot = ""
+    if matched_platform is None and force_add_existing_platform and source_contract_id > 0:
+        fresh_template_rows = fetch_settlement_template_rows(
+            page,
+            cid,
+            company_code=detail_company_code,
         )
+        settlement_snapshot = settlement_template_snapshot(fresh_template_rows, platform_name)
+        settlement_verified_row = find_settlement_template_row_for_contract(
+            fresh_template_rows,
+            platform_name,
+            source_contract_id,
+            expected_channel_id=selected_channel_id,
+        )
+        if settlement_verified_row is not None:
+            matched_platform = visible_platform or matched_platform
+            verification_status = "settlement_template"
+    if matched_platform is None and settlement_verified_row is None:
+        raise RuntimeError(
+            f"판매채널 저장 후에도 선택한 플랫폼/채널 정산행이 보이지 않습니다: "
+            f"{platform_name} schnId={selected_channel_id or '-'} cntrId={source_contract_id or '-'} "
+            f"detail_snapshot={snapshot or '-'} settlement_snapshot={settlement_snapshot or '-'}"
+        )
+    matched_name = (
+        str((matched_platform or {}).get("lwerSchnNm") or "").strip()
+        or get_row_platform_name(settlement_verified_row or {})
+    )
+    sales_channel_content_id = (
+        str((matched_platform or {}).get("schnCtnsId") or "").strip()
+        or str((settlement_verified_row or {}).get("schnCtnsId") or "").strip()
+    )
 
     return {
         "addition_status": "added" if not force_add_existing_platform else "added_existing_platform_settlement",
-        "sales_channel_content_id": str(matched_platform.get("schnCtnsId") or "").strip(),
-        "matched_platform_name": str(matched_platform.get("lwerSchnNm") or "").strip(),
+        "sales_channel_content_id": sales_channel_content_id,
+        "matched_platform_name": matched_name,
         "existing_platform_snapshot": snapshot,
         "selected_channel_id": str(selected_channel_id or ""),
         "settlement_source_contract_id": str(source_contract_id),
         "settlement_source_payment_setup_id": str(source_payment_setup_id),
         "settlement_source_row_status": "contract_linked" if source_contract_id > 0 else "payment_setup_linked",
+        "settlement_verification_status": verification_status,
+        "settlement_verified_contract_id": str(get_row_contract_id(settlement_verified_row or {}) or source_contract_id or ""),
+        "settlement_verified_payment_setup_id": str(get_row_payment_setup_id(settlement_verified_row or {}) or ""),
+        "settlement_verified_channel_id": str(get_row_channel_id(settlement_verified_row or {}) or selected_channel_id or ""),
+        "settlement_template_snapshot": settlement_snapshot,
     }
 
 

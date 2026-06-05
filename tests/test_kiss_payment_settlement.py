@@ -9,6 +9,7 @@ import pandas as pd
 from openpyxl import Workbook
 
 from kiss_payment_settlement import (
+    CONTRACT_ID_COLUMN,
     cache_part_paths,
     import_payment_settlement_lookup_only,
     import_payment_settlement_frame,
@@ -43,10 +44,12 @@ class KissPaymentSettlementTest(unittest.TestCase):
     def test_file_like_upload_can_be_converted_to_s2_lookup(self) -> None:
         uploaded = io.BytesIO(SAMPLE.read_bytes())
         frame = load_payment_settlement_list(uploaded)
+        frame[CONTRACT_ID_COLUMN] = "999"
         lookup = to_s2_lookup(frame)
 
         self.assertIn("콘텐츠명", lookup.columns)
         self.assertIn("판매채널콘텐츠ID", lookup.columns)
+        self.assertIn(CONTRACT_ID_COLUMN, lookup.columns)
         self.assertGreater(len(lookup), 900)
         self.assertEqual(len(lookup), lookup["판매채널콘텐츠ID"].nunique())
 
@@ -70,6 +73,7 @@ class KissPaymentSettlementTest(unittest.TestCase):
                 "cnfmStsCdNm",
                 "pymtSetlStsCdNm",
                 "cretDtm",
+                "cntrId",
             ]
         )
         raw.append(
@@ -84,6 +88,7 @@ class KissPaymentSettlementTest(unittest.TestCase):
                 "승인",
                 "운영중",
                 "2026-05-07 10:00:00",
+                "999",
             ]
         )
 
@@ -98,6 +103,7 @@ class KissPaymentSettlementTest(unittest.TestCase):
         self.assertEqual(frame.loc[0, "지급정산상세ID"], "200")
         self.assertEqual(lookup.loc[0, "판매채널콘텐츠ID"], "300")
         self.assertEqual(lookup.loc[0, "콘텐츠ID"], "400")
+        self.assertEqual(lookup.loc[0, CONTRACT_ID_COLUMN], "999")
 
     def test_api_rows_can_be_converted_to_s2_lookup(self) -> None:
         frame = payment_settlement_frame_from_api_rows(
@@ -113,6 +119,7 @@ class KissPaymentSettlementTest(unittest.TestCase):
                     "cnfmStsCdNm": "승인",
                     "pymtSetlStsCdNm": "운영중",
                     "cretDtm": "2026-05-07 11:00:00",
+                    "cntrId": "999",
                 }
             ]
         )
@@ -120,6 +127,64 @@ class KissPaymentSettlementTest(unittest.TestCase):
 
         self.assertEqual(lookup.loc[0, "판매채널콘텐츠ID"], "301")
         self.assertEqual(lookup.loc[0, "콘텐츠ID"], "401")
+        self.assertEqual(lookup.loc[0, CONTRACT_ID_COLUMN], "999")
+
+    def test_to_s2_lookup_requires_contract_id_column(self) -> None:
+        frame = pd.DataFrame(
+            [
+                {
+                    "승인상태": "승인",
+                    "지급정산상태": "운영중",
+                    "판매채널명": "테스트 채널",
+                    "콘텐츠형태": "소설",
+                    "콘텐츠명": "계약 없는 작품",
+                    "지급정산마스터ID": "M-1",
+                    "지급정산상세ID": "D-1",
+                    "콘텐츠ID": "C-1",
+                    "판매채널콘텐츠ID": "S-1",
+                }
+            ]
+        )
+
+        with self.assertRaisesRegex(ValueError, "통합 계약 ID"):
+            to_s2_lookup(frame)
+
+    def test_to_s2_lookup_keeps_only_nonzero_contract_id_rows(self) -> None:
+        frame = payment_settlement_frame_from_api_rows(
+            [
+                {
+                    "pymtSetlId": "101",
+                    "pymtSetlDtlId": "201",
+                    "schnCtnsId": "S-ZERO",
+                    "ctnsId": "C-ZERO",
+                    "ctnsNm": "계약 0 작품",
+                    "schnNm": "테스트 채널",
+                    "ctnsStleCdNm": "소설",
+                    "cnfmStsCdNm": "승인",
+                    "pymtSetlStsCdNm": "운영중",
+                    "cretDtm": "2026-05-07 11:00:00",
+                    "cntrId": "0",
+                },
+                {
+                    "pymtSetlId": "102",
+                    "pymtSetlDtlId": "202",
+                    "schnCtnsId": "S-OK",
+                    "ctnsId": "C-OK",
+                    "ctnsNm": "계약 연결 작품",
+                    "schnNm": "테스트 채널",
+                    "ctnsStleCdNm": "소설",
+                    "cnfmStsCdNm": "승인",
+                    "pymtSetlStsCdNm": "운영중",
+                    "cretDtm": "2026-05-08 11:00:00",
+                    "cntrId": "86000",
+                },
+            ]
+        )
+
+        lookup = to_s2_lookup(frame)
+
+        self.assertEqual(lookup["판매채널콘텐츠ID"].tolist(), ["S-OK"])
+        self.assertEqual(lookup[CONTRACT_ID_COLUMN].tolist(), ["86000"])
 
     def test_disabled_marker_rows_are_removed_from_import_outputs(self) -> None:
         def row(title: str, sales_channel_content_id: str, author: str = "홍길동") -> dict[str, object]:
@@ -135,6 +200,7 @@ class KissPaymentSettlementTest(unittest.TestCase):
                 "지급정산상세ID": f"D-{sales_channel_content_id}",
                 "콘텐츠ID": f"C-{sales_channel_content_id}",
                 "판매채널콘텐츠ID": sales_channel_content_id,
+                CONTRACT_ID_COLUMN: "999",
             }
 
         incoming = pd.DataFrame(
@@ -186,6 +252,7 @@ class KissPaymentSettlementTest(unittest.TestCase):
                 "지급정산상세ID": f"D-{sales_channel_content_id}",
                 "콘텐츠ID": f"C-{sales_channel_content_id}",
                 "판매채널콘텐츠ID": sales_channel_content_id,
+                CONTRACT_ID_COLUMN: "999",
             }
 
         incoming = pd.DataFrame([row("작품 A", "401"), row("작품 B", "402"), row("작품 C", "403")])
@@ -237,6 +304,7 @@ class KissPaymentSettlementTest(unittest.TestCase):
                 "지급정산상세ID": f"D-{sales_channel_content_id}",
                 "콘텐츠ID": f"C-{sales_channel_content_id}",
                 "판매채널콘텐츠ID": sales_channel_content_id,
+                CONTRACT_ID_COLUMN: "999",
             }
 
         frame = pd.DataFrame(
@@ -265,6 +333,7 @@ class KissPaymentSettlementTest(unittest.TestCase):
                     "cnfmStsCdNm": "승인",
                     "pymtSetlStsCdNm": "운영중",
                     "cretDtm": "2026-05-07 11:00:00",
+                    "cntrId": "999",
                 },
                 {
                     "pymtSetlId": "102",
@@ -277,6 +346,7 @@ class KissPaymentSettlementTest(unittest.TestCase):
                     "cnfmStsCdNm": "승인",
                     "pymtSetlStsCdNm": "운영중",
                     "cretDtm": "2026-05-08 11:00:00",
+                    "cntrId": "999",
                 },
             ]
         )
@@ -302,6 +372,7 @@ class KissPaymentSettlementTest(unittest.TestCase):
                     "cnfmStsCdNm": "승인",
                     "pymtSetlStsCdNm": "운영중",
                     "cretDtm": "2026-05-07 11:00:00",
+                    "cntrId": "999",
                 }
             ]
         )
@@ -318,6 +389,7 @@ class KissPaymentSettlementTest(unittest.TestCase):
                     "cnfmStsCdNm": "승인",
                     "pymtSetlStsCdNm": "운영중",
                     "cretDtm": "2026-05-08 11:00:00",
+                    "cntrId": "999",
                 }
             ]
         )
@@ -353,6 +425,7 @@ class KissPaymentSettlementTest(unittest.TestCase):
                     "cnfmStsCdNm": "승인",
                     "pymtSetlStsCdNm": "운영중",
                     "cretDtm": "2026-05-08 11:00:00",
+                    "cntrId": "999",
                 }
             ]
         )

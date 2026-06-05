@@ -18,6 +18,7 @@ COL_CONTENT_TITLE = "콘텐츠명"
 COL_CLEAN_KEY = "정제키"
 COL_CONTENT_SHAPE = "판매채널콘텐츠_콘텐츠형태"
 COL_PAYMENT_EXISTS = "지급정산관리_존재"
+COL_PAYMENT_CONTRACT_ID = "지급정산관리_통합계약ID"
 COL_DISABLED_MARKER = "사용안함_사용금지_표식"
 COL_DEPARTMENT = "담당부서"
 COL_MIXED_RISK = "혼합위험"
@@ -60,6 +61,14 @@ TITLE_COLUMN_CANDIDATES = (
     "작품명",
     "상품명",
     "도서명",
+)
+CONTRACT_ID_COLUMN_CANDIDATES = (
+    COL_PAYMENT_CONTRACT_ID,
+    "통합계약ID",
+    "통합 계약 ID",
+    "cntrId",
+    "unityCntrId",
+    "srcCntrId",
 )
 
 GateMode = Literal["strict", "payment_lookup_safe", "audit_only"]
@@ -112,6 +121,7 @@ def build_status_table(
     frame[COL_CONTENT_ID] = frame[COL_CONTENT_ID].map(id_text)
     frame[COL_CONTENT_TITLE] = frame[COL_CONTENT_TITLE].map(text)
     frame = frame[frame[COL_SALES_CHANNEL_CONTENT_ID].ne("")].copy()
+    frame = _apply_contract_linked_payment_flag(frame)
 
     content_has_payment = frame.groupby(COL_CONTENT_ID, dropna=False)[COL_PAYMENT_EXISTS].apply(lambda s: s.map(is_yes).any())
 
@@ -162,6 +172,8 @@ def apply_settlement_status_gate(
     working[id_col] = working[id_col].map(id_text)
     status = _status_lookup(status_table)
     status_cols = [COL_STATUS, COL_STATUS_REASON, COL_MIXED_RISK, COL_PAYMENT_EXISTS]
+    if COL_PAYMENT_CONTRACT_ID in status.columns:
+        status_cols.append(COL_PAYMENT_CONTRACT_ID)
     optional_cols = [
         COL_PLATFORM,
         COL_S2_CHANNEL,
@@ -185,7 +197,7 @@ def apply_settlement_status_gate(
     missing_status = enriched[COL_STATUS].map(text).eq("")
     if source_kind == "payment_lookup":
         enriched.loc[missing_status, COL_STATUS] = STATUS_OK_PAYMENT_LOOKUP_SOURCE
-        enriched.loc[missing_status, COL_STATUS_REASON] = "지급정산관리 lookup 소스에 존재하는 ID입니다."
+        enriched.loc[missing_status, COL_STATUS_REASON] = "통합 계약 ID가 0이 아닌 S2 지급정산 lookup 소스에 존재하는 ID입니다."
     else:
         enriched.loc[missing_status, COL_STATUS] = STATUS_REVIEW_UNKNOWN_STATUS
         enriched.loc[missing_status, COL_STATUS_REASON] = "최신 정산상태표에서 확인되지 않은 ID입니다."
@@ -242,7 +254,7 @@ def settlement_status_summary(frame: pd.DataFrame) -> pd.DataFrame:
         ("판매채널콘텐츠ID 수", frame[COL_SALES_CHANNEL_CONTENT_ID].map(text).nunique() if COL_SALES_CHANNEL_CONTENT_ID in frame.columns else ""),
     ]
     if COL_PAYMENT_EXISTS in frame.columns:
-        rows.append(("지급정산관리 없음", int(frame[COL_PAYMENT_EXISTS].map(lambda value: not is_yes(value)).sum())))
+        rows.append(("계약연결 지급정산 없음", int(frame[COL_PAYMENT_EXISTS].map(lambda value: not is_yes(value)).sum())))
     rows.extend((f"상태:{status}", int(count)) for status, count in frame[COL_STATUS].value_counts(dropna=False).items())
     if COL_MIXED_RISK in frame.columns:
         rows.append(("혼합위험", int(frame[COL_MIXED_RISK].map(is_yes).sum())))
@@ -284,6 +296,14 @@ def id_text(value: object) -> str:
     return value_text
 
 
+def contract_id_text(value: object) -> str:
+    return id_text(value)
+
+
+def has_nonzero_contract_id(value: object) -> bool:
+    return contract_id_text(value) not in {"", "0"}
+
+
 def is_yes(value: object) -> bool:
     return text(value).upper() == "Y"
 
@@ -297,6 +317,27 @@ def pick_existing_column(candidates: Iterable[str], frame: pd.DataFrame, label: 
         if column in frame.columns:
             return column
     raise ValueError(f"{label} 컬럼을 찾을 수 없습니다: 후보={list(candidates)}, 현재={list(frame.columns)}")
+
+
+def _optional_existing_column(candidates: Iterable[str], frame: pd.DataFrame) -> str:
+    normalized = {str(column).replace(" ", ""): column for column in frame.columns}
+    for candidate in candidates:
+        column = normalized.get(str(candidate).replace(" ", ""))
+        if column is not None:
+            return str(column)
+    return ""
+
+
+def _apply_contract_linked_payment_flag(frame: pd.DataFrame) -> pd.DataFrame:
+    result = frame.copy()
+    contract_col = _optional_existing_column(CONTRACT_ID_COLUMN_CANDIDATES, result)
+    if contract_col:
+        result[COL_PAYMENT_CONTRACT_ID] = result[contract_col].map(contract_id_text)
+        result[COL_PAYMENT_EXISTS] = result[COL_PAYMENT_CONTRACT_ID].map(lambda value: "Y" if has_nonzero_contract_id(value) else "N")
+    else:
+        result[COL_PAYMENT_CONTRACT_ID] = ""
+        result[COL_PAYMENT_EXISTS] = "N"
+    return result
 
 
 def _status_lookup(status_table: pd.DataFrame) -> pd.DataFrame:
@@ -330,11 +371,11 @@ def _reason_for_row(row: pd.Series) -> str:
     if status == STATUS_BLOCK_DISABLED_MARKER:
         return "[사용안함]/[사용금지] 등 선차단 표식이 있습니다."
     if status == STATUS_HOLD_MIXED_CONTENT_RISK:
-        return "동일 콘텐츠ID 안에 정상 지급정산 채널이 있으나 이 판매채널콘텐츠ID는 지급정산관리에 없습니다."
+        return "동일 콘텐츠ID 안에 통합 계약 ID가 연결된 지급정산 채널이 있으나 이 판매채널콘텐츠ID는 통합 계약 ID가 0/공란입니다."
     if status == STATUS_HOLD_NO_PAYMENT_SETTLEMENT:
-        return "판매채널콘텐츠에는 있으나 지급정산관리에 없습니다."
+        return "판매채널콘텐츠에는 있으나 통합 계약 ID가 0/공란이어서 지급정산 없음으로 봅니다."
     if status == STATUS_OK_PAYMENT_SETTLEMENT_EXISTS:
-        return "지급정산관리에 존재합니다."
+        return "통합 계약 ID가 0이 아닌 지급정산관리 행이 존재합니다."
     return "정산상태 확인이 필요합니다."
 
 
@@ -353,6 +394,7 @@ def _ordered_status_table(frame: pd.DataFrame) -> pd.DataFrame:
         COL_CONTENT_SHAPE,
         COL_DEPARTMENT,
         COL_PAYMENT_EXISTS,
+        COL_PAYMENT_CONTRACT_ID,
         COL_DISABLED_MARKER,
         COL_AS_OF,
     ]

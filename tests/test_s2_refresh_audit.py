@@ -18,6 +18,7 @@ def s2_source_row(
     title: str,
     author: str,
     created_at: str,
+    contract_id: str = "999",
 ) -> dict[str, str]:
     return {
         "pymtSetlId": master_id,
@@ -30,6 +31,7 @@ def s2_source_row(
         "cnfmStsCdNm": "승인",
         "pymtSetlStsCdNm": "운영중",
         "cretDtm": created_at,
+        "cntrId": contract_id,
         "작가명": author,
     }
 

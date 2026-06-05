@@ -4,6 +4,7 @@ import unittest
 
 import pandas as pd
 
+from kiss_payment_settlement import CONTRACT_ID_COLUMN
 from mapping_core import MATCH_NONE, MATCH_OK, build_mapping
 from s2_reference_guards import (
     S2ReferenceGuards,
@@ -173,6 +174,7 @@ class S2ReferenceGuardsTest(unittest.TestCase):
                 "판매채널콘텐츠ID": ["OTHER-S2"],
                 "콘텐츠ID": ["CID-OTHER"],
                 "판매채널명": ["다른채널"],
+                CONTRACT_ID_COLUMN: ["86000"],
             }
         )
         settlement = pd.DataFrame({"작품명": ["타채널 작품"]})
@@ -190,7 +192,34 @@ class S2ReferenceGuardsTest(unittest.TestCase):
         self.assertEqual(row["S2_미매핑상세사유"], "해당채널 지급정산 없음 / 타채널 지급정산 존재")
         self.assertIn("다른채널", row["S2_미매핑근거"])
         self.assertIn("CID-OTHER", row["S2_미매핑근거"])
+        self.assertIn("86000", row["S2_미매핑근거"])
         self.assertIn("해당 판매채널 지급정산 생성/보강", row["S2_권장조치"])
+
+    def test_other_channel_payment_candidates_ignore_zero_contract_id(self) -> None:
+        guards = S2ReferenceGuards(missing=normalize_missing_rows([]), billing=normalize_billing_rows([]))
+        s2_filtered = pd.DataFrame(columns=["콘텐츠명", "판매채널콘텐츠ID", "판매채널명", CONTRACT_ID_COLUMN])
+        s2_all = pd.DataFrame(
+            {
+                "콘텐츠명": ["타채널 작품"],
+                "판매채널콘텐츠ID": ["OTHER-S2"],
+                "콘텐츠ID": ["CID-OTHER"],
+                "판매채널명": ["다른채널"],
+                CONTRACT_ID_COLUMN: ["0"],
+            }
+        )
+        settlement = pd.DataFrame({"작품명": ["타채널 작품"]})
+
+        mapping = build_mapping(s2_filtered, settlement, None)
+        annotated = annotate_mapping_result(
+            mapping,
+            guards,
+            sales_channel="현재채널",
+            s2_all_frame=s2_all,
+        )
+        row = annotated.rows.iloc[0]
+
+        self.assertEqual(row["S2_미매핑상세사유"], "S2/콘텐츠마스터 정제키 후보 없음")
+        self.assertNotIn("타채널 지급정산", row["S2_미매핑근거"])
 
     def test_no_match_rows_are_annotated_with_master_candidates(self) -> None:
         guards = S2ReferenceGuards(missing=normalize_missing_rows([]), billing=normalize_billing_rows([]))

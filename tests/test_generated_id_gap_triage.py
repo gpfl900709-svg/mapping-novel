@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -13,10 +14,27 @@ for path in (REPO_ROOT, SCRIPTS_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from triage_generated_id_gaps import decide  # noqa: E402
+from kiss_payment_settlement import CONTRACT_ID_COLUMN  # noqa: E402
+from triage_generated_id_gaps import decide, read_payment_lookup  # noqa: E402
 
 
 class GeneratedIdGapTriageTest(unittest.TestCase):
+    def test_payment_lookup_loader_filters_zero_contract_id_rows(self) -> None:
+        frame = pd.DataFrame(
+            [
+                {"콘텐츠명": "계약 0 작품", "판매채널명": "타채널", "판매채널콘텐츠ID": "S-ZERO", CONTRACT_ID_COLUMN: "0"},
+                {"콘텐츠명": "계약 연결 작품", "판매채널명": "타채널", "판매채널콘텐츠ID": "S-OK", CONTRACT_ID_COLUMN: "86000"},
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "payment_lookup.csv"
+            frame.to_csv(path, index=False, encoding="utf-8-sig")
+            loaded = read_payment_lookup(path)
+
+        self.assertEqual(loaded["판매채널콘텐츠ID"].tolist(), ["S-OK"])
+        self.assertEqual(loaded[CONTRACT_ID_COLUMN].tolist(), ["86000"])
+
     def test_other_channel_payment_requires_ips_contract_id_gate(self) -> None:
         other_payment = pd.DataFrame(
             [

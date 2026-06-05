@@ -18,11 +18,14 @@ from ips_sales_channel_adder import (
     choose_settlement_template_row,
     extract_unified_contract_id,
     find_platform_row_for_contract,
+    find_settlement_template_row_for_contract,
     get_row_contract_id,
+    get_row_payment_setup_id,
     next_action_for_unresolved_status,
     row_has_approved_status,
     row_has_unified_contract_id,
     select_channel_row,
+    settlement_template_snapshot,
 )
 
 
@@ -273,6 +276,48 @@ class IpsSalesChannelAdderTest(unittest.TestCase):
         )
 
         self.assertEqual(channel, {"schnId": "92", "schnNm": "원스토어(소설)"})
+
+    def test_settlement_template_verifies_forced_existing_platform_settlement(self) -> None:
+        detail = {
+            "schnCtnsInfoList": [
+                {"lwerSchnNm": "무툰(소설 서비스)", "schnCtnsId": "110602", "lwerSchnCd": "63", "cntrId": None},
+            ]
+        }
+        template_rows = [
+            {
+                "pymtStd": "지급",
+                "schnNm": "교보문고(소설)",
+                "schnId": 87,
+                "cntrId": 86248,
+                "pymtSetlSetmId": 1087711,
+            },
+            {
+                "pymtStd": "지급",
+                "schnNm": "무툰(소설 서비스)",
+                "schnId": 63,
+                "cntrId": 86248,
+                "pymtSetlSetmId": 1087712,
+            },
+        ]
+
+        self.assertIsNone(
+            find_platform_row_for_contract(
+                detail,
+                "무툰(소설 서비스)",
+                86248,
+                expected_channel_id=63,
+            )
+        )
+        row = find_settlement_template_row_for_contract(
+            template_rows,
+            "무툰(소설 서비스)",
+            86248,
+            expected_channel_id=63,
+        )
+
+        self.assertIsNotNone(row)
+        self.assertEqual(get_row_payment_setup_id(row or {}), 1087712)
+        self.assertIn("cntrId=86248", settlement_template_snapshot(template_rows, "무툰(소설 서비스)"))
 
     def test_classifies_missing_contract_as_review_note(self) -> None:
         status, value = classify_unresolved_generated_id(

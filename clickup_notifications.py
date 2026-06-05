@@ -321,11 +321,12 @@ def build_s2_refresh_task_payload(
         f"- S2 기준 업데이트: {updated_at or '확인 필요'}\n"
         f"- 상태: {usage_label or '확인 필요'}\n"
         f"- 현재 S2 기준 행: {s2_rows:,}\n"
-        f"- S2 ID: {s2_id_rows:,}\n"
+        f"- 계약연결 S2 ID: {s2_id_rows:,}\n"
         f"- 누락 guard: {missing_guard_rows:,}\n"
         f"- 청구 guard: {billing_guard_rows:,}\n"
         f"- 콘텐츠 lookup: {service_content_rows:,}"
         f"{app_url_line}\n\n"
+        "지급정산 기준은 `통합계약ID(cntrId) != 0` 행만 사용합니다.\n"
         "사용자가 Streamlit 앱에서 `관리자에게 S2 최신화 요청` 버튼을 눌러 생성된 요청입니다."
     )
 

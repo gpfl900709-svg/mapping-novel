@@ -62,6 +62,8 @@ class ClickUpNotificationsTest(unittest.TestCase):
         self.assertEqual(payload["assignees"], [306885786])
         self.assertTrue(payload["notify_all"])
         self.assertIn("현재 S2 기준 행: 124,755", payload["markdown_content"])
+        self.assertIn("계약연결 S2 ID: 124,755", payload["markdown_content"])
+        self.assertIn("통합계약ID(cntrId) != 0", payload["markdown_content"])
         self.assertIn("누락 guard: 2,327", payload["markdown_content"])
         self.assertIn("https://example.test/app", payload["markdown_content"])
 

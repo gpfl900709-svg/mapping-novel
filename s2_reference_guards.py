@@ -7,6 +7,13 @@ from typing import Any, Iterable
 import pandas as pd
 
 from cleaning_rules import clean_title, drop_disabled_rows, text
+from kiss_payment_settlement import (
+    CONTRACT_ID_COLUMN,
+    contract_id_text,
+    has_nonzero_contract_id,
+    normalize_payment_contract_id_column,
+    pick_payment_contract_id_column,
+)
 from mapping_core import MATCH_AMBIGUOUS, MATCH_BLANK, MATCH_NONE, MATCH_OK, MappingResult
 
 
@@ -472,19 +479,27 @@ def _optional_column(frame: pd.DataFrame | None, candidates: Iterable[str]) -> s
 def _s2_payment_index_by_key(frame: pd.DataFrame | None) -> dict[str, dict[str, str | int]]:
     if frame is None or frame.empty:
         return {}
-    title_col = _optional_column(frame, S2_LOOKUP_TITLE_COL_CAND)
-    channel_col = _optional_column(frame, S2_LOOKUP_CHANNEL_COL_CAND)
+    working = normalize_payment_contract_id_column(frame.copy())
+    contract_col = pick_payment_contract_id_column(working, required=False)
+    if not contract_col:
+        return {}
+    working[CONTRACT_ID_COLUMN] = working[CONTRACT_ID_COLUMN].map(contract_id_text)
+    working = working[working[CONTRACT_ID_COLUMN].map(has_nonzero_contract_id)].copy()
+    if working.empty:
+        return {}
+    title_col = _optional_column(working, S2_LOOKUP_TITLE_COL_CAND)
+    channel_col = _optional_column(working, S2_LOOKUP_CHANNEL_COL_CAND)
     if not title_col or not channel_col:
         return {}
-    content_id_col = _optional_column(frame, S2_LOOKUP_CONTENT_ID_COL_CAND)
-    sales_channel_content_id_col = _optional_column(frame, S2_LOOKUP_SALES_CHANNEL_CONTENT_ID_COL_CAND)
-    working = frame.copy()
+    content_id_col = _optional_column(working, S2_LOOKUP_CONTENT_ID_COL_CAND)
+    sales_channel_content_id_col = _optional_column(working, S2_LOOKUP_SALES_CHANNEL_CONTENT_ID_COL_CAND)
     working["_정제키"] = working[title_col].map(clean_title)
     fields = {
         "판매채널명": channel_col,
         "콘텐츠명": title_col,
         "콘텐츠ID": content_id_col,
         "판매채널콘텐츠ID": sales_channel_content_id_col,
+        CONTRACT_ID_COLUMN: CONTRACT_ID_COLUMN,
     }
     return _index_by_key(working, key_col="_정제키", fields=fields)
 
@@ -589,7 +604,7 @@ def _missing_detail_for(
         actions.append("청구정산 건인지 확인하고 지급정산 매핑 대상 제외/전환 여부 판단")
     if other_payment:
         reasons.append("해당채널 지급정산 없음 / 타채널 지급정산 존재")
-        evidence.append(_detail_piece("타채널 지급정산", other_payment, ["판매채널명", "콘텐츠ID", "콘텐츠명"]))
+        evidence.append(_detail_piece("타채널 지급정산", other_payment, ["판매채널명", "콘텐츠ID", "콘텐츠명", CONTRACT_ID_COLUMN]))
         actions.append("해당 판매채널 지급정산 생성/보강 여부 판단")
     if master:
         reasons.append("콘텐츠마스터 있음 / S2 지급정산 없음")

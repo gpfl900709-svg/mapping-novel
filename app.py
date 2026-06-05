@@ -46,7 +46,16 @@ from github_notifications import (
     normalize_github_secret_values,
 )
 from kiss_refresh_history import latest_refresh_runs, latest_s2_refresh_changes
-from kiss_payment_settlement import load_payment_settlement_list, summarize_payment_settlement, to_s2_lookup
+from kiss_payment_settlement import (
+    CONTRACT_ID_COLUMN,
+    contract_id_text,
+    has_nonzero_contract_id,
+    load_payment_settlement_list,
+    normalize_payment_contract_id_column,
+    pick_payment_contract_id_column,
+    summarize_payment_settlement,
+    to_s2_lookup,
+)
 from cleaning_rules import drop_disabled_rows, text
 from mapping_core import S2MappingReference, build_mapping, build_s2_mapping_reference, export_mapping, read_first_sheet
 from matching_rules import (
@@ -185,11 +194,14 @@ S2_ID_MEMORY_COMPONENT = (
 
 def cache_metrics(path: Path) -> dict[str, int]:
     if not path.exists():
-        return {"rows": 0, "sales_channel_content_id_nonblank": 0}
+        return {"rows": 0, "sales_channel_content_id_nonblank": 0, "contract_linked_rows": 0}
     frame = pd.read_csv(path, dtype=object)
-    metrics = {"rows": len(frame), "sales_channel_content_id_nonblank": 0}
+    metrics = {"rows": len(frame), "sales_channel_content_id_nonblank": 0, "contract_linked_rows": 0}
     if "판매채널콘텐츠ID" in frame.columns:
         metrics["sales_channel_content_id_nonblank"] = int(frame["판매채널콘텐츠ID"].map(str).str.strip().ne("").sum())
+    frame = normalize_payment_contract_id_column(frame)
+    if CONTRACT_ID_COLUMN in frame.columns:
+        metrics["contract_linked_rows"] = int(frame[CONTRACT_ID_COLUMN].map(has_nonzero_contract_id).sum())
     return metrics
 
 
@@ -454,11 +466,22 @@ def ui_safe_refresh_log(raw_text: str) -> str:
 def load_manual_s2_reference(uploaded_file: object) -> tuple[pd.DataFrame, str, dict[str, object] | None]:
     try:
         payment_df = load_payment_settlement_list(uploaded_file)
-        return to_s2_lookup(payment_df), "수동 S2 원천 엑셀", summarize_payment_settlement(payment_df)
     except Exception:
         if hasattr(uploaded_file, "seek"):
             uploaded_file.seek(0)
         return drop_disabled_rows(read_first_sheet(uploaded_file)), "수동 S2 기준 리스트", None
+    return to_s2_lookup(payment_df), "수동 S2 원천 엑셀", summarize_payment_settlement(payment_df)
+
+
+def require_contract_linked_s2_lookup(frame: pd.DataFrame, *, label: str) -> pd.DataFrame:
+    working = normalize_payment_contract_id_column(frame)
+    try:
+        pick_payment_contract_id_column(working, required=True)
+    except ValueError as exc:
+        raise ValueError(f"{label}에 통합 계약 ID 컬럼이 없습니다. 관리자 S2 최신화로 lookup을 다시 생성해야 합니다.") from exc
+    working = working.copy()
+    working[CONTRACT_ID_COLUMN] = working[CONTRACT_ID_COLUMN].map(contract_id_text)
+    return working[working[CONTRACT_ID_COLUMN].map(has_nonzero_contract_id)].reset_index(drop=True)
 
 
 def history_frame(limit: int = 10) -> pd.DataFrame:
@@ -728,6 +751,10 @@ def s2_source_summary_frame(summary: dict[str, object]) -> pd.DataFrame:
     add("S2 원천 행 수", summary.get("rows"))
     add("판매채널콘텐츠ID 고유값", summary.get("sales_channel_content_id_unique"))
     add("콘텐츠ID 고유값", summary.get("content_id_unique"))
+    add("통합계약ID 컬럼", "있음" if summary.get("contract_id_column_present") else "없음")
+    add("통합계약ID 비0 행", summary.get("contract_id_nonzero"))
+    add("통합계약ID 0/공란 행", summary.get("contract_id_zero_or_blank"))
+    add("계약연결 판매채널콘텐츠ID 고유값", summary.get("contract_linked_sales_channel_content_id_unique"))
     if registered_min or registered_max:
         add("등록일 범위", f"{registered_min or '-'} ~ {registered_max or '-'}")
     add("동일 판매채널콘텐츠ID 중복 키", summary.get("sales_channel_content_id_duplicate_keys"))
@@ -930,7 +957,11 @@ def load_selected_s2_basis(
         label = guarded_s2_source_label("수동 S2 원천 엑셀", guards, guard_result)
         return guard_result.frame, label, summarize_payment_settlement(payment_df), guards, guard_result
     if use_payment_cache:
-        guard_result = apply_missing_exclusions(pd.read_csv(S2_SOURCE_LOOKUP, dtype=object), guards)
+        cached_lookup = require_contract_linked_s2_lookup(
+            pd.read_csv(S2_SOURCE_LOOKUP, dtype=object),
+            label="관리자 배포 S2 기준",
+        )
+        guard_result = apply_missing_exclusions(cached_lookup, guards)
         label = guarded_s2_source_label("관리자 배포 S2 기준", guards, guard_result)
         return guard_result.frame, label, None, guards, guard_result
     s2_df, s2_source_label, payment_summary = load_manual_s2_reference(s2_file)
@@ -2236,7 +2267,7 @@ with st.sidebar:
 
     cache_cols = st.columns(2)
     cache_cols[0].metric("현재 S2 기준 행", f"{current_cache['rows']:,}")
-    cache_cols[1].metric("S2 ID", f"{current_cache['sales_channel_content_id_nonblank']:,}")
+    cache_cols[1].metric("계약연결 S2 ID", f"{current_cache['contract_linked_rows']:,}")
     guard_cols = st.columns(3)
     guard_cols[0].metric("누락 guard", f"{missing_guard_rows:,}")
     guard_cols[1].metric("청구 guard", f"{billing_guard_rows:,}")
@@ -2256,7 +2287,7 @@ with st.sidebar:
                     updated_at=baseline_updated_at,
                     usage_label=usage_label,
                     s2_rows=current_cache["rows"],
-                    s2_id_rows=current_cache["sales_channel_content_id_nonblank"],
+                    s2_id_rows=current_cache["contract_linked_rows"],
                     missing_guard_rows=missing_guard_rows,
                     billing_guard_rows=billing_guard_rows,
                     service_content_rows=service_content_rows,

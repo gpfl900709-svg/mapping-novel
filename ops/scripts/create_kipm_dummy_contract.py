@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import traceback
 import re
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -1821,6 +1822,7 @@ def main() -> None:
             "holder_name": spec.holder_name,
             "contract_name": spec.contract_name,
             "error": str(exc),
+            "traceback": traceback.format_exc(),
         }
         report_path.write_text(json.dumps(failure_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         raise SystemExit(str(exc))

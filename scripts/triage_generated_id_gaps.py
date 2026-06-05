@@ -20,6 +20,13 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from cleaning_rules import clean_title
+from kiss_payment_settlement import (
+    CONTRACT_ID_COLUMN,
+    contract_id_text,
+    has_nonzero_contract_id,
+    normalize_payment_contract_id_column,
+    pick_payment_contract_id_column,
+)
 
 
 SHEET_ID = "1jG0Q6LKzJ_q2VqdqtoDHSEwl8hfOEUrxRuxXq7KSazY"
@@ -73,6 +80,17 @@ def read_table(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, dtype=str).fillna("")
 
 
+def read_payment_lookup(path: Path) -> pd.DataFrame:
+    frame = read_table(path)
+    if frame.empty:
+        return frame
+    frame = normalize_payment_contract_id_column(frame)
+    pick_payment_contract_id_column(frame, required=True)
+    frame = frame.copy()
+    frame[CONTRACT_ID_COLUMN] = frame[CONTRACT_ID_COLUMN].map(contract_id_text)
+    return frame[frame[CONTRACT_ID_COLUMN].map(has_nonzero_contract_id)].reset_index(drop=True)
+
+
 def add_key(frame: pd.DataFrame, source_col: str) -> pd.DataFrame:
     if frame.empty or source_col not in frame.columns:
         return frame.copy()
@@ -96,7 +114,7 @@ def read_sheet(input_value: str) -> pd.DataFrame:
 
 
 def load_lookups() -> LookupBundle:
-    payment = add_key(read_table(S2_PAYMENT_PATH), "콘텐츠명")
+    payment = add_key(read_payment_lookup(S2_PAYMENT_PATH), "콘텐츠명")
     sales_channel = add_key(read_table(S2_SALES_CHANNEL_PATH), "콘텐츠명")
     missing = add_key(read_table(S2_MISSING_PATH), "콘텐츠명")
     billing = add_key(read_table(S2_BILLING_PATH), "대표콘텐츠명")
