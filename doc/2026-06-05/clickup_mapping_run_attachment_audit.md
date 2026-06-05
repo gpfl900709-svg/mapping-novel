@@ -6,13 +6,13 @@
 
 ## 결론
 
-매핑 실행 결과를 ClickUp task에 남기는 기능은 유효하다. 다만 원본 정산서 xlsx에는 계약/정산/거래처성 데이터가 포함될 수 있으므로, 매 실행마다 원본을 자동 첨부하는 방식은 위험하다.
+매핑 실행 결과를 ClickUp task에 남기는 기능은 유효하다. 운영 추적을 위해 원본 정산서 xlsx 첨부를 기본값으로 켠다. 다만 원본 정산서에는 계약/정산/거래처성 데이터가 포함될 수 있으므로 GitHub에는 올리지 않고 ClickUp 전용 task attachment로만 남긴다.
 
 구현 기준은 다음으로 정한다.
 
 1. `adapter-failure` 큐와 분리해 `mapping-run` 태그의 실행 기록 task를 만든다.
 2. 기본 첨부는 실행 payload JSON, batch summary CSV, PD 작업지시 CSV, 전체 행별매핑 CSV, 결과 ZIP이다.
-3. 원본 xlsx 첨부는 사용자가 `원본 xlsx 첨부`를 켠 경우에만 수행한다.
+3. 원본 xlsx 첨부는 기본 ON이며, 사용자가 `원본 xlsx 첨부`를 끈 경우에만 제외한다.
 4. 같은 run signature는 세션에서 중복 생성하지 않는다.
 5. 개별 첨부가 40MB를 넘으면 task는 만들되 해당 첨부는 제외하고 UI에 표시한다.
 
@@ -27,9 +27,9 @@
 
 ### A. 모든 원본 xlsx 자동 첨부
 
-위험하다. 정상 매핑 파일까지 계속 ClickUp에 남으면 저장량과 민감정보 노출 범위가 커진다.
+운영 추적성은 좋아지지만 정상 매핑 파일까지 계속 ClickUp에 남으면 저장량과 민감정보 노출 범위가 커진다.
 
-대응: 원본 첨부는 기본 off.
+대응: 원본 첨부는 기본 on으로 두되, GitHub 업로드는 금지하고 ClickUp 전용 리스트/권한 안에서만 보관한다.
 
 ### B. 성공 결과에서 `_source_bytes`를 계속 보존
 
@@ -59,7 +59,7 @@ ClickUp task가 불필요하게 늘어난다.
   - 실행 전 `매핑 실행 후 ClickUp 기록 생성` 옵션 추가
   - 결과 화면에 `ClickUp 실행 기록` 패널 추가
   - 결과 ZIP 기본 첨부
-  - 원본 xlsx 선택 첨부
+  - 원본 xlsx 기본 첨부
   - run signature 기반 중복 방지
 - `.env.example`
   - `CLICKUP_MAPPING_RUN_*` 설정 추가

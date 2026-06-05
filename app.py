@@ -145,6 +145,7 @@ SETTLEMENT_UPLOAD_RESET_COUNTER_KEY = "settlement_upload_reset_counter"
 MAPPING_RESULT_STATE_KEY = "mapping_result_state"
 ADAPTER_FAILURE_REQUEST_STATE_KEY = "adapter_failure_request_state"
 MAPPING_RUN_AUDIT_REQUEST_STATE_KEY = "mapping_run_audit_request_state"
+DEFAULT_MAPPING_RUN_ATTACH_INPUTS = True
 S2_DIRECT_REFRESH_RESULT_STATE_KEY = "s2_direct_refresh_result_state"
 S2_DIRECT_REFRESH_ADMIN_TOKEN_INPUT_KEY = "s2_direct_refresh_admin_token"
 S2_CHANNEL_SCHEMA_EXAMPLES = (
@@ -2024,7 +2025,7 @@ def render_mapping_run_audit_panel(
         )
         attach_inputs = st.checkbox(
             "원본 xlsx 첨부",
-            value=False,
+            value=DEFAULT_MAPPING_RUN_ATTACH_INPUTS,
             key=f"mapping_run_attach_inputs_{run_id}",
         )
         if existing.get("clickup_url"):
@@ -2958,7 +2959,7 @@ with st.expander("ClickUp 실행 기록", expanded=False):
     )
     auto_clickup_attach_inputs = st.checkbox(
         "원본 xlsx 첨부",
-        value=False,
+        value=DEFAULT_MAPPING_RUN_ATTACH_INPUTS,
         disabled=not auto_clickup_mapping_run,
         key="auto_clickup_attach_inputs",
     )
