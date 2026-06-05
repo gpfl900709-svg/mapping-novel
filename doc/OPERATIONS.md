@@ -34,6 +34,8 @@ S2 API 접속 정보는 기본적으로 Streamlit Cloud Secrets에 넣지 않습
 
 직접 최신화는 보통 1~2분 정도 걸립니다. 실행 중에는 로그인 확인, 지급정산 lookup, 누락/청구 guard, 판매채널콘텐츠 lookup 단계와 경과시간을 진행바로 표시합니다.
 
+Streamlit Cloud에서 `kiss-api.kld.kr` 접속이 타임아웃되면 ID/PW 문제가 아니라 Cloud 서버에서 S2 API까지 네트워크가 닿지 않는 상태입니다. 이때 앱은 에러 본문에 원본 로그를 길게 노출하지 않고, ClickUp 설정이 있으면 S2 최신화 요청 task로 자동 전환합니다.
+
 ClickUp 요청 모드의 Streamlit Cloud Secrets에는 아래 값만 넣습니다.
 
 ```toml

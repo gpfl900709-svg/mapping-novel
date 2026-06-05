@@ -32,6 +32,7 @@ from adapter_failure_diagnostics import (
 from clickup_notifications import (
     ClickUpAttachment,
     ClickUpNotificationError,
+    ClickUpTaskResult,
     build_adapter_failure_clickup_config,
     build_clickup_config,
     build_mapping_run_clickup_config,
@@ -568,14 +569,73 @@ def run_s2_direct_refresh_once(
     }
 
 
+def create_sidebar_s2_refresh_request(
+    *,
+    clickup_config: object,
+    baseline_updated_at: str,
+    usage_label: str,
+    current_cache: dict[str, Any],
+    missing_guard_rows: int,
+    billing_guard_rows: int,
+    service_content_rows: int,
+) -> ClickUpTaskResult:
+    return create_s2_refresh_request_task(
+        clickup_config,
+        updated_at=baseline_updated_at,
+        usage_label=usage_label,
+        s2_rows=safe_int(current_cache.get("rows")),
+        s2_id_rows=safe_int(current_cache.get("contract_linked_rows")),
+        missing_guard_rows=missing_guard_rows,
+        billing_guard_rows=billing_guard_rows,
+        service_content_rows=service_content_rows,
+        requested_at=datetime.now(KST),
+    )
+
+
+def add_s2_refresh_request_fallback(
+    result_state: dict[str, Any],
+    *,
+    clickup_config: object,
+    baseline_updated_at: str,
+    usage_label: str,
+    current_cache: dict[str, Any],
+    missing_guard_rows: int,
+    billing_guard_rows: int,
+    service_content_rows: int,
+) -> dict[str, Any]:
+    if result_state.get("status") == "success":
+        return result_state
+    if not looks_like_s2_network_failure(result_state.get("log")):
+        return result_state
+    if not getattr(clickup_config, "is_configured", False):
+        result_state["fallback_message"] = "ClickUp 요청 설정이 없어 자동 요청을 남기지 못했습니다."
+        return result_state
+    try:
+        clickup_result = create_sidebar_s2_refresh_request(
+            clickup_config=clickup_config,
+            baseline_updated_at=baseline_updated_at,
+            usage_label=usage_label,
+            current_cache=current_cache,
+            missing_guard_rows=missing_guard_rows,
+            billing_guard_rows=billing_guard_rows,
+            service_content_rows=service_content_rows,
+        )
+    except ClickUpNotificationError as exc:
+        result_state["fallback_message"] = f"ClickUp 최신화 요청 전환도 실패했습니다: {exc}"
+        return result_state
+
+    result_state["fallback_message"] = "Cloud 직접 최신화가 막혀 ClickUp 최신화 요청으로 전환했습니다."
+    result_state["clickup_url"] = clickup_result.url
+    return result_state
+
+
 def s2_refresh_error_message(completed: subprocess.CompletedProcess[str], refresh_scope: str) -> str:
     output = f"{completed.stdout}\n{completed.stderr}"
-    detail = " ".join(str(output or "").split())[:300]
     if looks_like_s2_network_failure(output):
-        message = f"{S2_NETWORK_FAILURE_HINT} API 다운로드를 시작하지 않았습니다. ({refresh_scope})"
-        if detail:
-            return f"{message} 원인 로그: {detail}"
-        return message
+        return (
+            f"{S2_NETWORK_FAILURE_HINT} Streamlit Cloud에서는 사내망/IP 허용 목록 제한으로 "
+            f"직접 최신화가 실패할 수 있습니다. ({refresh_scope})"
+        )
     if looks_like_s2_auth_failure(output):
         return f"{S2_AUTH_FAILURE_HINT} API 다운로드를 진행하지 못했습니다. ({refresh_scope})"
     if refresh_scope == "로그인 확인":
@@ -2577,6 +2637,10 @@ def render_s2_direct_refresh_panel(*, direct_config: object, has_credentials: bo
             st.error(text(result_state.get("message")) or "S2 최신화에 실패했습니다.")
             if elapsed_label:
                 st.caption(f"실패까지 경과 {elapsed_label}")
+            if text(result_state.get("fallback_message")):
+                st.info(text(result_state.get("fallback_message")))
+            if text(result_state.get("clickup_url")):
+                st.markdown(f"[ClickUp에서 보기]({result_state.get('clickup_url')})")
 
         if text(result_state.get("log")):
             with st.expander("실행 로그", expanded=False):
@@ -2738,21 +2802,29 @@ with st.sidebar:
                 elapsed_label = format_elapsed_seconds(elapsed_seconds)
                 progress_text.caption(f"{label} · 경과 {elapsed_label}")
 
-            st.session_state[S2_DIRECT_REFRESH_RESULT_STATE_KEY] = run_s2_direct_refresh_once(direct_refresh_progress)
+            direct_result_state = run_s2_direct_refresh_once(direct_refresh_progress)
+            st.session_state[S2_DIRECT_REFRESH_RESULT_STATE_KEY] = add_s2_refresh_request_fallback(
+                direct_result_state,
+                clickup_config=clickup_config,
+                baseline_updated_at=baseline_updated_at,
+                usage_label=usage_label,
+                current_cache=current_cache,
+                missing_guard_rows=missing_guard_rows,
+                billing_guard_rows=billing_guard_rows,
+                service_content_rows=service_content_rows,
+            )
             st.rerun()
         else:
             try:
                 with st.spinner("관리자에게 요청 보내는 중..."):
-                    clickup_result = create_s2_refresh_request_task(
-                        clickup_config,
-                        updated_at=baseline_updated_at,
+                    clickup_result = create_sidebar_s2_refresh_request(
+                        clickup_config=clickup_config,
+                        baseline_updated_at=baseline_updated_at,
                         usage_label=usage_label,
-                        s2_rows=current_cache["rows"],
-                        s2_id_rows=current_cache["contract_linked_rows"],
+                        current_cache=current_cache,
                         missing_guard_rows=missing_guard_rows,
                         billing_guard_rows=billing_guard_rows,
                         service_content_rows=service_content_rows,
-                        requested_at=datetime.now(KST),
                     )
                 st.success("S2 최신화 요청을 보냈습니다.")
                 if clickup_result.url:
