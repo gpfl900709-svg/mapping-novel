@@ -1,12 +1,12 @@
 {
   "created_at": "2026-06-09",
-  "finished_at": "2026-06-09T00:01:19+09:00",
+  "finished_at": "2026-06-09T12:01:08+09:00",
   "content_style_code": "102",
   "target_channels": 51,
   "target_missing_channels": 0,
   "fetch_failures": 0,
-  "raw_rows": 96977,
-  "lookup_rows": 96977,
+  "raw_rows": 96978,
+  "lookup_rows": 96978,
   "sales_channel_counts": {
     "원스토어(소설)": 10034,
     "미스터블루(소설)": 9694,
@@ -30,7 +30,7 @@
     "네이버_연재(광고수익)": 1270
   },
   "content_shape_counts": {
-    "소설": 96974,
+    "소설": 96975,
     "웹툰": 3
   },
   "output": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\s2_sales_channel_content_lookup.csv",
