@@ -1,7 +1,7 @@
 {
-  "manifest_id": "2026-06-16__s2_all__120007",
+  "manifest_id": "2026-06-17__s2_all__000011",
   "step": "reference_guards",
   "path": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\s2_billing_settlement_lookup.csv",
-  "sha256": "b0d32bc619ff1d110b8d42f7c66c08546369fda66e3dacae24e97ae08527496e",
-  "created_at": "2026-06-16T12:01:13"
+  "sha256": "b36fa10829717990a7608bed639449fa2e5cb8b2ae339825fbf93044970e0a93",
+  "created_at": "2026-06-17T00:01:16"
 }
