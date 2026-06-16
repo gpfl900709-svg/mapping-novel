@@ -1,14 +1,14 @@
 {
   "created_at": "2026-06-16",
-  "finished_at": "2026-06-16T00:01:09+09:00",
+  "finished_at": "2026-06-16T12:01:10+09:00",
   "content_style_code": "102",
   "target_channels": 51,
   "target_missing_channels": 0,
   "fetch_failures": 0,
-  "raw_rows": 97114,
-  "lookup_rows": 97114,
+  "raw_rows": 97129,
+  "lookup_rows": 97129,
   "sales_channel_counts": {
-    "원스토어(소설)": 10041,
+    "원스토어(소설)": 10056,
     "미스터블루(소설)": 9697,
     "판무림": 9151,
     "한아름(P000003716)": 7473,
@@ -30,7 +30,7 @@
     "네이버_연재(광고수익)": 1273
   },
   "content_shape_counts": {
-    "소설": 97111,
+    "소설": 97126,
     "웹툰": 3
   },
   "output": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\s2_sales_channel_content_lookup.csv",

@@ -1,7 +1,7 @@
 {
-  "manifest_id": "2026-06-16__s2_all__000008",
+  "manifest_id": "2026-06-16__s2_all__120007",
   "step": "payment_settlement",
   "path": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
-  "sha256": "b01f80b017ad4b0a25e12407887b8900993c503798e12d0dc2e545c7082cacdf",
-  "created_at": "2026-06-16T00:01:13"
+  "sha256": "f5434a1ef9cc12488a029416e957714aeb09f5788e49fc2f08f9c35025764a75",
+  "created_at": "2026-06-16T12:01:13"
 }
