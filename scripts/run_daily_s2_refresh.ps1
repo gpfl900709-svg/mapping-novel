@@ -104,6 +104,54 @@ function Invoke-GitStep {
     Write-Log "DONE $Name"
 }
 
+function Get-GitDivergenceFromOriginMain {
+    Push-Location $RepoRoot
+    $output = ""
+    $exitCode = 0
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $output = (& $GitExe rev-list --left-right --count "HEAD...origin/main" 2>&1) -join "`n"
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+        Pop-Location
+    }
+    if ($exitCode -ne 0) {
+        throw "Git divergence check failed with exit code $exitCode`: $output"
+    }
+
+    $parts = $output.Trim() -split "\s+"
+    if ($parts.Count -lt 2) {
+        throw "Git divergence check returned unexpected output: $output"
+    }
+
+    [PSCustomObject]@{
+        Ahead = [int]$parts[0]
+        Behind = [int]$parts[1]
+    }
+}
+
+function Push-RefreshCommits {
+    Invoke-GitStep "Git fetch latest main before push" @("fetch", "--quiet", "origin", "main")
+    $divergence = Get-GitDivergenceFromOriginMain
+    Write-Log "Git divergence before push: ahead=$($divergence.Ahead) behind=$($divergence.Behind)"
+
+    if ($divergence.Behind -gt 0) {
+        Invoke-GitStep "Git rebase latest main before push" @("pull", "--quiet", "--rebase", "origin", "main")
+        $divergence = Get-GitDivergenceFromOriginMain
+        Write-Log "Git divergence after rebase: ahead=$($divergence.Ahead) behind=$($divergence.Behind)"
+    }
+
+    if ($divergence.Ahead -eq 0) {
+        Write-Log "No local refresh commits to push"
+        return
+    }
+
+    Invoke-GitStep "Git push S2 refresh artifacts" @("push", "--quiet", "origin", "main")
+}
+
 function Publish-RefreshArtifacts {
     $docDir = Join-Path (Join-Path $RepoRoot "doc") $today
     $artifactPaths = @(
@@ -143,6 +191,7 @@ function Publish-RefreshArtifacts {
 
     if ($diffExitCode -eq 0) {
         Write-Log "No S2 refresh artifact changes to commit"
+        Push-RefreshCommits
         return
     }
     if ($diffExitCode -ne 1) {
@@ -150,8 +199,7 @@ function Publish-RefreshArtifacts {
     }
 
     Invoke-GitStep "Git commit S2 refresh artifacts" (@("commit", "-m", "Refresh S2 lookup data $today", "--") + $artifactPaths)
-    Invoke-GitStep "Git rebase latest main before push" @("pull", "--quiet", "--rebase", "origin", "main")
-    Invoke-GitStep "Git push S2 refresh artifacts" @("push", "--quiet", "origin", "main")
+    Push-RefreshCommits
 }
 
 try {
