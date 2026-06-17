@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-06-13",
-  "finished_at": "2026-06-13T12:01:07+09:00",
+  "created_at": "2026-06-07",
+  "finished_at": "2026-06-07T00:01:22+09:00",
   "content_style_code": "102",
   "missing_platform_code": "",
   "missing_rows_raw": 2327,
@@ -18,14 +18,14 @@
   },
   "missing_overlap_with_s2_lookup": 0,
   "missing_platform_comparisons": [],
-  "billing_api_total_rows": 944,
-  "billing_rows_raw": 944,
+  "billing_api_total_rows": 940,
+  "billing_rows_raw": 940,
   "billing_pages": 1,
-  "billing_lookup_rows": 944,
+  "billing_lookup_rows": 940,
   "billing_sales_channel_counts": {
     "벨툰JP(봄툰B2BC)(F000000019)": 144,
     "레진JP(봄툰B2BC)(F000000019)": 143,
-    "카카오페이지(선투자)": 117,
+    "카카오페이지(선투자)": 116,
     "스튜디오지니": 60,
     "블라이스 셀렉트": 52,
     "대만-네이버": 40,
@@ -41,8 +41,8 @@
     "밀리의 서재": 11,
     "MBN": 10,
     "태국-코미코(봄툰B2BC)(F000000198)": 10,
-    "네이버_연재": 9,
-    "대만-리브북스": 9
+    "대만-리브북스": 9,
+    "네이버_연재": 8
   },
   "missing_lookup": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\s2_payment_missing_lookup.csv",
   "billing_lookup": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\s2_billing_settlement_lookup.csv",
