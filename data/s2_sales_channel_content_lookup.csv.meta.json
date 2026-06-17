@@ -1,7 +1,7 @@
 {
-  "manifest_id": "2026-06-17__s2_all__000011",
+  "manifest_id": "2026-06-17__s2_all__120006",
   "step": "sales_channel_contents",
   "path": "C:\\Users\\User\\Desktop\\mapping-novel\\data\\s2_sales_channel_content_lookup.csv",
-  "sha256": "5179b3e41694baac34944e1c1e5858d070c03db7bd898b66a10b6e94ce87db2f",
-  "created_at": "2026-06-17T00:01:16"
+  "sha256": "e901c4636e5ea7dc8c84aa4915bd558266600c0beb53472dc9fc7f32594aa15b",
+  "created_at": "2026-06-17T12:01:06"
 }
