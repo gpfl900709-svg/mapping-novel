@@ -10,7 +10,7 @@ DEFAULT_ROOTS = ("output", "ops/SIAAN Project/output", "doc")
 SECRET_PATTERNS = {
     "bearer_token": re.compile(r"\bBearer\s+[A-Za-z0-9._~+/=-]{16,}", re.IGNORECASE),
     "jwt": re.compile(r"\b[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b"),
-    "clickup_token": re.compile(r"\bpk_[A-Za-z0-9_]{16,}\b"),
+    "pk_prefixed_token": re.compile(r"\bpk_[A-Za-z0-9_]{16,}\b"),
     "github_token": re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{16,}\b"),
     "slack_token": re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{16,}\b"),
     "atlassian_like_token": re.compile(r"\bAT[A-Z0-9]{8,}_[A-Za-z0-9_-]{16,}\b"),

@@ -137,13 +137,13 @@ def build_adapter_failure_issue_payload(
     *,
     config: GitHubIssueConfig,
     failure_payload: Mapping[str, Any],
-    clickup_url: str,
+    notion_task_url: str,
 ) -> dict[str, Any]:
     channel = _text(failure_payload.get("detected_s2_channel")) or _text(failure_payload.get("selected_s2_channel"))
     channel = channel or "판매채널 확인 필요"
     category = _text(failure_payload.get("failure_category")) or "unexpected_exception"
     source_name = _text(failure_payload.get("source_name")) or "uploaded.xlsx"
-    body = render_github_issue_body(failure_payload, clickup_url=clickup_url)
+    body = render_github_issue_body(failure_payload, notion_task_url=notion_task_url)
     if config.mentions:
         body += "\n" + " ".join(f"@{mention.lstrip('@')}" for mention in config.mentions) + "\n"
 
@@ -161,7 +161,7 @@ def create_adapter_failure_issue(
     config: GitHubIssueConfig,
     *,
     failure_payload: Mapping[str, Any],
-    clickup_url: str,
+    notion_task_url: str,
     session: requests.Session | None = None,
 ) -> GitHubIssueResult:
     if not config.is_configured:
@@ -177,7 +177,7 @@ def create_adapter_failure_issue(
     payload = build_adapter_failure_issue_payload(
         config=config,
         failure_payload=failure_payload,
-        clickup_url=clickup_url,
+        notion_task_url=notion_task_url,
     )
 
     owns_session = session is None

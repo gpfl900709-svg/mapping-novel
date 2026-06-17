@@ -32,7 +32,7 @@ class GitHubNotificationsTest(unittest.TestCase):
         self.assertEqual(config.assignees, ("wjjo",))
         self.assertEqual(config.mentions, ("wjjo",))
 
-    def test_issue_payload_is_sanitized_and_links_clickup(self) -> None:
+    def test_issue_payload_is_sanitized_and_links_notion(self) -> None:
         config = build_github_issue_config(
             {
                 "GITHUB_ADAPTER_FAILURE_TOKEN": "gh-token",
@@ -43,7 +43,7 @@ class GitHubNotificationsTest(unittest.TestCase):
 
         payload = build_adapter_failure_issue_payload(
             config=config,
-            clickup_url="https://app.clickup.com/t/task-1",
+            notion_task_url="https://notion.so/task-1",
             failure_payload={
                 "source_name": "네이버.xlsx",
                 "source_sha256": "abc",
@@ -69,7 +69,8 @@ class GitHubNotificationsTest(unittest.TestCase):
 
         self.assertEqual(payload["title"], "[adapter-failure] 네이버_일반 header_not_found: 네이버.xlsx")
         self.assertEqual(payload["assignees"], ["wjjo"])
-        self.assertIn("https://app.clickup.com/t/task-1", payload["body"])
+        self.assertIn("https://notion.so/task-1", payload["body"])
+        self.assertIn("notion_task", payload["body"])
         self.assertIn("<number>", payload["body"])
         self.assertNotIn("7200", payload["body"])
 
@@ -84,7 +85,7 @@ class GitHubNotificationsTest(unittest.TestCase):
 
         result = create_adapter_failure_issue(
             config,
-            clickup_url="https://app.clickup.com/t/task-1",
+            notion_task_url="https://notion.so/task-1",
             failure_payload={
                 "source_name": "네이버.xlsx",
                 "effective_platform": "네이버",

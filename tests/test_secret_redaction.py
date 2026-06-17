@@ -22,17 +22,17 @@ class SecretRedactionTest(unittest.TestCase):
         self.assertIn(REDACTED, redact_string(text))
 
     def test_redacts_secret_keys_in_nested_payloads(self) -> None:
-        clickup_like_token = "pk_" + "A" * 40
+        api_like_token = "pk_" + "A" * 40
         payload = {
             "safe": "visible",
             "headers": {"Authorization": "Bearer " + "B" * 32},
-            "api_token": clickup_like_token,
+            "api_token": api_like_token,
         }
 
         rendered = dumps_redacted(payload)
 
         self.assertIn('"safe": "visible"', rendered)
-        self.assertNotIn(clickup_like_token, rendered)
+        self.assertNotIn(api_like_token, rendered)
         self.assertGreaterEqual(rendered.count(REDACTED), 2)
 
 

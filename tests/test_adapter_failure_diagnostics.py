@@ -92,10 +92,11 @@ class AdapterFailureDiagnosticsTest(unittest.TestCase):
             app_commit_sha="abc1234",
         )
 
-        body = render_github_issue_body(payload, clickup_url="https://app.clickup.com/t/task-1")
+        body = render_github_issue_body(payload, notion_task_url="https://notion.so/task-1")
 
-        self.assertIn("https://app.clickup.com/t/task-1", body)
+        self.assertIn("https://notion.so/task-1", body)
         self.assertIn("원본 정산서 xlsx는 GitHub에 첨부하지 않는다", body)
+        self.assertIn("Notion 카드 첨부", body)
         self.assertNotIn("7200", body)
 
 

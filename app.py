@@ -29,24 +29,26 @@ from adapter_failure_diagnostics import (
     render_failure_report_markdown,
     sha256_hex,
 )
-from clickup_notifications import (
-    ClickUpAttachment,
-    ClickUpNotificationError,
-    ClickUpTaskResult,
-    build_adapter_failure_clickup_config,
-    build_clickup_config,
-    build_mapping_run_clickup_config,
-    create_adapter_failure_task,
-    create_mapping_run_task,
-    create_s2_refresh_request_task,
-    normalize_clickup_secret_values,
-    upload_task_attachment,
-)
 from github_notifications import (
     GitHubNotificationError,
     build_github_issue_config,
     create_adapter_failure_issue,
     normalize_github_secret_values,
+)
+from notion_tasks import (
+    NOTION_TASK_DATA_SOURCE_ID,
+    NotionAttachment,
+    NotionTaskConfig,
+    NotionTaskError,
+    NotionTaskResult,
+    append_attachments,
+    append_text_blocks,
+    build_notion_task_config,
+    create_adapter_failure_task,
+    create_mapping_run_task,
+    create_s2_refresh_request_task,
+    normalize_notion_secret_values,
+    update_task_link,
 )
 from kiss_refresh_history import latest_refresh_runs, latest_s2_refresh_changes
 from kiss_payment_settlement import (
@@ -119,7 +121,6 @@ S2_REFRESH_STALE_AFTER_HOURS = 12
 S2_GUARD_SUMMARY_NAME = "s2_reference_guards_refresh_summary.json"
 S2_SERVICE_CONTENT_SUMMARY_NAME = "s2_sales_channel_contents_refresh_summary.json"
 STREAMLIT_CLOUD_APP_URL = "https://mapping-novel-ascmdzm897irzyvzwn9kqo.streamlit.app/"
-ADAPTER_FAILURE_CLICKUP_LIST_ID = "901818576269"
 GITHUB_ADAPTER_FAILURE_REPO = "macximin/mapping-novel"
 KST = timezone(timedelta(hours=9))
 AUTO_PLATFORM_OPTION = "엑셀 파일명으로 자동감지"
@@ -214,9 +215,9 @@ def streamlit_s2_secret_values() -> dict[str, str]:
         return {}
 
 
-def streamlit_clickup_secret_values() -> dict[str, Any]:
+def streamlit_notion_secret_values() -> dict[str, Any]:
     try:
-        return normalize_clickup_secret_values(st.secrets)
+        return normalize_notion_secret_values(st.secrets)
     except (FileNotFoundError, KeyError, RuntimeError):
         return {}
 
@@ -228,34 +229,15 @@ def streamlit_github_secret_values() -> dict[str, Any]:
         return {}
 
 
-def clickup_notification_config():
+def notion_task_config() -> NotionTaskConfig:
     config_values: dict[str, Any] = {}
     config_values.update(read_env_file(S2_ENV_FILE))
     config_values.update(dict(os.environ))
-    config_values.update(streamlit_clickup_secret_values())
-    config_values.setdefault("CLICKUP_APP_URL", STREAMLIT_CLOUD_APP_URL)
-    return build_clickup_config(config_values)
-
-
-def adapter_failure_clickup_config():
-    config_values: dict[str, Any] = {}
-    config_values.update(read_env_file(S2_ENV_FILE))
-    config_values.update(dict(os.environ))
-    config_values.update(streamlit_clickup_secret_values())
-    config_values.setdefault("CLICKUP_APP_URL", STREAMLIT_CLOUD_APP_URL)
-    config_values.setdefault("CLICKUP_ADAPTER_FAILURE_LIST_ID", ADAPTER_FAILURE_CLICKUP_LIST_ID)
-    config_values.setdefault("CLICKUP_ADAPTER_FAILURE_ATTACH_ORIGINAL", "true")
-    return build_adapter_failure_clickup_config(config_values)
-
-
-def mapping_run_clickup_config():
-    config_values: dict[str, Any] = {}
-    config_values.update(read_env_file(S2_ENV_FILE))
-    config_values.update(dict(os.environ))
-    config_values.update(streamlit_clickup_secret_values())
-    config_values.setdefault("CLICKUP_APP_URL", STREAMLIT_CLOUD_APP_URL)
-    config_values.setdefault("CLICKUP_MAPPING_RUN_LIST_ID", ADAPTER_FAILURE_CLICKUP_LIST_ID)
-    return build_mapping_run_clickup_config(config_values)
+    config_values.update(streamlit_notion_secret_values())
+    config_values.setdefault("NOTION_APP_URL", STREAMLIT_CLOUD_APP_URL)
+    config_values.setdefault("NOTION_TASK_DATA_SOURCE_ID", NOTION_TASK_DATA_SOURCE_ID)
+    config_values.setdefault("NOTION_ATTACH_ORIGINAL_XLSX", "true")
+    return build_notion_task_config(config_values)
 
 
 def github_adapter_failure_config():
@@ -347,18 +329,20 @@ def s2_runtime_auth_config() -> dict[str, str]:
 
 def create_sidebar_s2_refresh_request(
     *,
-    clickup_config: object,
+    notion_config: NotionTaskConfig,
     baseline_updated_at: str,
     usage_label: str,
+    usage_tone: str,
     current_cache: dict[str, Any],
     missing_guard_rows: int,
     billing_guard_rows: int,
     service_content_rows: int,
-) -> ClickUpTaskResult:
+) -> NotionTaskResult:
     return create_s2_refresh_request_task(
-        clickup_config,
+        notion_config,
         updated_at=baseline_updated_at,
         usage_label=usage_label,
+        usage_tone=usage_tone,
         s2_rows=safe_int(current_cache.get("rows")),
         s2_id_rows=safe_int(current_cache.get("contract_linked_rows")),
         missing_guard_rows=missing_guard_rows,
@@ -1560,15 +1544,15 @@ def adapter_failure_attachments(
     payload: dict[str, object],
     source_bytes: bytes,
     attach_original: bool,
-) -> tuple[ClickUpAttachment, ...]:
+) -> tuple[NotionAttachment, ...]:
     stem = default_failure_artifact_stem(payload)
     attachments = [
-        ClickUpAttachment(
+        NotionAttachment(
             filename=f"{stem}_failure_report.md",
             content=render_failure_report_markdown(payload).encode("utf-8"),
             content_type="text/markdown; charset=utf-8",
         ),
-        ClickUpAttachment(
+        NotionAttachment(
             filename=f"{stem}_failure_payload.json",
             content=payload_json_bytes(payload),
             content_type="application/json; charset=utf-8",
@@ -1577,7 +1561,7 @@ def adapter_failure_attachments(
     source_name = text(payload.get("source_name")) or "uploaded.xlsx"
     if attach_original and source_bytes:
         attachments.append(
-            ClickUpAttachment(
+            NotionAttachment(
                 filename=f"source_{source_name}",
                 content=source_bytes,
                 content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1634,7 +1618,7 @@ def build_mapping_run_audit_payload(mapping_state: dict[str, Any], *, run_signat
 
 
 def append_mapping_audit_attachment(
-    attachments: list[ClickUpAttachment],
+    attachments: list[NotionAttachment],
     skipped: list[str],
     *,
     filename: str,
@@ -1647,7 +1631,7 @@ def append_mapping_audit_attachment(
     if max_bytes and len(content) > max_bytes:
         skipped.append(f"{filename} ({len(content):,} B)")
         return
-    attachments.append(ClickUpAttachment(filename=filename, content=content, content_type=content_type))
+    attachments.append(NotionAttachment(filename=filename, content=content, content_type=content_type))
 
 
 def mapping_run_audit_attachments(
@@ -1658,8 +1642,8 @@ def mapping_run_audit_attachments(
     attach_outputs: bool,
     attach_inputs: bool,
     max_attachment_bytes: int = 40 * 1024 * 1024,
-) -> tuple[tuple[ClickUpAttachment, ...], tuple[str, ...]]:
-    attachments: list[ClickUpAttachment] = []
+) -> tuple[tuple[NotionAttachment, ...], tuple[str, ...]]:
+    attachments: list[NotionAttachment] = []
     skipped: list[str] = []
     run_id = text(payload.get("run_id")) or "mapping-run"
     append_mapping_audit_attachment(
@@ -1727,9 +1711,9 @@ def create_mapping_run_audit_request(
     attach_outputs: bool,
     attach_inputs: bool,
 ) -> dict[str, str]:
-    config = mapping_run_clickup_config()
+    config = notion_task_config()
     if not config.is_configured:
-        raise ClickUpNotificationError("ClickUp 매핑 실행 기록 설정이 없습니다.")
+        raise NotionTaskError("Notion 매핑 실행 기록 설정이 없습니다.")
     payload = build_mapping_run_audit_payload(mapping_state, run_signature=run_signature)
     attachments, skipped = mapping_run_audit_attachments(
         mapping_state=mapping_state,
@@ -1738,14 +1722,15 @@ def create_mapping_run_audit_request(
         attach_outputs=attach_outputs,
         attach_inputs=attach_inputs,
     )
-    clickup_result = create_mapping_run_task(
+    notion_result = create_mapping_run_task(
         config,
         run_payload=payload,
         attachments=attachments,
     )
+    skipped_all = list(skipped) + list(notion_result.skipped_attachments)
     return {
-        "clickup_url": clickup_result.url,
-        "skipped": " | ".join(skipped),
+        "notion_url": notion_result.url,
+        "skipped": " | ".join(skipped_all),
         "error": "",
     }
 
@@ -1756,7 +1741,7 @@ def render_mapping_run_audit_panel(
     settlement_files: list[object],
     run_signature: str,
 ) -> None:
-    config = mapping_run_clickup_config()
+    config = notion_task_config()
     payload = build_mapping_run_audit_payload(mapping_state, run_signature=run_signature)
     run_id = text(payload.get("run_id"))
     request_state = st.session_state.setdefault(MAPPING_RUN_AUDIT_REQUEST_STATE_KEY, {})
@@ -1767,9 +1752,9 @@ def render_mapping_run_audit_panel(
     if not isinstance(existing, dict):
         existing = {}
 
-    with st.expander("ClickUp 실행 기록", expanded=False):
+    with st.expander("Notion 실행 기록", expanded=False):
         if not config.is_configured:
-            st.warning("ClickUp 매핑 실행 기록 설정이 없습니다.")
+            st.warning("Notion 매핑 실행 기록 설정이 없습니다.")
         audit_cols = st.columns(4)
         audit_cols[0].metric("입력 파일", f"{safe_int(payload.get('file_count')):,}")
         audit_cols[1].metric("검토필요", f"{safe_int(payload.get('review_required_count')):,}")
@@ -1786,22 +1771,22 @@ def render_mapping_run_audit_panel(
             value=DEFAULT_MAPPING_RUN_ATTACH_INPUTS,
             key=f"mapping_run_attach_inputs_{run_id}",
         )
-        if existing.get("clickup_url"):
+        if existing.get("notion_url"):
             st.success("이미 이 실행 기록을 생성했습니다.")
-            st.markdown(f"[ClickUp에서 보기]({existing['clickup_url']})")
+            st.markdown(f"[Notion에서 보기]({existing['notion_url']})")
             if existing.get("skipped"):
                 st.caption(f"용량 제한으로 제외된 첨부: {existing['skipped']}")
         if existing.get("error"):
             st.caption(text(existing.get("error")))
 
         if st.button(
-            "ClickUp 실행 기록 생성",
+            "Notion 실행 기록 생성",
             key=f"mapping_run_audit_send_{run_id}",
-            disabled=not config.is_configured or bool(existing.get("clickup_url")),
+            disabled=not config.is_configured or bool(existing.get("notion_url")),
             type="secondary",
         ):
             try:
-                with st.spinner("ClickUp 실행 기록과 첨부를 생성하는 중..."):
+                with st.spinner("Notion 실행 기록과 첨부를 생성하는 중..."):
                     result_state = create_mapping_run_audit_request(
                         mapping_state=mapping_state,
                         settlement_files=settlement_files,
@@ -1810,16 +1795,16 @@ def render_mapping_run_audit_panel(
                         run_signature=run_signature,
                     )
                 request_state[run_id] = result_state
-                st.success("ClickUp 실행 기록을 생성했습니다.")
-                st.markdown(f"[ClickUp에서 보기]({result_state['clickup_url']})")
+                st.success("Notion 실행 기록을 생성했습니다.")
+                st.markdown(f"[Notion에서 보기]({result_state['notion_url']})")
                 if result_state.get("skipped"):
                     st.caption(f"용량 제한으로 제외된 첨부: {result_state['skipped']}")
-            except ClickUpNotificationError as exc:
-                request_state[run_id] = {"clickup_url": "", "skipped": "", "error": str(exc)}
-                st.error("ClickUp 실행 기록 생성에 실패했습니다.")
+            except NotionTaskError as exc:
+                request_state[run_id] = {"notion_url": "", "skipped": "", "error": str(exc)}
+                st.error("Notion 실행 기록 생성에 실패했습니다.")
                 st.caption(str(exc))
             except Exception as exc:
-                st.error("ClickUp 실행 기록 생성 중 오류가 났습니다.")
+                st.error("Notion 실행 기록 생성 중 오류가 났습니다.")
                 render_error_detail(exc)
 
 
@@ -1832,7 +1817,7 @@ def render_adapter_failure_request_panel(mapping_state: dict[str, Any], selected
     if not results:
         return
 
-    clickup_config = adapter_failure_clickup_config()
+    notion_config = notion_task_config()
     github_config = github_adapter_failure_config()
     request_state = st.session_state.setdefault(ADAPTER_FAILURE_REQUEST_STATE_KEY, {})
     if not isinstance(request_state, dict):
@@ -1840,11 +1825,11 @@ def render_adapter_failure_request_panel(mapping_state: dict[str, Any], selected
         st.session_state[ADAPTER_FAILURE_REQUEST_STATE_KEY] = request_state
 
     st.subheader("어댑터 실패 요청")
-    st.caption("실패/차단된 정산서만 전용 ClickUp 큐로 보냅니다. GitHub Issue는 설정이 있을 때만 같이 생성합니다.")
-    if not clickup_config.is_configured:
-        st.warning("ClickUp 어댑터 실패 큐 설정이 없습니다. 진단 리포트는 다운로드할 수 있습니다.")
+    st.caption("실패/차단된 정산서를 Notion 업무 카드로 보냅니다. GitHub Issue는 설정이 있을 때만 같이 생성합니다.")
+    if not notion_config.is_configured:
+        st.warning("Notion 업무 카드 설정이 없습니다. 진단 리포트는 다운로드할 수 있습니다.")
     elif not github_config.is_configured:
-        st.caption("GitHub Issue 설정이 없어 ClickUp 태스크와 첨부만 생성합니다.")
+        st.caption("GitHub Issue 설정이 없어 Notion 카드와 첨부만 생성합니다.")
 
     app_commit_sha = current_app_commit_sha()
     for index, result in enumerate(results):
@@ -1896,74 +1881,89 @@ def render_adapter_failure_request_panel(mapping_state: dict[str, Any], selected
 
             if existing:
                 st.success("이미 요청을 생성했습니다.")
-                if existing.get("clickup_url"):
-                    st.markdown(f"[ClickUp에서 보기]({existing['clickup_url']})")
+                if existing.get("notion_url"):
+                    st.markdown(f"[Notion에서 보기]({existing['notion_url']})")
                 if existing.get("github_url"):
                     st.markdown(f"[GitHub Issue 보기]({existing['github_url']})")
+                if existing.get("skipped"):
+                    st.caption(f"첨부 제외/실패: {existing['skipped']}")
                 if existing.get("error"):
                     st.caption(text(existing.get("error")))
 
             request_clicked = st.button(
-                "ClickUp 긴급 태스크 생성",
+                "Notion 실패 카드 생성",
                 key=f"adapter_failure_send_{event_id}",
-                disabled=not clickup_config.is_configured,
+                disabled=not notion_config.is_configured,
                 type="secondary",
             )
             if request_clicked:
-                clickup_result = None
+                notion_result = None
                 github_url = ""
                 try:
-                    with st.spinner("ClickUp 태스크와 첨부를 생성하는 중..."):
-                        clickup_result = create_adapter_failure_task(
-                            clickup_config,
+                    skipped_attachments: tuple[str, ...] = ()
+                    with st.spinner("Notion 카드와 첨부를 생성하는 중..."):
+                        notion_result = create_adapter_failure_task(
+                            notion_config,
                             failure_payload=payload,
                         )
-                        payload["clickup_task_id"] = clickup_result.task_id
-                        payload["clickup_task_url"] = clickup_result.url
+                        payload["notion_task_id"] = notion_result.page_id
+                        payload["notion_task_url"] = notion_result.url
 
                         if github_config.is_configured:
                             try:
                                 github_result = create_adapter_failure_issue(
                                     github_config,
                                     failure_payload=payload,
-                                    clickup_url=clickup_result.url,
+                                    notion_task_url=notion_result.url,
                                 )
                                 github_url = github_result.url
                                 payload["github_issue_url"] = github_url
+                                try:
+                                    update_task_link(notion_config, notion_result.page_id, github_url)
+                                    append_text_blocks(
+                                        notion_config,
+                                        notion_result.page_id,
+                                        [f"GitHub Issue: {github_url}"],
+                                    )
+                                except NotionTaskError as exc:
+                                    payload["notion_update_error"] = str(exc)
                             except GitHubNotificationError as exc:
                                 payload["github_issue_error"] = str(exc)
 
-                        for attachment in adapter_failure_attachments(
-                            payload=payload,
-                            source_bytes=source_bytes,
-                            attach_original=clickup_config.attach_original,
-                        ):
-                            upload_task_attachment(
-                                clickup_config,
-                                task_id=clickup_result.task_id,
-                                attachment=attachment,
-                            )
+                        uploaded_attachments, skipped_attachments = append_attachments(
+                            notion_config,
+                            notion_result.page_id,
+                            adapter_failure_attachments(
+                                payload=payload,
+                                source_bytes=source_bytes,
+                                attach_original=notion_config.attach_original,
+                            ),
+                        )
 
                     request_state[event_id] = {
-                        "clickup_url": clickup_result.url,
+                        "notion_url": notion_result.url,
                         "github_url": github_url,
-                        "error": text(payload.get("github_issue_error")),
+                        "skipped": " | ".join(skipped_attachments),
+                        "uploaded": " | ".join(uploaded_attachments),
+                        "error": text(payload.get("github_issue_error")) or text(payload.get("notion_update_error")),
                     }
                     st.success("어댑터 실패 요청을 생성했습니다.")
-                    st.markdown(f"[ClickUp에서 보기]({clickup_result.url})")
+                    st.markdown(f"[Notion에서 보기]({notion_result.url})")
                     if github_url:
                         st.markdown(f"[GitHub Issue 보기]({github_url})")
                     elif payload.get("github_issue_error"):
                         st.caption(f"GitHub Issue는 생성하지 못했습니다: {payload['github_issue_error']}")
-                    if clickup_config.attach_original and not source_bytes:
+                    if skipped_attachments:
+                        st.caption(f"첨부 제외/실패: {' | '.join(skipped_attachments)}")
+                    if notion_config.attach_original and not source_bytes:
                         st.caption("원본 xlsx bytes를 찾지 못해 진단 리포트와 JSON만 첨부했습니다.")
-                except ClickUpNotificationError as exc:
+                except NotionTaskError as exc:
                     request_state[event_id] = {
-                        "clickup_url": getattr(clickup_result, "url", ""),
+                        "notion_url": getattr(notion_result, "url", ""),
                         "github_url": github_url,
                         "error": str(exc),
                     }
-                    st.error("ClickUp 요청 생성에 실패했습니다.")
+                    st.error("Notion 요청 생성에 실패했습니다.")
                     st.caption(str(exc))
                 except Exception as exc:
                     st.error("어댑터 실패 요청 생성 중 오류가 났습니다.")
@@ -2320,7 +2320,7 @@ def render_sidebar_roadmap_notice() -> None:
           <div class="sidebar-roadmap-title">업데이트 예정</div>
           <div class="sidebar-roadmap-date">26.06.05 기준</div>
           <ol class="sidebar-roadmap-list">
-            <li>매핑 실패 시 ClickUp 자동 전송 (완료)</li>
+            <li>매핑 실패 시 Notion 카드/첨부 전송 (완료)</li>
             <li>수동 매핑 기능</li>
             <li>"관리자에게 S2 최신화 요청" 기능을 "S2 최신화 버튼"으로 변경 (설계취소)</li>
             <li>매핑 실패 시 LLM 진단/Codex 연결</li>
@@ -2397,7 +2397,7 @@ with st.sidebar:
     missing_guard_rows = lookup_row_count(S2_MISSING_LOOKUP)
     billing_guard_rows = lookup_row_count(S2_BILLING_LOOKUP)
     service_content_rows = lookup_row_count(S2_SERVICE_CONTENTS_LOOKUP)
-    clickup_config = clickup_notification_config()
+    notion_config = notion_task_config()
     render_s2_status_card(baseline_updated_at, usage_label, usage_tone)
     st.caption(f"*{S2_DAILY_REFRESH_TIME_LABEL} KST 정규 업데이트됩니다.")
 
@@ -2421,31 +2421,32 @@ with st.sidebar:
         "관리자에게 S2 최신화 요청",
         type="secondary",
         use_container_width=True,
-        disabled=not clickup_config.is_configured,
+        disabled=not notion_config.is_configured,
     )
     if request_clicked:
         try:
             with st.spinner("관리자에게 요청 보내는 중..."):
-                clickup_result = create_sidebar_s2_refresh_request(
-                    clickup_config=clickup_config,
+                notion_result = create_sidebar_s2_refresh_request(
+                    notion_config=notion_config,
                     baseline_updated_at=baseline_updated_at,
                     usage_label=usage_label,
+                    usage_tone=usage_tone,
                     current_cache=current_cache,
                     missing_guard_rows=missing_guard_rows,
                     billing_guard_rows=billing_guard_rows,
                     service_content_rows=service_content_rows,
                 )
-            st.success("S2 최신화 요청을 보냈습니다.")
-            if clickup_result.url:
-                st.markdown(f"[ClickUp에서 보기]({clickup_result.url})")
-        except ClickUpNotificationError as exc:
-            st.error("ClickUp 요청 전송에 실패했습니다.")
+            st.success("S2 최신화 요청 카드를 만들었습니다.")
+            if notion_result.url:
+                st.markdown(f"[Notion에서 보기]({notion_result.url})")
+        except NotionTaskError as exc:
+            st.error("Notion 요청 전송에 실패했습니다.")
             st.caption(str(exc))
         except Exception as exc:
-            st.error("ClickUp 요청 전송에 실패했습니다.")
+            st.error("Notion 요청 전송에 실패했습니다.")
             render_error_detail(exc)
-    if not clickup_config.is_configured:
-        st.caption("ClickUp 알림 secrets를 설정하면 S2 최신화 요청 버튼이 활성화됩니다.")
+    if not notion_config.is_configured:
+        st.caption("Notion task secrets를 설정하면 S2 최신화 요청 버튼이 활성화됩니다.")
     render_sidebar_roadmap_notice()
 
 
@@ -2616,29 +2617,29 @@ st.dataframe(
 if not can_run:
     st.caption("실행하려면 준비 상태의 `필요` 또는 `확인 필요` 항목을 먼저 처리하세요.")
 
-mapping_run_audit_config = mapping_run_clickup_config()
-with st.expander("ClickUp 실행 기록", expanded=False):
+mapping_run_audit_config = notion_task_config()
+with st.expander("Notion 실행 기록", expanded=False):
     if mapping_run_audit_config.is_configured:
-        st.caption("매핑 실행이 끝나면 ClickUp에 실행 기록 task를 만들고 결과 산출물을 첨부합니다.")
+        st.caption("매핑 실행이 끝나면 Notion에 실행 기록 카드를 만들고 결과 산출물을 첨부합니다.")
     else:
-        st.warning("ClickUp 매핑 실행 기록 설정이 없어 자동 기록을 만들 수 없습니다.")
-    auto_clickup_mapping_run = st.checkbox(
-        "매핑 실행 후 ClickUp 기록 생성",
+        st.warning("Notion 매핑 실행 기록 설정이 없어 자동 기록을 만들 수 없습니다.")
+    auto_notion_mapping_run = st.checkbox(
+        "매핑 실행 후 Notion 기록 생성",
         value=mapping_run_audit_config.is_configured,
         disabled=not mapping_run_audit_config.is_configured,
-        key="auto_clickup_mapping_run",
+        key="auto_notion_mapping_run",
     )
-    auto_clickup_attach_outputs = st.checkbox(
+    auto_notion_attach_outputs = st.checkbox(
         "결과 ZIP 첨부",
         value=True,
-        disabled=not auto_clickup_mapping_run,
-        key="auto_clickup_attach_outputs",
+        disabled=not auto_notion_mapping_run,
+        key="auto_notion_attach_outputs",
     )
-    auto_clickup_attach_inputs = st.checkbox(
+    auto_notion_attach_inputs = st.checkbox(
         "원본 xlsx 첨부",
         value=DEFAULT_MAPPING_RUN_ATTACH_INPUTS,
-        disabled=not auto_clickup_mapping_run,
-        key="auto_clickup_attach_inputs",
+        disabled=not auto_notion_mapping_run,
+        key="auto_notion_attach_inputs",
     )
 
 run_signature = mapping_run_signature(
@@ -2679,25 +2680,25 @@ if run_clicked:
                 s2_source_label=s2_source_label,
                 payment_summary=payment_summary,
             )
-            if auto_clickup_mapping_run:
+            if auto_notion_mapping_run:
                 mapping_state_for_audit = st.session_state[MAPPING_RESULT_STATE_KEY]
                 run_id_for_audit = mapping_run_id_from_signature(run_signature)
                 request_state = st.session_state.setdefault(MAPPING_RUN_AUDIT_REQUEST_STATE_KEY, {})
                 if not isinstance(request_state, dict):
                     request_state = {}
                     st.session_state[MAPPING_RUN_AUDIT_REQUEST_STATE_KEY] = request_state
-                if not isinstance(request_state.get(run_id_for_audit), dict) or not request_state[run_id_for_audit].get("clickup_url"):
+                if not isinstance(request_state.get(run_id_for_audit), dict) or not request_state[run_id_for_audit].get("notion_url"):
                     try:
-                        progress_slot.caption("ClickUp 실행 기록 생성 중")
+                        progress_slot.caption("Notion 실행 기록 생성 중")
                         request_state[run_id_for_audit] = create_mapping_run_audit_request(
                             mapping_state=mapping_state_for_audit,
                             settlement_files=settlement_files,
                             run_signature=run_signature,
-                            attach_outputs=auto_clickup_attach_outputs,
-                            attach_inputs=auto_clickup_attach_inputs,
+                            attach_outputs=auto_notion_attach_outputs,
+                            attach_inputs=auto_notion_attach_inputs,
                         )
-                    except ClickUpNotificationError as exc:
-                        request_state[run_id_for_audit] = {"clickup_url": "", "skipped": "", "error": str(exc)}
+                    except NotionTaskError as exc:
+                        request_state[run_id_for_audit] = {"notion_url": "", "skipped": "", "error": str(exc)}
         progress_slot.empty()
     except Exception as exc:
         if "progress_slot" in locals():

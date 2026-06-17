@@ -256,8 +256,8 @@ def build_adapter_failure_payload(
             ("active", "sales_channel", "before_rows", "after_rows", "reason"),
         ),
         "stage_seconds": _json_safe(result.get("stage_seconds") or {}),
-        "clickup_task_id": "",
-        "clickup_task_url": "",
+        "notion_task_id": "",
+        "notion_task_url": "",
         "github_issue_url": "",
     }
 
@@ -385,12 +385,14 @@ def sanitize_payload_for_github(payload: Mapping[str, object]) -> dict[str, obje
         "sheet_audits": payload.get("sheet_audits", []),
         "header_candidates": sanitized_sheets,
         "adapter_summary": payload.get("adapter_summary", {}),
-        "clickup_task_url": payload.get("clickup_task_url", ""),
+        "notion_task_url": payload.get("notion_task_url", ""),
     }
 
 
-def render_github_issue_body(payload: Mapping[str, object], *, clickup_url: str = "") -> str:
-    safe = sanitize_payload_for_github({**dict(payload), "clickup_task_url": clickup_url or payload.get("clickup_task_url", "")})
+def render_github_issue_body(payload: Mapping[str, object], *, notion_task_url: str = "") -> str:
+    safe = sanitize_payload_for_github(
+        {**dict(payload), "notion_task_url": notion_task_url or payload.get("notion_task_url", "")}
+    )
     lines = [
         "## Adapter Failure",
         "",
@@ -402,8 +404,8 @@ def render_github_issue_body(payload: Mapping[str, object], *, clickup_url: str 
         f"- s2_sales_channel: {_md(safe.get('detected_s2_channel'))}",
         f"- app_commit_sha: `{_md(safe.get('app_commit_sha')) or 'unknown'}`",
     ]
-    if safe.get("clickup_task_url"):
-        lines.append(f"- clickup: {safe.get('clickup_task_url')}")
+    if safe.get("notion_task_url"):
+        lines.append(f"- notion_task: {safe.get('notion_task_url')}")
     lines.extend(["", "## Failure Reason", "", _md(safe.get("failure_reason")) or "확인 필요", "", "## Sheet Audits", ""])
     lines.extend(["| sheet | status | header_row | parsed_rows | note |", "|---|---|---:|---:|---|"])
     for row in safe.get("sheet_audits", []) or []:
@@ -427,7 +429,7 @@ def render_github_issue_body(payload: Mapping[str, object], *, clickup_url: str 
             "## Notes",
             "",
             "- 원본 정산서 xlsx는 GitHub에 첨부하지 않는다.",
-            "- 원본과 상세 failure payload는 ClickUp task attachment에서 확인한다.",
+            "- 원본과 상세 failure payload는 Notion 카드 첨부에서 확인한다.",
         ]
     )
     return "\n".join(lines).strip() + "\n"
