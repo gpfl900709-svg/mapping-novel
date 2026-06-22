@@ -60,6 +60,9 @@ MATCH_NONE = "no_match"
 MATCH_AMBIGUOUS = "ambiguous"
 MATCH_BLANK = "blank_key"
 MATCH_SKIPPED = "skipped"
+S2_ASSIGNEE_NAME_COL = "S2_담당자명"
+S2_ASSIGNEE_DEPARTMENT_COL = "S2_담당부서명"
+S2_ASSIGNEE_SOURCE_COL = "S2_담당자_근거"
 
 
 @dataclass
@@ -299,7 +302,11 @@ def build_s2_mapping_reference(s2_df: pd.DataFrame) -> S2MappingReference:
         key_col="_정제키",
         id_col=s2_id_col,
         title_col=s2_title_col,
-        extra_cols=[col for col in ["판매채널명", "판매채널ID", "콘텐츠ID"] if col in s2.columns],
+        extra_cols=[
+            col
+            for col in ["판매채널명", "판매채널ID", "콘텐츠ID", "담당자명", "담당부서명", "담당부서"]
+            if col in s2.columns
+        ],
     )
     return S2MappingReference(
         frame=s2,
@@ -364,6 +371,14 @@ def build_mapping(
     result["S2_판매채널콘텐츠ID"] = result["정제_상품명"].map(lambda key: _single_id_for(key, s2_index))
     result["S2_콘텐츠ID"] = result["정제_상품명"].map(lambda key: _single_extra_for(key, s2_index, "콘텐츠ID목록"))
     result["S2_콘텐츠명"] = result["정제_상품명"].map(lambda key: _single_title_for(key, s2_index))
+    result[S2_ASSIGNEE_NAME_COL] = result["정제_상품명"].map(lambda key: _single_extra_for(key, s2_index, "담당자명목록"))
+    result[S2_ASSIGNEE_DEPARTMENT_COL] = result["정제_상품명"].map(
+        lambda key: _single_extra_for(key, s2_index, "담당부서명목록")
+        or _single_extra_for(key, s2_index, "담당부서목록")
+    )
+    result[S2_ASSIGNEE_SOURCE_COL] = result[S2_ASSIGNEE_NAME_COL].map(
+        lambda value: "S2 지급정산" if text(value) else ""
+    )
     result["S2_후보수"] = result["정제_상품명"].map(lambda key: _value_for(key, s2_index, "후보ID수") or "0")
     result["S2_후보ID목록"] = result["정제_상품명"].map(lambda key: _value_for(key, s2_index, "후보ID목록"))
     result["S2_후보콘텐츠명목록"] = result["정제_상품명"].map(lambda key: _value_for(key, s2_index, "후보콘텐츠명목록"))

@@ -175,6 +175,8 @@ class S2ReferenceGuardsTest(unittest.TestCase):
                 "콘텐츠ID": ["CID-OTHER"],
                 "판매채널명": ["다른채널"],
                 CONTRACT_ID_COLUMN: ["86000"],
+                "담당자명": ["조원재"],
+                "담당부서명": ["소설편집팀"],
             }
         )
         settlement = pd.DataFrame({"작품명": ["타채널 작품"]})
@@ -194,6 +196,9 @@ class S2ReferenceGuardsTest(unittest.TestCase):
         self.assertIn("CID-OTHER", row["S2_미매핑근거"])
         self.assertIn("86000", row["S2_미매핑근거"])
         self.assertIn("해당 판매채널 지급정산 생성/보강", row["S2_권장조치"])
+        self.assertEqual(row["S2_담당자명"], "조원재")
+        self.assertEqual(row["S2_담당부서명"], "소설편집팀")
+        self.assertEqual(row["S2_담당자_근거"], "타채널 지급정산")
 
     def test_service_content_evidence_does_not_override_other_channel_payment_reason(self) -> None:
         guards = S2ReferenceGuards(
@@ -218,6 +223,8 @@ class S2ReferenceGuardsTest(unittest.TestCase):
                 "콘텐츠ID": ["CID-OTHER"],
                 "판매채널명": ["다른채널"],
                 CONTRACT_ID_COLUMN: ["86000"],
+                "담당자명": ["권소현"],
+                "담당부서명": ["소설1팀"],
             }
         )
         settlement = pd.DataFrame({"작품명": ["타채널 작품"]})
@@ -235,6 +242,8 @@ class S2ReferenceGuardsTest(unittest.TestCase):
         self.assertIn("SVC-1", row["S2_미매핑근거"])
         self.assertIn("다른채널", row["S2_미매핑근거"])
         self.assertNotIn("같은채널 판매채널콘텐츠 있음 / 지급정산 없음", row["S2_미매핑상세사유"])
+        self.assertEqual(row["S2_담당자명"], "권소현")
+        self.assertEqual(row["S2_담당자_근거"], "타채널 지급정산")
 
     def test_other_channel_payment_candidates_ignore_zero_contract_id(self) -> None:
         guards = S2ReferenceGuards(missing=normalize_missing_rows([]), billing=normalize_billing_rows([]))
@@ -282,6 +291,9 @@ class S2ReferenceGuardsTest(unittest.TestCase):
         self.assertEqual(row["S2_미매핑상세사유"], "콘텐츠마스터 있음 / S2 지급정산 없음")
         self.assertIn("MASTER-1", row["S2_미매핑근거"])
         self.assertIn("판매채널콘텐츠/지급정산 생성", row["S2_권장조치"])
+        self.assertEqual(row["S2_담당자명"], "담당자")
+        self.assertEqual(row["S2_담당부서명"], "소설팀")
+        self.assertEqual(row["S2_담당자_근거"], "콘텐츠마스터")
 
     def test_no_match_rows_are_annotated_with_service_content_candidates(self) -> None:
         guards = S2ReferenceGuards(
@@ -311,6 +323,7 @@ class S2ReferenceGuardsTest(unittest.TestCase):
         self.assertEqual(row["S2_미매핑상세사유"], "지급정산 기준 후보 없음")
         self.assertIn("CID-SVC", row["S2_미매핑근거"])
         self.assertIn("지급정산 생성/연결", row["S2_권장조치"])
+        self.assertEqual(row["S2_담당자명"], "")
 
     def test_no_match_rows_without_evidence_are_annotated_as_no_key_candidate(self) -> None:
         guards = S2ReferenceGuards(missing=normalize_missing_rows([]), billing=normalize_billing_rows([]))

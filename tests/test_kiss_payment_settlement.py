@@ -120,6 +120,8 @@ class KissPaymentSettlementTest(unittest.TestCase):
                     "pymtSetlStsCdNm": "운영중",
                     "cretDtm": "2026-05-07 11:00:00",
                     "cntrId": "999",
+                    "chgerNm": "조원재",
+                    "chrgDeptNm": "소설편집팀",
                 }
             ]
         )
@@ -128,6 +130,8 @@ class KissPaymentSettlementTest(unittest.TestCase):
         self.assertEqual(lookup.loc[0, "판매채널콘텐츠ID"], "301")
         self.assertEqual(lookup.loc[0, "콘텐츠ID"], "401")
         self.assertEqual(lookup.loc[0, CONTRACT_ID_COLUMN], "999")
+        self.assertEqual(lookup.loc[0, "담당자명"], "조원재")
+        self.assertEqual(lookup.loc[0, "담당부서명"], "소설편집팀")
 
     def test_to_s2_lookup_requires_contract_id_column(self) -> None:
         frame = pd.DataFrame(

@@ -14,7 +14,16 @@ from kiss_payment_settlement import (
     normalize_payment_contract_id_column,
     pick_payment_contract_id_column,
 )
-from mapping_core import MATCH_AMBIGUOUS, MATCH_BLANK, MATCH_NONE, MATCH_OK, MappingResult
+from mapping_core import (
+    MATCH_AMBIGUOUS,
+    MATCH_BLANK,
+    MATCH_NONE,
+    MATCH_OK,
+    S2_ASSIGNEE_DEPARTMENT_COL,
+    S2_ASSIGNEE_NAME_COL,
+    S2_ASSIGNEE_SOURCE_COL,
+    MappingResult,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -35,6 +44,8 @@ S2_LOOKUP_SALES_CHANNEL_CONTENT_ID_COL_CAND = (
     "schnCtnsId",
     "SalesChannelContentID",
 )
+S2_LOOKUP_ASSIGNEE_COL_CAND = ("담당자명", "담당자", "chgerNm", "userNm")
+S2_LOOKUP_DEPARTMENT_COL_CAND = ("담당부서명", "담당자부서명", "담당부서", "chrgDeptNm", "deptNm")
 MASTER_TITLE_COL_CAND = ("콘텐츠명", "콘텐츠 제목", "Title", "ContentName", "제목")
 MASTER_ID_COL_CAND = ("콘텐츠ID", "판매채널콘텐츠ID", "ID", "ContentID")
 
@@ -315,7 +326,7 @@ def build_s2_guard_runtime_context(
             guards.missing,
             channel_col="판매채널명",
             key_col="정제_콘텐츠명",
-            fields=["판매채널콘텐츠ID", "콘텐츠ID", "콘텐츠명"],
+            fields=["판매채널콘텐츠ID", "콘텐츠ID", "콘텐츠명", "담당자", "담당부서"],
         ),
         billing_index=_index_by_channel_and_key(
             guards.billing,
@@ -358,6 +369,9 @@ def annotate_mapping_result(
     service_index = runtime_context.service_index
     payment_by_key = runtime_context.payment_by_key
     master_by_key = runtime_context.master_by_key
+    for assignee_col in (S2_ASSIGNEE_NAME_COL, S2_ASSIGNEE_DEPARTMENT_COL, S2_ASSIGNEE_SOURCE_COL):
+        if assignee_col not in rows.columns:
+            rows[assignee_col] = ""
 
     missing_counts: list[str] = []
     missing_ids: list[str] = []
@@ -369,11 +383,16 @@ def annotate_mapping_result(
     detail_reasons: list[str] = []
     detail_evidence: list[str] = []
     detail_actions: list[str] = []
+    assignee_names: list[str] = []
+    assignee_departments: list[str] = []
+    assignee_sources: list[str] = []
     service_counts: list[str] = []
     service_ids: list[str] = []
     service_content_ids: list[str] = []
 
-    for key_value, status_value in rows[["정제_상품명", "S2_매칭상태"]].itertuples(index=False, name=None):
+    for key_value, status_value, current_assignee, current_department in rows[
+        ["정제_상품명", "S2_매칭상태", S2_ASSIGNEE_NAME_COL, S2_ASSIGNEE_DEPARTMENT_COL]
+    ].itertuples(index=False, name=None):
         key = text(key_value)
         status = text(status_value)
         eligible = status != MATCH_OK
@@ -409,6 +428,17 @@ def annotate_mapping_result(
         detail_reasons.append(detail["reason"])
         detail_evidence.append(detail["evidence"])
         detail_actions.append(detail["action"])
+        assignee = _assignee_for(
+            status=status,
+            current_assignee=text(current_assignee),
+            current_department=text(current_department),
+            missing=missing,
+            other_payment=other_payment,
+            master=master,
+        )
+        assignee_names.append(assignee["name"])
+        assignee_departments.append(assignee["department"])
+        assignee_sources.append(assignee["source"])
 
     rows["S2_정산정보누락_후보수"] = missing_counts
     rows["S2_정산정보누락_판매채널콘텐츠ID목록"] = missing_ids
@@ -423,6 +453,9 @@ def annotate_mapping_result(
     rows[S2_DETAIL_REASON_COL] = detail_reasons
     rows[S2_DETAIL_EVIDENCE_COL] = detail_evidence
     rows[S2_DETAIL_ACTION_COL] = detail_actions
+    rows[S2_ASSIGNEE_NAME_COL] = assignee_names
+    rows[S2_ASSIGNEE_DEPARTMENT_COL] = assignee_departments
+    rows[S2_ASSIGNEE_SOURCE_COL] = assignee_sources
 
     rows["검토필요사유"] = [
         _append_reason(base, addition)
@@ -495,6 +528,8 @@ def _s2_payment_index_by_key(frame: pd.DataFrame | None) -> dict[str, dict[str, 
         return {}
     content_id_col = _optional_column(working, S2_LOOKUP_CONTENT_ID_COL_CAND)
     sales_channel_content_id_col = _optional_column(working, S2_LOOKUP_SALES_CHANNEL_CONTENT_ID_COL_CAND)
+    assignee_col = _optional_column(working, S2_LOOKUP_ASSIGNEE_COL_CAND)
+    department_col = _optional_column(working, S2_LOOKUP_DEPARTMENT_COL_CAND)
     working["_정제키"] = working[title_col].map(clean_title)
     fields = {
         "판매채널명": channel_col,
@@ -502,6 +537,8 @@ def _s2_payment_index_by_key(frame: pd.DataFrame | None) -> dict[str, dict[str, 
         "콘텐츠ID": content_id_col,
         "판매채널콘텐츠ID": sales_channel_content_id_col,
         CONTRACT_ID_COLUMN: CONTRACT_ID_COLUMN,
+        "담당자명": assignee_col,
+        "담당부서명": department_col,
     }
     return _index_by_key(working, key_col="_정제키", fields=fields)
 
@@ -556,6 +593,36 @@ def _filter_other_channel(candidates: dict[str, str | int], channel: str) -> dic
     result = dict(candidates)
     result["판매채널명"] = " | ".join(other_channels)
     return result
+
+
+def _assignee_for(
+    *,
+    status: str,
+    current_assignee: str,
+    current_department: str,
+    missing: dict[str, str | int],
+    other_payment: dict[str, str | int],
+    master: dict[str, str | int],
+) -> dict[str, str]:
+    if status == MATCH_OK and (current_assignee or current_department):
+        return {"name": current_assignee, "department": current_department, "source": "S2 지급정산"}
+
+    other_name = text(other_payment.get("담당자명"))
+    other_department = text(other_payment.get("담당부서명"))
+    if other_name or other_department:
+        return {"name": other_name, "department": other_department, "source": "타채널 지급정산"}
+
+    master_name = text(master.get("담당자명"))
+    master_department = text(master.get("담당부서명")) or text(master.get("담당부서"))
+    if master_name or master_department:
+        return {"name": master_name, "department": master_department, "source": "콘텐츠마스터"}
+
+    missing_name = text(missing.get("담당자명")) or text(missing.get("담당자"))
+    missing_department = text(missing.get("담당부서명")) or text(missing.get("담당부서"))
+    if missing_name or missing_department:
+        return {"name": missing_name, "department": missing_department, "source": "S2 정산정보 누락"}
+
+    return {"name": "", "department": "", "source": ""}
 
 
 def _missing_detail_for(

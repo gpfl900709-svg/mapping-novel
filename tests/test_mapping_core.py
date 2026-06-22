@@ -28,7 +28,15 @@ class MappingCoreTest(unittest.TestCase):
         self.assertEqual(clean_master_title(raw), "너그리고나")
 
     def test_unique_match_keeps_ids_in_id_columns(self) -> None:
-        s2 = pd.DataFrame({"콘텐츠명": ["그 남자의 비밀"], "판매채널콘텐츠ID": ["S2-1"], "콘텐츠ID": ["CID-1"]})
+        s2 = pd.DataFrame(
+            {
+                "콘텐츠명": ["그 남자의 비밀"],
+                "판매채널콘텐츠ID": ["S2-1"],
+                "콘텐츠ID": ["CID-1"],
+                "담당자명": ["조원재"],
+                "담당부서명": ["소설편집팀"],
+            }
+        )
         settlement = pd.DataFrame({"작품명": ["그 남자의 비밀 1화"], "금액": [1000]})
         master = pd.DataFrame({"콘텐츠명": ["<그 남자의 비밀>_홍길동_100_200_확정"], "콘텐츠ID": ["CID-1"]})
 
@@ -37,6 +45,9 @@ class MappingCoreTest(unittest.TestCase):
         self.assertEqual(rows.loc[0, "S2_매칭상태"], MATCH_OK)
         self.assertEqual(rows.loc[0, "S2_판매채널콘텐츠ID"], "S2-1")
         self.assertEqual(rows.loc[0, "S2_콘텐츠ID"], "CID-1")
+        self.assertEqual(rows.loc[0, "S2_담당자명"], "조원재")
+        self.assertEqual(rows.loc[0, "S2_담당부서명"], "소설편집팀")
+        self.assertEqual(rows.loc[0, "S2_담당자_근거"], "S2 지급정산")
         self.assertEqual(rows.loc[0, "IPS_매칭상태"], MATCH_OK)
         self.assertEqual(rows.loc[0, "IPS_콘텐츠ID"], "CID-1")
         self.assertEqual(rows.loc[0, "검토필요(Y/N)"], "N")

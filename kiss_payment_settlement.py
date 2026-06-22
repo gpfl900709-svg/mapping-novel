@@ -20,6 +20,8 @@ OOXML_NS = {
 }
 
 CONTRACT_ID_COLUMN = "통합계약ID"
+PAYMENT_MANAGER_COLUMN = "담당자명"
+PAYMENT_DEPARTMENT_COLUMN = "담당부서명"
 CONTRACT_ID_COLUMN_ALIASES = (
     CONTRACT_ID_COLUMN,
     "통합 계약 ID",
@@ -27,6 +29,14 @@ CONTRACT_ID_COLUMN_ALIASES = (
     "cntrId",
     "unityCntrId",
     "srcCntrId",
+)
+PAYMENT_MANAGER_COLUMN_ALIASES = (PAYMENT_MANAGER_COLUMN, "담당자", "chgerNm", "userNm")
+PAYMENT_DEPARTMENT_COLUMN_ALIASES = (
+    PAYMENT_DEPARTMENT_COLUMN,
+    "담당자부서명",
+    "담당부서",
+    "chrgDeptNm",
+    "deptNm",
 )
 
 REQUIRED_COLUMNS = [
@@ -55,6 +65,8 @@ API_RAW_COLUMN_ALIASES = {
     "schnCtnsId": "판매채널콘텐츠ID",
     "cretDtm": "지급정산마스터 등록 일자",
     "cntrId": CONTRACT_ID_COLUMN,
+    "chgerNm": PAYMENT_MANAGER_COLUMN,
+    "chrgDeptNm": PAYMENT_DEPARTMENT_COLUMN,
 }
 
 S2_AUDIT_COLUMNS = ["콘텐츠명", "S2마스터ID", "콘텐츠ID", CONTRACT_ID_COLUMN, "작가정보"]
@@ -192,6 +204,15 @@ def pick_payment_contract_id_column(frame: pd.DataFrame, *, required: bool = Tru
     return ""
 
 
+def pick_optional_payment_column(frame: pd.DataFrame, candidates: tuple[str, ...]) -> str:
+    normalized_to_original = {normalize_header(column): column for column in frame.columns}
+    for candidate in candidates:
+        column = normalized_to_original.get(normalize_header(candidate))
+        if column is not None:
+            return str(column)
+    return ""
+
+
 def contract_id_text(value: Any) -> str:
     return _id_text(value)
 
@@ -218,6 +239,8 @@ def to_s2_lookup(frame: pd.DataFrame) -> pd.DataFrame:
     if "지급정산마스터 등록 일자" in working.columns:
         working = working.sort_values("지급정산마스터 등록 일자", ascending=False, kind="stable")
     working = working.drop_duplicates(subset=["판매채널콘텐츠ID"], keep="first")
+    manager_col = pick_optional_payment_column(working, PAYMENT_MANAGER_COLUMN_ALIASES)
+    department_col = pick_optional_payment_column(working, PAYMENT_DEPARTMENT_COLUMN_ALIASES)
 
     result = pd.DataFrame(
         {
@@ -231,6 +254,8 @@ def to_s2_lookup(frame: pd.DataFrame) -> pd.DataFrame:
             "지급정산마스터ID": working["지급정산마스터ID"].map(_id_text),
             "지급정산상세ID": working["지급정산상세ID"].map(_id_text),
             CONTRACT_ID_COLUMN: working[CONTRACT_ID_COLUMN],
+            PAYMENT_MANAGER_COLUMN: working[manager_col].map(text) if manager_col else "",
+            PAYMENT_DEPARTMENT_COLUMN: working[department_col].map(text) if department_col else "",
         }
     )
     if "지급정산마스터 등록 일자" in working.columns:
