@@ -127,7 +127,8 @@ class CleaningRulesTest(unittest.TestCase):
         self.assertEqual(policy.clean_title("그들의사정"), "그들만의사정")
         self.assertEqual(policy.clean_title("포도청시하"), "포도청시상하")
         self.assertEqual(policy.clean_title("메소드 로맨스 증보판"), "메소드로맨스")
-        self.assertEqual(policy.clean_title("독식하는 재벌 3세"), "독식하는재벌세")
+        self.assertEqual(policy.clean_title("독식하는 재벌 3세"), "독식하는재벌3세")
+        self.assertEqual(policy.clean_title("독식하는 재벌 3세 1화"), "독식하는재벌3세")
         self.assertEqual(policy.clean_title("1980 독식하는 재벌!"), "독식하는재벌")
         self.assertEqual(policy.clean_title("다른 작품의 이야기"), "다른작품의이야기")
 
