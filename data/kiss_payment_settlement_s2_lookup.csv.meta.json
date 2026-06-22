@@ -1,7 +1,7 @@
 {
-  "manifest_id": "2026-06-22__payment_assignee_refresh__151355",
+  "manifest_id": "2026-06-23__s2_all__000005",
   "step": "payment_settlement",
-  "path": "data\\kiss_payment_settlement_s2_lookup.csv",
-  "sha256": "bdc50321a53eb7cf2e43abadb472a79eba65be64286a66645fc0aa074a08a5b6",
-  "created_at": "2026-06-22T15:13:55"
+  "path": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
+  "sha256": "9a1b5be9f95d43fb3424b2238281e7ac5b71639c1d69cd50cf70e60456059d86",
+  "created_at": "2026-06-23T00:01:16"
 }
