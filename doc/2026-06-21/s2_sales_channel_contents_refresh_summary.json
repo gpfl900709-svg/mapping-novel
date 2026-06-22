@@ -1,14 +1,14 @@
 {
   "created_at": "2026-06-21",
-  "finished_at": "2026-06-21T00:01:10+09:00",
+  "finished_at": "2026-06-21T12:00:46+09:00",
   "content_style_code": "102",
   "target_channels": 51,
   "target_missing_channels": 0,
   "fetch_failures": 0,
-  "raw_rows": 106403,
-  "lookup_rows": 106403,
+  "raw_rows": 106756,
+  "lookup_rows": 106756,
   "sales_channel_counts": {
-    "교보문고(소설)": 12684,
+    "교보문고(소설)": 13037,
     "원스토어(소설)": 10057,
     "미스터블루(소설)": 9697,
     "판무림": 9151,
@@ -30,7 +30,7 @@
     "네이버_연재(광고수익)": 1275
   },
   "content_shape_counts": {
-    "소설": 106400,
+    "소설": 106753,
     "웹툰": 3
   },
   "output": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_sales_channel_content_lookup.csv",
