@@ -597,9 +597,10 @@ def _missing_detail_for(
         evidence.append(_detail_piece("정산정보없음", missing, ["판매채널콘텐츠ID", "콘텐츠ID", "콘텐츠명"]))
         actions.append("S2 정산정보 누락 건 메뉴에서 지급정산 보강 또는 제외 여부 확인")
     if service:
-        reasons.append("같은채널 판매채널콘텐츠 있음 / 지급정산 없음")
         evidence.append(_detail_piece("판매채널콘텐츠", service, ["판매채널콘텐츠ID", "콘텐츠ID", "콘텐츠명"]))
-        actions.append("판매채널콘텐츠ID 기준 지급정산 생성/연결 여부 판단")
+        if not any((missing, billing, other_payment, master)):
+            reasons.append("지급정산 기준 후보 없음")
+            actions.append("판매채널콘텐츠ID 기준 지급정산 생성/연결 여부 판단")
     if billing:
         reasons.append("청구정산 후보 있음")
         evidence.append(_detail_piece("청구정산", billing, ["청구정산마스터ID", "계약ID", "대표콘텐츠명"]))

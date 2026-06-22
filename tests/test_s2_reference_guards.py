@@ -195,6 +195,47 @@ class S2ReferenceGuardsTest(unittest.TestCase):
         self.assertIn("86000", row["S2_미매핑근거"])
         self.assertIn("해당 판매채널 지급정산 생성/보강", row["S2_권장조치"])
 
+    def test_service_content_evidence_does_not_override_other_channel_payment_reason(self) -> None:
+        guards = S2ReferenceGuards(
+            missing=normalize_missing_rows([]),
+            billing=normalize_billing_rows([]),
+            service_contents=normalize_service_content_rows(
+                [
+                    {
+                        "schnCtnsId": "SVC-1",
+                        "ctnsId": "CID-SVC",
+                        "ctnsNm": "타채널 작품",
+                        "schnNm": "현재채널",
+                    }
+                ]
+            ),
+        )
+        s2_filtered = pd.DataFrame(columns=["콘텐츠명", "판매채널콘텐츠ID", "판매채널명"])
+        s2_all = pd.DataFrame(
+            {
+                "콘텐츠명": ["타채널 작품"],
+                "판매채널콘텐츠ID": ["OTHER-S2"],
+                "콘텐츠ID": ["CID-OTHER"],
+                "판매채널명": ["다른채널"],
+                CONTRACT_ID_COLUMN: ["86000"],
+            }
+        )
+        settlement = pd.DataFrame({"작품명": ["타채널 작품"]})
+
+        mapping = build_mapping(s2_filtered, settlement, None)
+        annotated = annotate_mapping_result(
+            mapping,
+            guards,
+            sales_channel="현재채널",
+            s2_all_frame=s2_all,
+        )
+        row = annotated.rows.iloc[0]
+
+        self.assertEqual(row["S2_미매핑상세사유"], "해당채널 지급정산 없음 / 타채널 지급정산 존재")
+        self.assertIn("SVC-1", row["S2_미매핑근거"])
+        self.assertIn("다른채널", row["S2_미매핑근거"])
+        self.assertNotIn("같은채널 판매채널콘텐츠 있음 / 지급정산 없음", row["S2_미매핑상세사유"])
+
     def test_other_channel_payment_candidates_ignore_zero_contract_id(self) -> None:
         guards = S2ReferenceGuards(missing=normalize_missing_rows([]), billing=normalize_billing_rows([]))
         s2_filtered = pd.DataFrame(columns=["콘텐츠명", "판매채널콘텐츠ID", "판매채널명", CONTRACT_ID_COLUMN])
@@ -267,7 +308,7 @@ class S2ReferenceGuardsTest(unittest.TestCase):
         self.assertEqual(row["S2_매칭상태"], MATCH_NONE)
         self.assertEqual(row["S2_판매채널콘텐츠_후보수"], "1")
         self.assertEqual(row["S2_판매채널콘텐츠_판매채널콘텐츠ID목록"], "SVC-1")
-        self.assertEqual(row["S2_미매핑상세사유"], "같은채널 판매채널콘텐츠 있음 / 지급정산 없음")
+        self.assertEqual(row["S2_미매핑상세사유"], "지급정산 기준 후보 없음")
         self.assertIn("CID-SVC", row["S2_미매핑근거"])
         self.assertIn("지급정산 생성/연결", row["S2_권장조치"])
 
