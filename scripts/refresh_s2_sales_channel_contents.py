@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from cleaning_rules import text
-from matching_rules import PLATFORM_EXACT_CHANNELS, SPECIAL_EXACT_CHANNELS
+from matching_rules import all_s2_sales_channels_by_platform
 from s2_reference_guards import (
     DEFAULT_SERVICE_CONTENT_LOOKUP,
     normalize_service_content_rows,
@@ -101,7 +101,7 @@ def fetch_channel_catalog(session: requests.Session) -> pd.DataFrame:
 
 
 def build_targets(channel_catalog: pd.DataFrame) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
-    rules = {**PLATFORM_EXACT_CHANNELS, **SPECIAL_EXACT_CHANNELS}
+    rules = all_s2_sales_channels_by_platform()
     catalog = channel_catalog.copy()
     if "schnNm" not in catalog.columns:
         raise RuntimeError("S2 channel catalog missing schnNm")

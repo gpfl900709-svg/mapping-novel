@@ -47,6 +47,35 @@ class RefreshS2SalesChannelContentsTest(unittest.TestCase):
         self.assertTrue(any(target["schn_nm"] == "원스토어(소설)" for target in targets))
         self.assertTrue(any(row["상태"] == "missing_channel_catalog" for row in audit))
 
+    def test_build_targets_keeps_base_and_special_channels_for_same_platform(self) -> None:
+        catalog = pd.DataFrame(
+            [
+                {
+                    "schnId": "R-NOVEL",
+                    "schnNm": "리디북스(소설)",
+                    "bcncCd": "RIDIBOOKS",
+                    "bcncNm": "리디",
+                    "ctnsStleCdNm": "소설",
+                },
+                {
+                    "schnId": "R-EVENT",
+                    "schnNm": "리디북스(이벤트)",
+                    "bcncCd": "RIDIBOOKS",
+                    "bcncNm": "리디",
+                    "ctnsStleCdNm": "소설",
+                },
+            ]
+        )
+
+        targets, audit = build_targets(catalog)
+
+        channels = {target["schn_nm"] for target in targets}
+        targeted = {row["판매채널명"] for row in audit if row["상태"] == "targeted"}
+        self.assertIn("리디북스(소설)", channels)
+        self.assertIn("리디북스(이벤트)", channels)
+        self.assertIn("리디북스(소설)", targeted)
+        self.assertIn("리디북스(이벤트)", targeted)
+
     def test_fetch_service_contents_sends_content_style_filter(self) -> None:
         session = FakeSession()
         target = {"bcnc_cd": "B-1", "schn_id": "S-1"}

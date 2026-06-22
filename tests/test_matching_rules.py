@@ -4,10 +4,23 @@ import unittest
 
 import pandas as pd
 
-from matching_rules import detect_s2_sales_channel, filter_s2_by_platform, filter_s2_by_sales_channel
+from matching_rules import (
+    all_s2_sales_channels_by_platform,
+    detect_s2_sales_channel,
+    filter_s2_by_platform,
+    filter_s2_by_sales_channel,
+)
 
 
 class MatchingRulesTest(unittest.TestCase):
+    def test_combined_channel_rules_keep_base_and_special_channels(self) -> None:
+        rules = all_s2_sales_channels_by_platform()
+
+        self.assertIn("리디북스(소설)", rules["리디북스"])
+        self.assertIn("리디북스(이벤트)", rules["리디북스"])
+        self.assertIn("문피아", rules["문피아"])
+        self.assertIn("문피아(후원금 정산)", rules["문피아"])
+
     def test_filters_s2_rows_to_platform_sales_channel(self) -> None:
         s2 = pd.DataFrame(
             {

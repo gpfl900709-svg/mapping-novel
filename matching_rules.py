@@ -276,6 +276,17 @@ SPECIAL_EXACT_CHANNELS: dict[str, tuple[str, ...]] = {
 }
 
 
+def all_s2_sales_channels_by_platform() -> dict[str, tuple[str, ...]]:
+    result = {platform: tuple(channels) for platform, channels in PLATFORM_EXACT_CHANNELS.items()}
+    for platform, channels in SPECIAL_EXACT_CHANNELS.items():
+        merged = list(result.get(platform, ()))
+        for channel in channels:
+            if channel not in merged:
+                merged.append(channel)
+        result[platform] = tuple(merged)
+    return result
+
+
 def _filename_text(source_name: Any) -> str:
     raw = text(source_name).replace("\\", "/")
     return raw.rsplit("/", 1)[-1] if "/" in raw else Path(raw).name

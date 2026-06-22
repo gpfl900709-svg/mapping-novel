@@ -26,7 +26,7 @@ from kiss_payment_settlement import (
     normalize_payment_contract_id_column,
     pick_payment_contract_id_column,
 )
-from matching_rules import PLATFORM_EXACT_CHANNELS, SPECIAL_EXACT_CHANNELS
+from matching_rules import all_s2_sales_channels_by_platform
 from scripts.refresh_kiss_payment_settlement import create_authenticated_session, load_env
 from settlement_adapters import normalize_settlement
 
@@ -139,7 +139,7 @@ def fetch_api_channels(session: requests.Session) -> pd.DataFrame:
 
 
 def build_channel_targets(api_channels: pd.DataFrame) -> list[ChannelTarget]:
-    rules = {**PLATFORM_EXACT_CHANNELS, **SPECIAL_EXACT_CHANNELS}
+    rules = all_s2_sales_channels_by_platform()
     wanted: list[tuple[str, str]] = []
     for platform, channels in rules.items():
         for channel in channels:
