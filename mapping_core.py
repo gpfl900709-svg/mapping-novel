@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import io
 import os
+import re
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -43,6 +45,11 @@ SETTLEMENT_TITLE_COL_CAND = [
 ]
 MASTER_TITLE_COL_CAND = ["콘텐츠명", "콘텐츠 제목", "Title", "ContentName", "제목"]
 MASTER_ID_COL_CAND = ["콘텐츠ID", "판매채널콘텐츠ID", "ID", "ContentID"]
+S2_CONTENT_ID_COL_CAND = ["콘텐츠ID", "ctnsId", "ContentID"]
+S2_CONTRACT_ID_COL_CAND = ["통합계약ID", "통합 계약 ID", "계약ID", "cntrId", "unityCntrId", "srcCntrId"]
+SETTLEMENT_S2_ID_COL_CAND = ["판매채널콘텐츠ID", "판매채널컨텐츠ID", "schnCtnsId", "S2_판매채널콘텐츠ID"]
+SETTLEMENT_CONTENT_ID_COL_CAND = ["콘텐츠ID", "ctnsId", "ContentID", "S2_콘텐츠ID"]
+SETTLEMENT_CONTRACT_ID_COL_CAND = ["통합계약ID", "통합 계약 ID", "계약ID", "cntrId", "S2_통합계약ID"]
 AUTO_SELECT_DATE_COL_CAND = [
     "지급정산마스터_등록일자",
     "지급정산마스터 등록 일자",
@@ -63,6 +70,7 @@ MATCH_SKIPPED = "skipped"
 S2_ASSIGNEE_NAME_COL = "S2_담당자명"
 S2_ASSIGNEE_DEPARTMENT_COL = "S2_담당부서명"
 S2_ASSIGNEE_SOURCE_COL = "S2_담당자_근거"
+S2_PRECISE_TITLE_KEY_COL = "_정밀제목키"
 
 
 @dataclass
@@ -81,6 +89,10 @@ class S2MappingReference:
     id_col: str
     candidates: pd.DataFrame
     index: dict[str, dict[str, str]]
+    content_id_col: str = ""
+    contract_id_col: str = ""
+    precise_title_key_col: str = S2_PRECISE_TITLE_KEY_COL
+    extra_cols: tuple[str, ...] = ()
 
 
 def pick_column(candidates: Iterable[str], df: pd.DataFrame, label: str) -> str:
@@ -90,6 +102,13 @@ def pick_column(candidates: Iterable[str], df: pd.DataFrame, label: str) -> str:
     available = ", ".join(map(str, df.columns))
     expected = ", ".join(candidates)
     raise ValueError(f"{label} 컬럼을 찾지 못했습니다. 기대 컬럼: {expected}. 현재 컬럼: {available}")
+
+
+def pick_optional_column(candidates: Iterable[str], df: pd.DataFrame) -> str:
+    for column in candidates:
+        if column in df.columns:
+            return column
+    return ""
 
 
 def read_first_sheet(source: Any) -> pd.DataFrame:
@@ -126,6 +145,25 @@ def _join_unique(values: Iterable[Any], limit: int = 30) -> str:
     return " | ".join(result)
 
 
+def _id_key(value: Any) -> str:
+    normalized = text(value)
+    if normalized.endswith(".0") and normalized[:-2].isdigit():
+        return normalized[:-2]
+    return normalized
+
+
+def _precise_title_key(value: Any) -> str:
+    raw = unicodedata.normalize("NFKC", text(value)).lower()
+    if not raw:
+        return ""
+    raw = re.sub(r"\s*~[^~]+~\s*$", "", raw)
+    raw = re.sub(r"\s+\d+부(?:\s*-\s*.*)?$", "", raw)
+    raw = re.sub(r"\s*\d+/\d+$", "", raw)
+    raw = re.sub(r"(^|\s)제\s*\d+[권화]", " ", raw)
+    raw = re.sub(r"[\s\.,\~\-–—!@#$%^&*_=+\\|/:;\"''`<>?，｡､{}()\[\]]", "", raw)
+    return raw.strip()
+
+
 def _candidate_index(
     df: pd.DataFrame,
     *,
@@ -134,6 +172,7 @@ def _candidate_index(
     id_col: str,
     title_col: str,
     extra_cols: list[str] | None = None,
+    require_unique_id: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, dict[str, str]]]:
     extra_cols = extra_cols or []
     rows: list[dict[str, Any]] = []
@@ -150,17 +189,28 @@ def _candidate_index(
         ids = [value for value in dict.fromkeys(group[id_col].map(text)) if value]
         titles = [value for value in dict.fromkeys(group[title_col].map(text)) if value]
         selected_date = text(group.iloc[0][auto_select_date_col]) if auto_select_date_col and not group.empty else ""
-        status = MATCH_OK if ids else MATCH_NONE
+        if not ids:
+            status = MATCH_NONE
+        elif require_unique_id and len(ids) > 1:
+            status = MATCH_AMBIGUOUS
+        else:
+            status = MATCH_OK
         row = {
             "source": source,
             "정제키": key,
             "매칭상태": status,
             "후보행수": len(group),
             "후보ID수": len(ids),
-            "자동선택ID": ids[0] if ids else "",
-            "자동선택콘텐츠명": titles[0] if titles else "",
-            "자동선택기준": f"{auto_select_date_col} 최신순" if auto_select_date_col else "입력순",
-            "자동선택기준값": selected_date,
+            "자동선택ID": ids[0] if status == MATCH_OK else "",
+            "자동선택콘텐츠명": titles[0] if status == MATCH_OK and titles else "",
+            "자동선택기준": (
+                "후보ID수>1 자동선택 안 함"
+                if status == MATCH_AMBIGUOUS
+                else f"{auto_select_date_col} 최신순"
+                if auto_select_date_col
+                else "입력순"
+            ),
+            "자동선택기준값": "" if status == MATCH_AMBIGUOUS else selected_date,
             "후보ID목록": " | ".join(ids[:30]),
             "후보콘텐츠명목록": " | ".join(titles[:30]),
         }
@@ -255,6 +305,131 @@ def _single_extra_for(key: str, index: dict[str, dict[str, str]], field: str) ->
     return text(values[0]) if values else ""
 
 
+def _single_extra_from_candidate(row: dict[str, Any], field: str) -> str:
+    if text(row.get("매칭상태")) != MATCH_OK:
+        return ""
+    values = text(row.get(field)).split(" | ")
+    return text(values[0]) if values else ""
+
+
+def _empty_candidate_row(
+    *,
+    source: str,
+    key: str,
+    status: str,
+    extra_cols: Iterable[str] = (),
+) -> dict[str, str]:
+    row = {
+        "source": source,
+        "정제키": key,
+        "매칭상태": status,
+        "후보행수": "0",
+        "후보ID수": "0",
+        "자동선택ID": "",
+        "자동선택콘텐츠명": "",
+        "자동선택기준": "",
+        "자동선택기준값": "",
+        "후보ID목록": "",
+        "후보콘텐츠명목록": "",
+    }
+    for col in extra_cols:
+        row[f"{col}목록"] = ""
+    return row
+
+
+def _candidate_row_for_group(
+    group: pd.DataFrame,
+    *,
+    source: str,
+    key: str,
+    key_col: str,
+    id_col: str,
+    title_col: str,
+    extra_cols: Iterable[str],
+    require_unique_id: bool,
+) -> dict[str, Any]:
+    if group.empty:
+        return _empty_candidate_row(source=source, key=key, status=MATCH_NONE, extra_cols=extra_cols)
+    _, index = _candidate_index(
+        group,
+        source=source,
+        key_col=key_col,
+        id_col=id_col,
+        title_col=title_col,
+        extra_cols=list(extra_cols),
+        require_unique_id=require_unique_id,
+    )
+    return index.get(key) or _empty_candidate_row(source=source, key=key, status=MATCH_NONE, extra_cols=extra_cols)
+
+
+def _narrow_by_identifier(group: pd.DataFrame, *, column: str, value: Any) -> pd.DataFrame:
+    identifier = _id_key(value)
+    if not column or not identifier:
+        return group
+    if column not in group.columns:
+        return group.iloc[0:0].copy()
+    return group.loc[group[column].map(_id_key).eq(identifier)].copy()
+
+
+def _settlement_s2_hint_columns(settlement: pd.DataFrame) -> dict[str, str]:
+    return {
+        "s2_id": pick_optional_column(SETTLEMENT_S2_ID_COL_CAND, settlement),
+        "content_id": pick_optional_column(SETTLEMENT_CONTENT_ID_COL_CAND, settlement),
+        "contract_id": pick_optional_column(SETTLEMENT_CONTRACT_ID_COL_CAND, settlement),
+    }
+
+
+def _resolve_s2_candidate(
+    *,
+    key: str,
+    settlement_title: Any,
+    settlement_row: pd.Series,
+    s2_reference: S2MappingReference,
+    hint_cols: dict[str, str],
+) -> dict[str, Any]:
+    if not key:
+        return _empty_candidate_row(source="S2", key=key, status=MATCH_BLANK, extra_cols=s2_reference.extra_cols)
+
+    s2 = s2_reference.frame
+    if "_정제키" not in s2.columns:
+        return _empty_candidate_row(source="S2", key=key, status=MATCH_NONE, extra_cols=s2_reference.extra_cols)
+
+    group = s2.loc[s2["_정제키"].map(text).eq(key)].copy()
+    if group.empty:
+        return _empty_candidate_row(source="S2", key=key, status=MATCH_NONE, extra_cols=s2_reference.extra_cols)
+
+    group = _narrow_by_identifier(group, column=s2_reference.id_col, value=settlement_row.get(hint_cols.get("s2_id", "")))
+    group = _narrow_by_identifier(
+        group,
+        column=s2_reference.content_id_col,
+        value=settlement_row.get(hint_cols.get("content_id", "")),
+    )
+    group = _narrow_by_identifier(
+        group,
+        column=s2_reference.contract_id_col,
+        value=settlement_row.get(hint_cols.get("contract_id", "")),
+    )
+    if group.empty:
+        return _empty_candidate_row(source="S2", key=key, status=MATCH_NONE, extra_cols=s2_reference.extra_cols)
+
+    precise_key = _precise_title_key(settlement_title)
+    if precise_key and s2_reference.precise_title_key_col in group.columns:
+        precise_group = group.loc[group[s2_reference.precise_title_key_col].map(text).eq(precise_key)].copy()
+        if not precise_group.empty:
+            group = precise_group
+
+    return _candidate_row_for_group(
+        group,
+        source="S2",
+        key=key,
+        key_col="_정제키",
+        id_col=s2_reference.id_col,
+        title_col=s2_reference.title_col,
+        extra_cols=s2_reference.extra_cols,
+        require_unique_id=True,
+    )
+
+
 def _duplicate_candidate_mask(candidates: pd.DataFrame) -> pd.Series:
     if "후보ID수" not in candidates.columns:
         return pd.Series(False, index=candidates.index)
@@ -294,19 +469,24 @@ def build_s2_mapping_reference(s2_df: pd.DataFrame) -> S2MappingReference:
     s2 = drop_disabled_rows(s2_df)
     s2_title_col = pick_column(S2_TITLE_COL_CAND, s2, "S2 콘텐츠명")
     s2_id_col = pick_column(S2_ID_COL_CAND, s2, "S2 판매채널콘텐츠ID")
+    s2_content_id_col = pick_optional_column(S2_CONTENT_ID_COL_CAND, s2)
+    s2_contract_id_col = pick_optional_column(S2_CONTRACT_ID_COL_CAND, s2)
+    extra_cols = [
+        col
+        for col in ["판매채널명", "판매채널ID", "콘텐츠ID", "담당자명", "담당부서명", "담당부서"]
+        if col in s2.columns
+    ]
     s2 = s2.copy()
     s2["_정제키"] = s2[s2_title_col].map(clean_title)
+    s2[S2_PRECISE_TITLE_KEY_COL] = s2[s2_title_col].map(_precise_title_key)
     s2_candidates, s2_index = _candidate_index(
         s2,
         source="S2",
         key_col="_정제키",
         id_col=s2_id_col,
         title_col=s2_title_col,
-        extra_cols=[
-            col
-            for col in ["판매채널명", "판매채널ID", "콘텐츠ID", "담당자명", "담당부서명", "담당부서"]
-            if col in s2.columns
-        ],
+        extra_cols=extra_cols,
+        require_unique_id=True,
     )
     return S2MappingReference(
         frame=s2,
@@ -314,6 +494,10 @@ def build_s2_mapping_reference(s2_df: pd.DataFrame) -> S2MappingReference:
         id_col=s2_id_col,
         candidates=s2_candidates,
         index=s2_index,
+        content_id_col=s2_content_id_col,
+        contract_id_col=s2_contract_id_col,
+        precise_title_key_col=S2_PRECISE_TITLE_KEY_COL,
+        extra_cols=tuple(extra_cols),
     )
 
 
@@ -346,7 +530,17 @@ def build_mapping(
         master["_정제키"] = master[master_title_col].map(clean_master_title)
 
     s2_candidates = s2_reference.candidates
-    s2_index = s2_reference.index
+    s2_hint_cols = _settlement_s2_hint_columns(settlement)
+    s2_resolved_rows = [
+        _resolve_s2_candidate(
+            key=text(row["_정제키"]),
+            settlement_title=row.get(settlement_title_col),
+            settlement_row=row,
+            s2_reference=s2_reference,
+            hint_cols=s2_hint_cols,
+        )
+        for _, row in settlement.iterrows()
+    ]
     if use_ips:
         master_candidates, master_index = _candidate_index(
             master,
@@ -367,21 +561,26 @@ def build_mapping(
             "정제_상품명": settlement["_정제키"],
         }
     )
-    result["S2_매칭상태"] = result["정제_상품명"].map(lambda key: _status_for(key, s2_index))
-    result["S2_판매채널콘텐츠ID"] = result["정제_상품명"].map(lambda key: _single_id_for(key, s2_index))
-    result["S2_콘텐츠ID"] = result["정제_상품명"].map(lambda key: _single_extra_for(key, s2_index, "콘텐츠ID목록"))
-    result["S2_콘텐츠명"] = result["정제_상품명"].map(lambda key: _single_title_for(key, s2_index))
-    result[S2_ASSIGNEE_NAME_COL] = result["정제_상품명"].map(lambda key: _single_extra_for(key, s2_index, "담당자명목록"))
-    result[S2_ASSIGNEE_DEPARTMENT_COL] = result["정제_상품명"].map(
-        lambda key: _single_extra_for(key, s2_index, "담당부서명목록")
-        or _single_extra_for(key, s2_index, "담당부서목록")
-    )
+    result["S2_매칭상태"] = [text(row.get("매칭상태")) for row in s2_resolved_rows]
+    result["S2_판매채널콘텐츠ID"] = [
+        text(row.get("자동선택ID")) if text(row.get("매칭상태")) == MATCH_OK else "" for row in s2_resolved_rows
+    ]
+    result["S2_콘텐츠ID"] = [_single_extra_from_candidate(row, "콘텐츠ID목록") for row in s2_resolved_rows]
+    result["S2_콘텐츠명"] = [
+        text(row.get("자동선택콘텐츠명")) if text(row.get("매칭상태")) == MATCH_OK else ""
+        for row in s2_resolved_rows
+    ]
+    result[S2_ASSIGNEE_NAME_COL] = [_single_extra_from_candidate(row, "담당자명목록") for row in s2_resolved_rows]
+    result[S2_ASSIGNEE_DEPARTMENT_COL] = [
+        _single_extra_from_candidate(row, "담당부서명목록") or _single_extra_from_candidate(row, "담당부서목록")
+        for row in s2_resolved_rows
+    ]
     result[S2_ASSIGNEE_SOURCE_COL] = result[S2_ASSIGNEE_NAME_COL].map(
         lambda value: "S2 지급정산" if text(value) else ""
     )
-    result["S2_후보수"] = result["정제_상품명"].map(lambda key: _value_for(key, s2_index, "후보ID수") or "0")
-    result["S2_후보ID목록"] = result["정제_상품명"].map(lambda key: _value_for(key, s2_index, "후보ID목록"))
-    result["S2_후보콘텐츠명목록"] = result["정제_상품명"].map(lambda key: _value_for(key, s2_index, "후보콘텐츠명목록"))
+    result["S2_후보수"] = [text(row.get("후보ID수")) or "0" for row in s2_resolved_rows]
+    result["S2_후보ID목록"] = [text(row.get("후보ID목록")) for row in s2_resolved_rows]
+    result["S2_후보콘텐츠명목록"] = [text(row.get("후보콘텐츠명목록")) for row in s2_resolved_rows]
 
     if use_ips:
         result["IPS_매칭상태"] = result["정제_상품명"].map(lambda key: _status_for(key, master_index))

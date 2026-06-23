@@ -5,6 +5,7 @@ import unittest
 import pandas as pd
 
 from mapping_core import (
+    MATCH_AMBIGUOUS,
     MATCH_NONE,
     MATCH_OK,
     build_mapping,
@@ -81,19 +82,21 @@ class MappingCoreTest(unittest.TestCase):
     def test_disabled_marker_rows_are_not_used_as_reference_candidates(self) -> None:
         s2 = pd.DataFrame(
             {
-                "콘텐츠명": ["정상 작품", "[사용안함]_삭제 작품"],
-                "판매채널콘텐츠ID": ["S2-1", "S2-2"],
-                "콘텐츠ID": ["CID-1", "CID-2"],
+                "콘텐츠명": ["정상 작품", "[사용안함]_삭제 작품", "[정산정보없음]_정산 제외 작품"],
+                "판매채널콘텐츠ID": ["S2-1", "S2-2", "S2-3"],
+                "콘텐츠ID": ["CID-1", "CID-2", "CID-3"],
             }
         )
-        settlement = pd.DataFrame({"작품명": ["삭제 작품", "정상 작품"]})
+        settlement = pd.DataFrame({"작품명": ["삭제 작품", "정산 제외 작품", "정상 작품"]})
 
         rows = build_mapping(s2, settlement, None).rows
 
         self.assertEqual(rows.loc[0, "S2_매칭상태"], MATCH_NONE)
         self.assertEqual(rows.loc[0, "S2_판매채널콘텐츠ID"], "")
-        self.assertEqual(rows.loc[1, "S2_매칭상태"], MATCH_OK)
-        self.assertEqual(rows.loc[1, "S2_판매채널콘텐츠ID"], "S2-1")
+        self.assertEqual(rows.loc[1, "S2_매칭상태"], MATCH_NONE)
+        self.assertEqual(rows.loc[1, "S2_판매채널콘텐츠ID"], "")
+        self.assertEqual(rows.loc[2, "S2_매칭상태"], MATCH_OK)
+        self.assertEqual(rows.loc[2, "S2_판매채널콘텐츠ID"], "S2-1")
 
     def test_drop_disabled_rows_checks_all_reference_cells(self) -> None:
         frame = pd.DataFrame(
@@ -142,7 +145,7 @@ class MappingCoreTest(unittest.TestCase):
         self.assertEqual(rows.loc[0, "검토필요(Y/N)"], "N")
         self.assertEqual(len(mapping.duplicate_candidates), 1)
 
-    def test_duplicate_s2_key_auto_selects_latest_registration_date(self) -> None:
+    def test_duplicate_s2_key_is_ambiguous_instead_of_latest_auto_selected(self) -> None:
         s2 = pd.DataFrame(
             {
                 "콘텐츠명": ["그 남자의 비밀", "그 남자의 비밀"],
@@ -157,12 +160,32 @@ class MappingCoreTest(unittest.TestCase):
         rows = mapping.rows
         duplicate = mapping.duplicate_candidates.iloc[0]
 
-        self.assertEqual(rows.loc[0, "S2_매칭상태"], MATCH_OK)
-        self.assertEqual(rows.loc[0, "S2_판매채널콘텐츠ID"], "S2-new")
-        self.assertEqual(rows.loc[0, "S2_콘텐츠ID"], "CID-new")
+        self.assertEqual(rows.loc[0, "S2_매칭상태"], MATCH_AMBIGUOUS)
+        self.assertEqual(rows.loc[0, "S2_판매채널콘텐츠ID"], "")
+        self.assertEqual(rows.loc[0, "S2_콘텐츠ID"], "")
         self.assertEqual(rows.loc[0, "S2_후보ID목록"], "S2-new | S2-old")
-        self.assertEqual(duplicate["자동선택기준"], "지급정산마스터_등록일자 최신순")
-        self.assertEqual(duplicate["자동선택기준값"], "2026-01-01T00:00:00")
+        self.assertEqual(rows.loc[0, "검토필요(Y/N)"], "Y")
+        self.assertEqual(duplicate["매칭상태"], MATCH_AMBIGUOUS)
+        self.assertEqual(duplicate["자동선택기준"], "후보ID수>1 자동선택 안 함")
+        self.assertEqual(duplicate["자동선택기준값"], "")
+
+    def test_precise_title_resolves_clean_title_collision(self) -> None:
+        s2 = pd.DataFrame(
+            {
+                "콘텐츠명": ["남편이 정부를 데려왔다", "남편이 정부를 데려왔다(단행본)"],
+                "판매채널콘텐츠ID": ["S2-base", "S2-book"],
+                "콘텐츠ID": ["CID-base", "CID-book"],
+                "지급정산마스터_등록일자": ["2026-03-31T14:46:15", "2025-08-25T10:57:57"],
+            }
+        )
+        settlement = pd.DataFrame({"작품명": ["남편이 정부를 데려왔다(단행본)"], "금액": [1000]})
+
+        rows = build_mapping(s2, settlement, None).rows
+
+        self.assertEqual(rows.loc[0, "S2_매칭상태"], MATCH_OK)
+        self.assertEqual(rows.loc[0, "S2_판매채널콘텐츠ID"], "S2-book")
+        self.assertEqual(rows.loc[0, "S2_콘텐츠ID"], "CID-book")
+        self.assertEqual(rows.loc[0, "검토필요(Y/N)"], "N")
 
 
 if __name__ == "__main__":
