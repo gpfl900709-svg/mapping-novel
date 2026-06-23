@@ -6,7 +6,7 @@ from typing import Any, Iterable
 
 import pandas as pd
 
-from cleaning_rules import clean_title, drop_disabled_rows, text
+from cleaning_rules import clean_master_title, clean_title, drop_disabled_rows, text
 from kiss_payment_settlement import (
     CONTRACT_ID_COLUMN,
     contract_id_text,
@@ -161,7 +161,7 @@ def normalize_missing_rows(rows: Iterable[dict[str, Any]]) -> pd.DataFrame:
                 "판매채널콘텐츠ID": id_text(row.get("schnCtnsId")),
                 "콘텐츠ID": id_text(row.get("ctnsId")),
                 "콘텐츠명": title,
-                "정제_콘텐츠명": clean_title(title),
+                "정제_콘텐츠명": clean_master_title(title),
                 "판매채널ID": id_text(row.get("schnId")),
                 "판매채널명": text(row.get("schnNm")),
                 "그룹콘텐츠ID": id_text(row.get("grpCtnsId")),
@@ -228,7 +228,7 @@ def normalize_service_content_rows(rows: Iterable[dict[str, Any]]) -> pd.DataFra
                 "판매채널콘텐츠ID": id_text(row.get("schnCtnsId") or row.get("판매채널콘텐츠ID")),
                 "콘텐츠ID": id_text(row.get("ctnsId") or row.get("콘텐츠ID")),
                 "콘텐츠명": title,
-                "정제_콘텐츠명": clean_title(title),
+                "정제_콘텐츠명": clean_master_title(title),
                 "API_판매채널명": text(row.get("API_판매채널명") or row.get("schnNm")),
             }
         )
@@ -334,12 +334,7 @@ def build_s2_guard_runtime_context(
             key_col="정제_대표콘텐츠명",
             fields=["청구정산마스터ID", "계약ID", "대표콘텐츠명"],
         ),
-        service_index=_index_by_channel_and_key(
-            guards.service_contents,
-            channel_col="판매채널명",
-            key_col="정제_콘텐츠명",
-            fields=["판매채널콘텐츠ID", "콘텐츠ID", "콘텐츠명"],
-        ),
+        service_index=_service_content_index_by_channel_and_key(guards.service_contents),
         payment_by_key=_s2_payment_index_by_key(s2_all_frame),
         master_by_key=_master_index_by_key(master_df),
     )
@@ -502,6 +497,33 @@ def annotate_mapping_result(
     )
 
 
+def _service_content_index_by_channel_and_key(frame: pd.DataFrame | None) -> dict[tuple[str, str], dict[str, str | int]]:
+    if frame is None or frame.empty:
+        return {}
+    channel_col = SERVICE_CONTENT_LOOKUP_COLUMNS[2]
+    title_col = SERVICE_CONTENT_LOOKUP_COLUMNS[8]
+    key_col = SERVICE_CONTENT_LOOKUP_COLUMNS[9]
+    if channel_col not in frame.columns:
+        return {}
+    working = frame.copy()
+    if title_col in working.columns:
+        working["_정본정제키"] = working[title_col].map(clean_master_title)
+        if key_col in working.columns:
+            existing_keys = working[key_col].map(text)
+            working["_정본정제키"] = working["_정본정제키"].where(working["_정본정제키"].ne(""), existing_keys)
+        key_col = "_정본정제키"
+    return _index_by_channel_and_key(
+        working,
+        channel_col=channel_col,
+        key_col=key_col,
+        fields=[
+            SERVICE_CONTENT_LOOKUP_COLUMNS[6],
+            SERVICE_CONTENT_LOOKUP_COLUMNS[7],
+            SERVICE_CONTENT_LOOKUP_COLUMNS[8],
+        ],
+    )
+
+
 def _optional_column(frame: pd.DataFrame | None, candidates: Iterable[str]) -> str:
     if frame is None:
         return ""
@@ -530,7 +552,7 @@ def _s2_payment_index_by_key(frame: pd.DataFrame | None) -> dict[str, dict[str, 
     sales_channel_content_id_col = _optional_column(working, S2_LOOKUP_SALES_CHANNEL_CONTENT_ID_COL_CAND)
     assignee_col = _optional_column(working, S2_LOOKUP_ASSIGNEE_COL_CAND)
     department_col = _optional_column(working, S2_LOOKUP_DEPARTMENT_COL_CAND)
-    working["_정제키"] = working[title_col].map(clean_title)
+    working["_정제키"] = working[title_col].map(clean_master_title)
     fields = {
         "판매채널명": channel_col,
         "콘텐츠명": title_col,
@@ -551,7 +573,7 @@ def _master_index_by_key(frame: pd.DataFrame | None) -> dict[str, dict[str, str 
         return {}
     content_id_col = _optional_column(frame, MASTER_ID_COL_CAND)
     working = frame.copy()
-    working["_정제키"] = working[title_col].map(clean_title)
+    working["_정제키"] = working[title_col].map(clean_master_title)
     fields = {
         "콘텐츠명": title_col,
         "콘텐츠ID": content_id_col,
@@ -666,7 +688,7 @@ def _missing_detail_for(
     if service:
         evidence.append(_detail_piece("판매채널콘텐츠", service, ["판매채널콘텐츠ID", "콘텐츠ID", "콘텐츠명"]))
         if not any((missing, billing, other_payment, master)):
-            reasons.append("지급정산 기준 후보 없음")
+            reasons.append("판매채널콘텐츠 있음 / 지급정산 없음")
             actions.append("판매채널콘텐츠ID 기준 지급정산 생성/연결 여부 판단")
     if billing:
         reasons.append("청구정산 후보 있음")

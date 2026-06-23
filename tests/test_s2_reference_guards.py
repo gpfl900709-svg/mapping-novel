@@ -7,7 +7,10 @@ import pandas as pd
 from kiss_payment_settlement import CONTRACT_ID_COLUMN
 from mapping_core import MATCH_NONE, MATCH_OK, build_mapping
 from s2_reference_guards import (
+    S2_DETAIL_EVIDENCE_COL,
+    S2_DETAIL_REASON_COL,
     S2ReferenceGuards,
+    SERVICE_CONTENT_LOOKUP_COLUMNS,
     annotate_mapping_result,
     apply_missing_exclusions,
     normalize_billing_rows,
@@ -320,10 +323,56 @@ class S2ReferenceGuardsTest(unittest.TestCase):
         self.assertEqual(row["S2_매칭상태"], MATCH_NONE)
         self.assertEqual(row["S2_판매채널콘텐츠_후보수"], "1")
         self.assertEqual(row["S2_판매채널콘텐츠_판매채널콘텐츠ID목록"], "SVC-1")
-        self.assertEqual(row["S2_미매핑상세사유"], "지급정산 기준 후보 없음")
+        self.assertEqual(row["S2_미매핑상세사유"], "판매채널콘텐츠 있음 / 지급정산 없음")
         self.assertIn("CID-SVC", row["S2_미매핑근거"])
         self.assertIn("지급정산 생성/연결", row["S2_권장조치"])
         self.assertEqual(row["S2_담당자명"], "")
+
+    def test_service_content_candidates_use_confirmed_master_title_key(self) -> None:
+        service_contents = normalize_service_content_rows(
+            [
+                {
+                    "schnCtnsId": "843490",
+                    "ctnsId": "111006",
+                    "ctnsNm": "\ub3c5\uc2dd\ud558\ub294 \uc7ac\ubc8c 3\uc138_\uc11c\uc624_1005739_1021_\ud655\uc815",
+                    "schnNm": "Ridi",
+                }
+            ]
+        )
+        service_contents.loc[0, SERVICE_CONTENT_LOOKUP_COLUMNS[9]] = "stale-key"
+        guards = S2ReferenceGuards(
+            missing=normalize_missing_rows([]),
+            billing=normalize_billing_rows([]),
+            service_contents=service_contents,
+        )
+        s2 = pd.DataFrame(columns=["Title", "SalesChannelContentID"])
+        settlement = pd.DataFrame({"ProductName": ["\ub3c5\uc2dd\ud558\ub294 \uc7ac\ubc8c \uc138"]})
+
+        mapping = build_mapping(s2, settlement, None)
+        annotated = annotate_mapping_result(mapping, guards, sales_channel="Ridi")
+        row = annotated.rows.iloc[0]
+
+        self.assertIn("843490", row[S2_DETAIL_EVIDENCE_COL])
+        self.assertIn("111006", row[S2_DETAIL_EVIDENCE_COL])
+        self.assertNotIn("후보 없음", row[S2_DETAIL_REASON_COL])
+
+    def test_master_candidates_use_confirmed_master_title_key(self) -> None:
+        guards = S2ReferenceGuards(missing=normalize_missing_rows([]), billing=normalize_billing_rows([]))
+        s2 = pd.DataFrame(columns=["Title", "SalesChannelContentID"])
+        settlement = pd.DataFrame({"ProductName": ["\ub3c5\uc2dd\ud558\ub294 \uc7ac\ubc8c \uc138"]})
+        master = pd.DataFrame(
+            {
+                "Title": ["\ub3c5\uc2dd\ud558\ub294 \uc7ac\ubc8c 3\uc138_\uc11c\uc624_1005739_1021_\ud655\uc815"],
+                "ContentID": ["111006"],
+            }
+        )
+
+        mapping = build_mapping(s2, settlement, None)
+        annotated = annotate_mapping_result(mapping, guards, sales_channel="Ridi", master_df=master)
+        row = annotated.rows.iloc[0]
+
+        self.assertIn("111006", row[S2_DETAIL_EVIDENCE_COL])
+        self.assertNotIn("후보 없음", row[S2_DETAIL_REASON_COL])
 
     def test_no_match_rows_without_evidence_are_annotated_as_no_key_candidate(self) -> None:
         guards = S2ReferenceGuards(missing=normalize_missing_rows([]), billing=normalize_billing_rows([]))
