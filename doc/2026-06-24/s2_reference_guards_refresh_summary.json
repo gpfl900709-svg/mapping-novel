@@ -1,6 +1,6 @@
 {
   "created_at": "2026-06-24",
-  "finished_at": "2026-06-24T09:36:37+09:00",
+  "finished_at": "2026-06-24T10:54:04+09:00",
   "content_style_code": "102",
   "missing_platform_code": "",
   "missing_rows_raw": 2327,
@@ -44,7 +44,7 @@
     "MBN": 10,
     "태국-코미코(봄툰B2BC)(F000000198)": 10
   },
-  "missing_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_payment_missing_lookup.csv",
-  "billing_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_billing_settlement_lookup.csv",
-  "s2_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv"
+  "missing_lookup": "C:\\Users\\wjjo\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_payment_missing_lookup.csv",
+  "billing_lookup": "C:\\Users\\wjjo\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_billing_settlement_lookup.csv",
+  "s2_lookup": "C:\\Users\\wjjo\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv"
 }

@@ -1,12 +1,12 @@
 {
   "created_at": "2026-06-24",
-  "finished_at": "2026-06-24T09:36:34+09:00",
+  "finished_at": "2026-06-24T10:54:01+09:00",
   "content_style_code": "102",
   "target_channels": 53,
   "target_missing_channels": 0,
   "fetch_failures": 0,
-  "raw_rows": 111743,
-  "lookup_rows": 111743,
+  "raw_rows": 111748,
+  "lookup_rows": 111748,
   "sales_channel_counts": {
     "교보문고(소설)": 13501,
     "원스토어(소설)": 10245,
@@ -30,9 +30,9 @@
     "알라딘(소설)(1068659313)": 1402
   },
   "content_shape_counts": {
-    "소설": 111740,
+    "소설": 111745,
     "웹툰": 3
   },
-  "output": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_sales_channel_content_lookup.csv",
-  "audit": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\doc\\2026-06-24\\s2_sales_channel_contents_refresh_audit.csv"
+  "output": "C:\\Users\\wjjo\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_sales_channel_content_lookup.csv",
+  "audit": "C:\\Users\\wjjo\\Desktop\\work_hq\\edge_repos\\mapping-novel\\doc\\2026-06-24\\s2_sales_channel_contents_refresh_audit.csv"
 }
