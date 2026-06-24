@@ -24,7 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--today", default="")
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument("--manifest", default="")
-    parser.add_argument("--payment-page-size", type=int, default=1_000_000)
+    parser.add_argument("--payment-page-size", type=int, default=50_000)
     parser.add_argument("--guard-page-size", type=int, default=1_000_000)
     parser.add_argument("--content-style-code", default="102")
     parser.add_argument("--skip-payment", action="store_true")

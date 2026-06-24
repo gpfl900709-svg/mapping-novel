@@ -228,7 +228,7 @@ try {
         "--env-file", $envFile,
         "--today", $today,
         "--python", $Python,
-        "--payment-page-size", "1000000",
+        "--payment-page-size", "50000",
         "--guard-page-size", "1000000",
         "--content-style-code", "102"
     )

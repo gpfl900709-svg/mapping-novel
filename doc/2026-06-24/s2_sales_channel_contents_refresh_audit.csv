@@ -99,9 +99,9 @@ fetch,카카오,카카오페이지(소설),success,44.0,32,2208802594,1496.0,
 fetch,카카오,카카오페이지(창작지원금),success,45.0,30,2208802594,1066.0,
 fetch,큐툰,큐툰(소설 서비스),success,46.0,47,7168100915,422.0,
 fetch,토스(구루컴퍼니),구루컴퍼니,success,47.0,453,1678601247,258.0,
-fetch,토스(구루컴퍼니),토스(소설),success,48.0,1109,1678601247,633.0,
+fetch,토스(구루컴퍼니),토스(소설),success,48.0,1109,1678601247,639.0,
 fetch,판무림,판무림,success,49.0,62,5878702092,9156.0,
-fetch,피우리(누온),누온,failed,50.0,88,2278700227,0.0,500 Server Error:  for url: https://kiss-api.kld.kr/sale/ext/ext-salm/schn-ctns?bcncCd=2278700227&schnIds=88&ctnsStleCd=102
-fetch,피플앤스토리,피플앤스토리 (P2P 웹소설 서비스),failed,51.0,75,1058810325,0.0,500 Server Error:  for url: https://kiss-api.kld.kr/sale/ext/ext-salm/schn-ctns?bcncCd=1058810325&schnIds=75&ctnsStleCd=102
-fetch,하이북,웹소설 하이북,failed,52.0,76,3748700519,0.0,500 Server Error:  for url: https://kiss-api.kld.kr/sale/ext/ext-salm/schn-ctns?bcncCd=3748700519&schnIds=76&ctnsStleCd=102
-fetch,한아름,한아름(P000003716),failed,53.0,70,1108144866,0.0,500 Server Error:  for url: https://kiss-api.kld.kr/sale/ext/ext-salm/schn-ctns?bcncCd=1108144866&schnIds=70&ctnsStleCd=102
+fetch,피우리(누온),누온,success,50.0,88,2278700227,2415.0,
+fetch,피플앤스토리,피플앤스토리 (P2P 웹소설 서비스),success,51.0,75,1058810325,1752.0,
+fetch,하이북,웹소설 하이북,success,52.0,76,3748700519,3565.0,
+fetch,한아름,한아름(P000003716),success,53.0,70,1108144866,7474.0,

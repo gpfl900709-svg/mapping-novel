@@ -51,7 +51,7 @@ powershell -ExecutionPolicy Bypass -File scripts\run_daily_s2_refresh.ps1 -RepoR
 수동 실행:
 
 ```powershell
-python scripts\refresh_kiss_payment_settlement.py --env-file .env --mode full-replace --lookup-only --page-size 1000000 --content-style-code 102
+python scripts\refresh_kiss_payment_settlement.py --env-file .env --mode full-replace --lookup-only --page-size 50000 --content-style-code 102
 python scripts\refresh_s2_reference_guards.py --env-file .env --page-size 1000000 --content-style-code 102
 python scripts\refresh_s2_sales_channel_contents.py --env-file .env --content-style-code 102
 python scripts\refresh_ips_auxiliary_data.py --env-file .env
