@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import calendar
 import html
+import importlib
+import inspect
 import io
 import json
 import os
@@ -62,6 +64,7 @@ from kiss_payment_settlement import (
     to_s2_lookup,
 )
 from cleaning_rules import drop_disabled_rows, text
+import mapping_core as mapping_core_module
 from mapping_core import S2MappingReference, build_mapping, build_s2_mapping_reference, export_mapping, read_first_sheet
 from matching_rules import (
     S2SalesChannelFilterCache,
@@ -102,6 +105,16 @@ from s2_auth import (
     normalize_s2_secret_values,
     read_env_file,
 )
+
+
+if "source_name" not in inspect.signature(export_mapping).parameters:
+    # Streamlit Cloud can hot-reload app.py before refreshing sibling modules.
+    mapping_core_module = importlib.reload(mapping_core_module)
+    S2MappingReference = mapping_core_module.S2MappingReference
+    build_mapping = mapping_core_module.build_mapping
+    build_s2_mapping_reference = mapping_core_module.build_s2_mapping_reference
+    export_mapping = mapping_core_module.export_mapping
+    read_first_sheet = mapping_core_module.read_first_sheet
 
 
 ROOT = Path(__file__).resolve().parent
