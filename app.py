@@ -1212,7 +1212,12 @@ def process_settlement_batch_item(
         record_stage("transfer_build_seconds", stage_started)
         safe_progress_callback(progress_callback, "결과 엑셀 생성 중")
         stage_started = time.perf_counter()
-        mapping_bytes = export_mapping(mapping)
+        mapping_bytes = export_mapping(
+            mapping,
+            source_name=source_name,
+            s2_sales_channel=s2_channel,
+            platform=effective_platform,
+        )
         record_stage("mapping_export_seconds", stage_started)
         stage_started = time.perf_counter()
         transfer_bytes = export_s2_transfer(s2_transfer) if s2_transfer.exportable else b""

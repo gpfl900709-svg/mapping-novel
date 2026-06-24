@@ -13,6 +13,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from cleaning_rules import clean_master_title, clean_title, drop_disabled_rows, extract_master_work_title, text
+from work_order_reports import build_pd_work_order_frame_from_mapping_rows
 
 
 S2_TITLE_COL_CAND = ["콘텐츠명", "콘텐츠 제목", "Title", "ContentName", "제목"]
@@ -731,11 +732,24 @@ def _worksheet_column_width(ws: Any, column_idx: int, sample_rows: int) -> int:
     return min(max(max_len + 2, 10), 70)
 
 
-def export_mapping(result: MappingResult) -> bytes:
+def export_mapping(
+    result: MappingResult,
+    *,
+    source_name: str = "",
+    s2_sales_channel: str = "",
+    platform: str = "",
+) -> bytes:
     buffer = io.BytesIO()
     width_sample_rows = _export_width_sample_rows()
+    work_order = build_pd_work_order_frame_from_mapping_rows(
+        result.rows,
+        source_name=source_name,
+        s2_sales_channel=s2_sales_channel,
+        platform=platform,
+    )
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         result.summary.to_excel(writer, sheet_name="요약", index=False)
+        work_order.to_excel(writer, sheet_name="PD작업지시", index=False)
         result.input_validation.to_excel(writer, sheet_name="입력검증", index=False)
         result.rows.to_excel(writer, sheet_name="행별매핑결과", index=False)
         result.review_rows.to_excel(writer, sheet_name="검토필요", index=False)

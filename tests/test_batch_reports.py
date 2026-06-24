@@ -125,9 +125,54 @@ class BatchReportsTest(unittest.TestCase):
         self.assertEqual(work_order.loc[0, "S2_담당자_근거"], "타채널 지급정산")
         self.assertIn("S2_미매핑상세사유", combined.columns)
         self.assertIn("S2_미매핑근거", work_order.columns)
+        self.assertIn("정산서_콘텐츠명_고유수", work_order.columns)
+        self.assertEqual(work_order.loc[0, "목록축약여부"], "N")
+        self.assertEqual(work_order.loc[0, "상세확인시트"], "검토필요")
         self.assertIn("해당 판매채널 지급정산 생성/보강 여부 판단", work_order.loc[0, "권장액션"])
         self.assertEqual(work_order.loc[0, "원본행번호목록"], "1 | 2")
         self.assertEqual(work_order.loc[0, "엑셀행번호목록"], "10 | 20")
+
+    def test_work_order_report_truncates_long_title_and_row_lists(self) -> None:
+        rows = pd.DataFrame(
+            [
+                {
+                    "정산서_원본행번호": row_no,
+                    "정산서원본_source_row": row_no + 10,
+                    "정산서_콘텐츠명": f"긴 작품 {row_no}화",
+                    "정제_상품명": "긴작품",
+                    "S2_매칭상태": "no_match",
+                    "S2_후보수": "0",
+                    "S2_미매핑상세사유": "판매채널콘텐츠 있음 / 지급정산 없음",
+                    "S2_미매핑근거": "판매채널콘텐츠: 판매채널콘텐츠ID=SVC-1",
+                    "S2_권장조치": "판매채널콘텐츠ID 기준 지급정산 생성/연결 여부 판단",
+                    "검토필요사유": "S2 미매핑",
+                    "검토필요(Y/N)": "Y",
+                }
+                for row_no in range(1, 13)
+            ]
+        )
+        result = {
+            "status": "success",
+            "source_name": "리디_fixture.xlsx",
+            "s2_sales_channel": "리디북스(소설)",
+            "platform": "리디북스",
+            "mapping": MappingResult(
+                rows=rows,
+                summary=pd.DataFrame(),
+                review_rows=rows,
+                duplicate_candidates=pd.DataFrame(),
+                input_validation=pd.DataFrame(),
+            ),
+        }
+
+        work_order = build_pd_work_order_report_frame([result])
+
+        self.assertEqual(len(work_order), 1)
+        self.assertEqual(work_order.loc[0, "정산서 행 수"], 12)
+        self.assertEqual(work_order.loc[0, "정산서_콘텐츠명_고유수"], 12)
+        self.assertEqual(work_order.loc[0, "목록축약여부"], "Y")
+        self.assertIn("... 외 4개", work_order.loc[0, "정산서_콘텐츠명목록"])
+        self.assertNotIn("긴 작품 12화", work_order.loc[0, "정산서_콘텐츠명목록"])
 
 
 if __name__ == "__main__":

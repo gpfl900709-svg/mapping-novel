@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import io
 import unittest
 
 import pandas as pd
+from openpyxl import load_workbook
 
 from mapping_core import (
     MATCH_AMBIGUOUS,
@@ -11,6 +13,7 @@ from mapping_core import (
     build_mapping,
     clean_master_title,
     drop_disabled_rows,
+    export_mapping,
     extract_master_work_title,
 )
 
@@ -186,6 +189,34 @@ class MappingCoreTest(unittest.TestCase):
         self.assertEqual(rows.loc[0, "S2_판매채널콘텐츠ID"], "S2-book")
         self.assertEqual(rows.loc[0, "S2_콘텐츠ID"], "CID-book")
         self.assertEqual(rows.loc[0, "검토필요(Y/N)"], "N")
+
+    def test_export_mapping_includes_pd_work_order_sheet(self) -> None:
+        s2 = pd.DataFrame({"콘텐츠명": ["다른 작품"], "판매채널콘텐츠ID": ["S2-1"]})
+        settlement = pd.DataFrame({"작품명": [f"없는 작품 {idx}화" for idx in range(1, 11)]})
+        mapping = build_mapping(s2, settlement, None)
+
+        payload = export_mapping(
+            mapping,
+            source_name="리디_fixture.xlsx",
+            s2_sales_channel="리디북스(소설)",
+            platform="리디북스",
+        )
+        workbook = load_workbook(io.BytesIO(payload), read_only=True, data_only=True)
+
+        self.assertIn("PD작업지시", workbook.sheetnames)
+        sheet = workbook["PD작업지시"]
+        headers = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
+        values = [cell.value for cell in next(sheet.iter_rows(min_row=2, max_row=2))]
+        row = dict(zip(headers, values))
+
+        self.assertEqual(row["S2 판매채널"], "리디북스(소설)")
+        self.assertEqual(row["플랫폼"], "리디북스")
+        self.assertEqual(row["파일목록"], "리디_fixture.xlsx")
+        self.assertEqual(row["정산서 행 수"], 10)
+        self.assertEqual(row["정산서_콘텐츠명_고유수"], 10)
+        self.assertEqual(row["목록축약여부"], "Y")
+        self.assertIn("... 외 2개", row["정산서_콘텐츠명목록"])
+        workbook.close()
 
 
 if __name__ == "__main__":
