@@ -1,28 +1,28 @@
 {
-  "generated_at": "2026-06-24T10:53:48+09:00",
-  "source_rows": 144690,
-  "cache_rows_before": 31991,
-  "cache_rows_after": 31996,
-  "s2_lookup_rows": 31996,
-  "s2_change_added": 5,
+  "generated_at": "2026-06-24T12:01:31+09:00",
+  "source_rows": 144691,
+  "cache_rows_before": 31996,
+  "cache_rows_after": 31997,
+  "s2_lookup_rows": 31997,
+  "s2_change_added": 1,
   "s2_change_deleted": 0,
   "s2_change_modified": 0,
-  "output_cache": "C:\\Users\\wjjo\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
+  "output_cache": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "output_cache_parts": [],
-  "output_s2_lookup": "C:\\Users\\wjjo\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
+  "output_s2_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "summary": {
-    "rows": 144690,
+    "rows": 144691,
     "columns": 14,
     "content_shape_counts": {
-      "소설": 144690
+      "소설": 144691
     },
     "approval_status_counts": {
-      "승인": 129430,
+      "승인": 129431,
       "미승인": 15251,
       "승인취소": 9
     },
     "payment_settlement_status_counts": {
-      "운영중": 143959,
+      "운영중": 143960,
       "종료": 677,
       "콘텐츠확인필요": 51,
       "거래처확인필요": 3
@@ -49,23 +49,23 @@
       "스토린랩(원스토어)": 2319,
       "피플앤스토리 (P2P 웹소설 서비스)": 2044
     },
-    "content_id_nonblank": 144690,
+    "content_id_nonblank": 144691,
     "content_id_unique": 27075,
-    "sales_channel_content_id_nonblank": 144540,
-    "sales_channel_content_id_unique": 127198,
+    "sales_channel_content_id_nonblank": 144541,
+    "sales_channel_content_id_unique": 127199,
     "contract_id_column_present": true,
-    "contract_id_nonzero": 33194,
+    "contract_id_nonzero": 33195,
     "contract_id_zero_or_blank": 111496,
-    "contract_linked_sales_channel_content_id_unique": 31996,
+    "contract_linked_sales_channel_content_id_unique": 31997,
     "registered_at_min": "2024-12-31T12:00:00",
-    "registered_at_max": "2026-06-24T10:35:02",
+    "registered_at_max": "2026-06-24T11:22:25",
     "sales_channel_content_id_duplicate_keys": 12715,
     "sales_channel_content_id_multiple_titles": 1,
     "sales_channel_content_id_multiple_master_ids": 12715,
     "sales_channel_content_id_multiple_content_ids": 1,
     "cache_mode": "lookup_only",
     "s2_change_summary": {
-      "added": 5,
+      "added": 1,
       "deleted": 0,
       "modified": 0
     }

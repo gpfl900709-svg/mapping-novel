@@ -1,6 +1,6 @@
 {
   "created_at": "2026-06-24",
-  "finished_at": "2026-06-24T10:54:04+09:00",
+  "finished_at": "2026-06-24T12:01:44+09:00",
   "content_style_code": "102",
   "missing_platform_code": "",
   "missing_rows_raw": 2327,
@@ -18,10 +18,10 @@
   },
   "missing_overlap_with_s2_lookup": 0,
   "missing_platform_comparisons": [],
-  "billing_api_total_rows": 1009,
-  "billing_rows_raw": 1009,
+  "billing_api_total_rows": 1010,
+  "billing_rows_raw": 1010,
   "billing_pages": 1,
-  "billing_lookup_rows": 1009,
+  "billing_lookup_rows": 1010,
   "billing_sales_channel_counts": {
     "벨툰JP(봄툰B2BC)(F000000019)": 164,
     "레진JP(봄툰B2BC)(F000000019)": 163,
@@ -33,7 +33,7 @@
     "레진JP-서드파티(레진엔터테인먼트)": 18,
     "태국-네이버": 17,
     "씨제이이엔엠(방영권)": 17,
-    "레진JP(레진엔터테인먼트)": 15,
+    "레진JP(레진엔터테인먼트)": 16,
     "인도네시아-네이버": 15,
     "벨툰JP(레진엔터테인먼트)": 14,
     "대만-렌타(봄툰B2BC)": 13,
@@ -44,7 +44,7 @@
     "MBN": 10,
     "태국-코미코(봄툰B2BC)(F000000198)": 10
   },
-  "missing_lookup": "C:\\Users\\wjjo\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_payment_missing_lookup.csv",
-  "billing_lookup": "C:\\Users\\wjjo\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_billing_settlement_lookup.csv",
-  "s2_lookup": "C:\\Users\\wjjo\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv"
+  "missing_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_payment_missing_lookup.csv",
+  "billing_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_billing_settlement_lookup.csv",
+  "s2_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv"
 }
