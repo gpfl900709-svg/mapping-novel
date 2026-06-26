@@ -1,7 +1,7 @@
 {
-  "manifest_id": "2026-06-26__s2_all__120011",
+  "manifest_id": "2026-06-27__s2_all__000005",
   "step": "reference_guards",
   "path": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_payment_missing_lookup.csv",
-  "sha256": "5e701a7b38a2eb3536dacac6b1497812952e08f1ee67aea73cdcf0bb1339a7dd",
-  "created_at": "2026-06-26T12:01:51"
+  "sha256": "4f24b17ecd2312baa725073beb84f35e9a34dff120a7b946128e54163b39d231",
+  "created_at": "2026-06-27T00:01:44"
 }
