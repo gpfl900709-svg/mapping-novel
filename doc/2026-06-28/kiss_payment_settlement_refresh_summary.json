@@ -1,34 +1,34 @@
 {
-  "generated_at": "2026-06-28T00:01:33+09:00",
-  "source_rows": 145519,
-  "cache_rows_before": 32288,
-  "cache_rows_after": 32287,
-  "s2_lookup_rows": 32287,
+  "generated_at": "2026-06-28T12:01:37+09:00",
+  "source_rows": 145520,
+  "cache_rows_before": 32287,
+  "cache_rows_after": 32288,
+  "s2_lookup_rows": 32288,
   "s2_change_added": 1,
-  "s2_change_deleted": 2,
-  "s2_change_modified": 1837,
+  "s2_change_deleted": 0,
+  "s2_change_modified": 151,
   "output_cache": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "output_cache_parts": [],
   "output_s2_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "summary": {
-    "rows": 145519,
+    "rows": 145520,
     "columns": 14,
     "content_shape_counts": {
-      "소설": 145519
+      "소설": 145520
     },
     "approval_status_counts": {
       "승인": 129506,
-      "미승인": 15937,
+      "미승인": 15938,
       "승인취소": 76
     },
     "payment_settlement_status_counts": {
-      "운영중": 144792,
+      "운영중": 144793,
       "종료": 676,
       "콘텐츠확인필요": 48,
       "거래처확인필요": 3
     },
     "top_channel_counts": {
-      "교보문고(소설)": 14383,
+      "교보문고(소설)": 14384,
       "봄툰KR(1068149784)": 13090,
       "원스토어(소설)": 10878,
       "미스터블루(소설)": 10346,
@@ -49,14 +49,14 @@
       "스토린랩(원스토어)": 2326,
       "리디북스(소설)": 2155
     },
-    "content_id_nonblank": 145519,
-    "content_id_unique": 27144,
-    "sales_channel_content_id_nonblank": 145369,
-    "sales_channel_content_id_unique": 127567,
+    "content_id_nonblank": 145520,
+    "content_id_unique": 27145,
+    "sales_channel_content_id_nonblank": 145370,
+    "sales_channel_content_id_unique": 127568,
     "contract_id_column_present": true,
-    "contract_id_nonzero": 33810,
+    "contract_id_nonzero": 33811,
     "contract_id_zero_or_blank": 111709,
-    "contract_linked_sales_channel_content_id_unique": 32287,
+    "contract_linked_sales_channel_content_id_unique": 32288,
     "registered_at_min": "2024-12-31T12:00:00",
     "registered_at_max": "2026-06-27T10:48:35",
     "sales_channel_content_id_duplicate_keys": 13169,
@@ -66,8 +66,8 @@
     "cache_mode": "lookup_only",
     "s2_change_summary": {
       "added": 1,
-      "deleted": 2,
-      "modified": 1837
+      "deleted": 0,
+      "modified": 151
     }
   }
 }
