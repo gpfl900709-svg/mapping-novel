@@ -1,0 +1,100 @@
+{
+  "manifest_id": "2026-06-30__s2_all__000007",
+  "created_at": "2026-06-30T00:01:49",
+  "today": "2026-06-30",
+  "content_style_code": "102",
+  "steps": [
+    {
+      "name": "payment_settlement",
+      "command": [
+        "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+        "scripts/refresh_kiss_payment_settlement.py",
+        "--env-file",
+        "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\.env",
+        "--mode",
+        "full-replace",
+        "--today",
+        "2026-06-30",
+        "--lookup-only",
+        "--page-size",
+        "50000",
+        "--content-style-code",
+        "102"
+      ],
+      "started_at": "2026-06-30T00:00:07",
+      "finished_at": "2026-06-30T00:01:35",
+      "returncode": 0,
+      "stdout_tail": "[page 1] fetched=50000 total_accumulated=50000 / total=156411\n[page 2] fetched=50000 total_accumulated=100000 / total=156411\n[page 3] fetched=50000 total_accumulated=150000 / total=156411\n[page 4] fetched=6411 total_accumulated=156411 / total=156411\nmode=full-replace\nsearch_start_date=1900-01-01\nsearch_end_date=2026-06-30\ncontent_style_code=102\napi_total_rows=156411\nfetched_rows=156411\nfetched_pages=4\nlocal_s2_policy=lookup_only_replace\ncache_rows_before=32803\ncache_rows_after=33049\ns2_lookup_rows=33049\ns2_change_added=790\ns2_change_deleted=544\ns2_change_modified=748\ncache=C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv\ncache_parts=0\ns2_lookup=C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv\nsummary=C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\doc\\2026-06-30\\kiss_payment_settlement_refresh_summary.json\nhistory_db=C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_refresh_history.sqlite\nhistory_id=101\n",
+      "stderr_tail": ""
+    },
+    {
+      "name": "sales_channel_contents",
+      "command": [
+        "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+        "scripts/refresh_s2_sales_channel_contents.py",
+        "--env-file",
+        "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\.env",
+        "--today",
+        "2026-06-30",
+        "--content-style-code",
+        "102"
+      ],
+      "started_at": "2026-06-30T00:01:35",
+      "finished_at": "2026-06-30T00:01:46",
+      "returncode": 0,
+      "stdout_tail": "[1/53] 교보 / 교보문고(소설): success rows=13505\n[2/53] 교보 / 교보문고(톡소다): success rows=604\n[3/53] 구글 / 구글(소설): success rows=3599\n[4/53] 네이버 / 네이버_연재: success rows=1168\n[5/53] 네이버 / 네이버_연재(광고수익): success rows=1283\n[6/53] 네이버 / 네이버_일반: success rows=3511\n[7/53] 네이버 / 네이버_장르: success rows=2154\n[8/53] 네이버 / 네이버_장르(광고수익): success rows=2880\n[9/53] 노벨피아 / 노벨피아 (소설): success rows=367\n[10/53] 로망띠끄 / 로망띠끄: success rows=960\n[11/53] 리디북스 / 리디북스(소설): success rows=2558\n[12/53] 리디북스 / 리디북스(이벤트): success rows=3576\n[13/53] 모픽 / 모픽(mofic): success rows=543\n[14/53] 무툰 / 무툰(소설 서비스): success rows=3110\n[15/53] 문피아 / 문피아: success rows=762\n[16/53] 문피아 / 문피아(후원금 정산): success rows=798\n[17/53] 미소설 / 미소설: success rows=793\n[18/53] 미스터블루 / 미스터블루(소설): success rows=9705\n[19/53] 밀리의서재 / 밀리의 서재: success rows=424\n[20/53] 보인&국립장애인도서관 / 국립장애인도서관: success rows=116\n[21/53] 보인&국립장애인도서관 / 보인: success rows=150\n[22/53] 부커스 / 부커스: success rows=334\n[23/53] 북큐브 / 북큐브(소설): success rows=3690\n[24/53] 북팔 / 북팔(소설): success rows=1164\n[25/53] 북팔 / 예원북스(북팔): success rows=273\n[26/53] 블라이스 / 블라이스 셀렉트: success rows=304\n[27/53] 블라이스 / 블라이스_인앱결제: success rows=573\n[28/53] 블라이스 / 블라이스_일반결제: success rows=1000\n[29/53] 스낵북 / 스낵북(알에스): success rows=530\n[30/53] 스토린랩 / 스토린랩(원스토어): success rows=2075\n[31/53] 신영미디어 / 신영미디어: success rows=382\n[32/53] 알라딘 / 알라딘(소설)(1068659313): success rows=1405\n[33/53] 에이블리 / 에이블리(소설): success rows=490\n[34/53] 에피루스 / 에피루스 이북클럽(B2C): success rows=910\n[35/53] 예스24 / Yes24(서점): success rows=4034\n[36/53] 예스24 / Yes24(시프트북스): success rows=251\n[37/53] 올툰 / 올툰: success rows=200\n[38/53] 올툰 / 올툰(소설): success rows=355\n[39/53] 원스토어 / 원스토어(소설): success rows=10248\n[40/53] 윌라 / 윌라(오디오북): success rows=247\n[41/53] 윌라 / 윌라(전자책): success rows=521\n[42/53] 조아라 / 조아라(소설): success rows=1295\n[43/53] 카카오 / 카카오페이지(선투자): success rows=750\n[44/53] 카카오 / 카카오페이지(소설): success rows=1499\n[45/53] 카카오 / 카카오페이지(창작지원금): success rows=1066\n[46/53] 큐툰 / 큐툰(소설 서비스): success rows=424\n[47/53] 토스(구루컴퍼니) / 구루컴퍼니: success rows=260\n[48/53] 토스(구루컴퍼니) / 토스(소설): success rows=648\n[49/53] 판무림 / 판무림: success rows=9157\n[50/53] 피우리(누온) / 누온: success rows=2417\n[51/53] 피플앤스토리 / 피플앤스토리 (P2P 웹소설 서비스): success rows=1753\n[52/53] 하이북 / 웹소설 하이북: success rows=3566\n[53/53] 한아름 / 한아름(P000003716): success rows=7475\ntarget_channels=53\ntarget_missing_channels=0\nfetch_failures=0\nraw_rows=111862\nlookup_rows=111862\noutput=C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_sales_channel_content_lookup.csv\naudit=C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\doc\\2026-06-30\\s2_sales_channel_contents_refresh_audit.csv\nsummary=C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\doc\\2026-06-30\\s2_sales_channel_contents_refresh_summary.json\n",
+      "stderr_tail": ""
+    },
+    {
+      "name": "reference_guards",
+      "command": [
+        "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+        "scripts/refresh_s2_reference_guards.py",
+        "--env-file",
+        "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\.env",
+        "--today",
+        "2026-06-30",
+        "--page-size",
+        "1000000",
+        "--content-style-code",
+        "102"
+      ],
+      "started_at": "2026-06-30T00:01:46",
+      "finished_at": "2026-06-30T00:01:49",
+      "returncode": 0,
+      "stdout_tail": "[billing page 1] fetched=1022 total_accumulated=1022 / total=1022\ncontent_style_code=102\nmissing_platform_code=<blank>\nmissing_rows_raw=2327\nmissing_lookup_rows=2327\nmissing_overlap_with_s2_lookup=0\nmissing_platform_comparisons=0\nbilling_api_total_rows=1022\nbilling_rows_raw=1022\nbilling_pages=1\nbilling_lookup_rows=1022\nmissing_lookup=C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_payment_missing_lookup.csv\nbilling_lookup=C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_billing_settlement_lookup.csv\nsummary=C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\doc\\2026-06-30\\s2_reference_guards_refresh_summary.json\n",
+      "stderr_tail": ""
+    }
+  ],
+  "outputs": [
+    {
+      "manifest_id": "2026-06-30__s2_all__000007",
+      "step": "payment_settlement",
+      "path": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
+      "sha256": "ff4f7bca84e8f845032ac271a6fdf5055d2df3fbfbcf99b1842c32b17fcf019d",
+      "created_at": "2026-06-30T00:01:49"
+    },
+    {
+      "manifest_id": "2026-06-30__s2_all__000007",
+      "step": "sales_channel_contents",
+      "path": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_sales_channel_content_lookup.csv",
+      "sha256": "5cc93708038fa0ecea845081c8f4c11150630f311ee23c1744f7e9c74b7a34a3",
+      "created_at": "2026-06-30T00:01:49"
+    },
+    {
+      "manifest_id": "2026-06-30__s2_all__000007",
+      "step": "reference_guards",
+      "path": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_payment_missing_lookup.csv",
+      "sha256": "28c197795d5e70398d02e0c18e641fe798d0d4c8fe47714b1ce5e0297c90fbf2",
+      "created_at": "2026-06-30T00:01:49"
+    },
+    {
+      "manifest_id": "2026-06-30__s2_all__000007",
+      "step": "reference_guards",
+      "path": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_billing_settlement_lookup.csv",
+      "sha256": "7a30723c0e66afddc5425367db0fd882078b94fb398052aed403628600be73c9",
+      "created_at": "2026-06-30T00:01:49"
+    }
+  ],
+  "failed_steps": []
+}
