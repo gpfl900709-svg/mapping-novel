@@ -1,6 +1,6 @@
 {
   "created_at": "2026-06-30",
-  "finished_at": "2026-06-30T00:01:49+09:00",
+  "finished_at": "2026-06-30T12:01:51+09:00",
   "content_style_code": "102",
   "missing_platform_code": "",
   "missing_rows_raw": 2327,
@@ -18,10 +18,10 @@
   },
   "missing_overlap_with_s2_lookup": 0,
   "missing_platform_comparisons": [],
-  "billing_api_total_rows": 1022,
-  "billing_rows_raw": 1022,
+  "billing_api_total_rows": 1023,
+  "billing_rows_raw": 1023,
   "billing_pages": 1,
-  "billing_lookup_rows": 1022,
+  "billing_lookup_rows": 1023,
   "billing_sales_channel_counts": {
     "벨툰JP(봄툰B2BC)(F000000019)": 164,
     "레진JP(봄툰B2BC)(F000000019)": 163,
