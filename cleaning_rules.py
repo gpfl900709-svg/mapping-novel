@@ -138,16 +138,22 @@ class CleaningPolicy:
         return EXACT_CLEAN_TITLE_ALIASES.get(key, key)
 
     def _looks_like_master_code_field(self, value: Any) -> bool:
+        values = self._multi_value_slot_parts(value)
+        if not values:
+            return False
+        return all(bool(re.fullmatch(r"\d+(?:\.0)?", raw)) for raw in values)
+
+    def _multi_value_slot_parts(self, value: Any) -> list[str]:
         raw = self.text(value)
         if not raw:
-            return False
-        return bool(re.fullmatch(r"\d+(?:\.0)?", raw))
+            return []
+        return [part.strip() for part in raw.split("|") if part.strip()]
 
     def _looks_like_master_advance_field(self, value: Any) -> bool:
-        raw = self.text(value)
-        if self._looks_like_master_code_field(raw):
-            return True
-        return raw in {"미연결", "선인세없음"}
+        values = self._multi_value_slot_parts(value)
+        if not values:
+            return False
+        return all(self._looks_like_master_code_field(raw) or raw in {"미연결", "선인세없음"} for raw in values)
 
     def clean_title(self, value: Any) -> str:
         t = str(value).strip()

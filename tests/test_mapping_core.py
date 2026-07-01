@@ -87,6 +87,27 @@ class MappingCoreTest(unittest.TestCase):
         self.assertEqual(rows.loc[0, "S2_콘텐츠ID"], "308302")
         self.assertEqual(rows.loc[0, "검토필요(Y/N)"], "N")
 
+    def test_multi_author_confirmed_canonical_title_matches_s2_and_master(self) -> None:
+        canonical = "현대 귀환 마법사_인기영_4394246|4475413_1005078|1005079_선인세없음|선인세없음_확정"
+        s2 = pd.DataFrame(
+            {
+                "콘텐츠명": [canonical],
+                "판매채널콘텐츠ID": ["116302"],
+                "콘텐츠ID": ["4394246"],
+            }
+        )
+        settlement = pd.DataFrame({"작품명": ["현대 귀환 마법사"], "금액": [1000]})
+        master = pd.DataFrame({"콘텐츠명": [canonical], "콘텐츠ID": ["4394246"]})
+
+        rows = build_mapping(s2, settlement, master).rows
+
+        self.assertEqual(rows.loc[0, "정제_상품명"], "현대귀환마법사")
+        self.assertEqual(rows.loc[0, "S2_매칭상태"], MATCH_OK)
+        self.assertEqual(rows.loc[0, "S2_판매채널콘텐츠ID"], "116302")
+        self.assertEqual(rows.loc[0, "IPS_매칭상태"], MATCH_OK)
+        self.assertEqual(rows.loc[0, "IPS_콘텐츠ID"], "4394246")
+        self.assertEqual(rows.loc[0, "검토필요(Y/N)"], "N")
+
     def test_no_match_does_not_fallback_to_normalized_title_as_id(self) -> None:
         s2 = pd.DataFrame({"콘텐츠명": ["다른 작품"], "판매채널콘텐츠ID": ["S2-1"]})
         settlement = pd.DataFrame({"작품명": ["그 남자의 비밀"], "금액": [1000]})
