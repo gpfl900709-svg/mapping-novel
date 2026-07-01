@@ -69,6 +69,24 @@ class MappingCoreTest(unittest.TestCase):
         self.assertEqual(rows.loc[0, "IPS_매칭상태"], "skipped")
         self.assertEqual(rows.loc[0, "검토필요(Y/N)"], "N")
 
+    def test_s2_extended_confirmed_canonical_title_matches_settlement_title(self) -> None:
+        s2 = pd.DataFrame(
+            {
+                "콘텐츠명": ["성노예 코딩 어플_쉐도우스_4476960_1005458_선인세없음_확정"],
+                "판매채널콘텐츠ID": ["835143"],
+                "콘텐츠ID": ["308302"],
+            }
+        )
+        settlement = pd.DataFrame({"작품명": ["성노예 코딩 어플"], "금액": [1000]})
+
+        rows = build_mapping(s2, settlement, None).rows
+
+        self.assertEqual(rows.loc[0, "정제_상품명"], "성노예코딩어플")
+        self.assertEqual(rows.loc[0, "S2_매칭상태"], MATCH_OK)
+        self.assertEqual(rows.loc[0, "S2_판매채널콘텐츠ID"], "835143")
+        self.assertEqual(rows.loc[0, "S2_콘텐츠ID"], "308302")
+        self.assertEqual(rows.loc[0, "검토필요(Y/N)"], "N")
+
     def test_no_match_does_not_fallback_to_normalized_title_as_id(self) -> None:
         s2 = pd.DataFrame({"콘텐츠명": ["다른 작품"], "판매채널콘텐츠ID": ["S2-1"]})
         settlement = pd.DataFrame({"작품명": ["그 남자의 비밀"], "금액": [1000]})

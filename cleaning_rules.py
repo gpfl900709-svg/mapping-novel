@@ -26,6 +26,7 @@ DISABLED_ROW_MARKERS = (
 TITLE_EXCEPTIONS = ("24/7", "실명마제", "라마대제")
 MASTER_CONFIRMED_STATUS = "확정"
 MASTER_CONFIRMED_TRAILING_FIELD_COUNT = 4
+MASTER_CONFIRMED_EXTENDED_TRAILING_FIELD_COUNT = 5
 STRUCTURED_S2_TITLE_PATTERN = re.compile(r"^\d+_([^_]+)_[^_]+_일반$")
 EXACT_CLEAN_TITLE_ALIASES = {
     "늙은경비에게조교당하는스튜어디스의이야기": "늙은경비에게조교당하는스튜어디스",
@@ -136,6 +137,18 @@ class CleaningPolicy:
     def _apply_exact_title_alias(self, key: str) -> str:
         return EXACT_CLEAN_TITLE_ALIASES.get(key, key)
 
+    def _looks_like_master_code_field(self, value: Any) -> bool:
+        raw = self.text(value)
+        if not raw:
+            return False
+        return bool(re.fullmatch(r"\d+(?:\.0)?", raw))
+
+    def _looks_like_master_advance_field(self, value: Any) -> bool:
+        raw = self.text(value)
+        if self._looks_like_master_code_field(raw):
+            return True
+        return raw in {"미연결", "선인세없음"}
+
     def clean_title(self, value: Any) -> str:
         t = str(value).strip()
 
@@ -159,6 +172,10 @@ class CleaningPolicy:
         structured_s2_title = self._structured_s2_title_segment(t)
         if structured_s2_title:
             t = structured_s2_title
+
+        confirmed_master_title = self.extract_confirmed_master_title(t)
+        if confirmed_master_title:
+            t = confirmed_master_title
 
         t = re.sub(r"\s*\d+/\d+$", "", t).lower()
         t = re.sub(r"(^|\s)제\s*\d+[권화]", " ", t)
@@ -232,6 +249,13 @@ class CleaningPolicy:
             return ""
         if self.clean_title(parts[-1]) != self.clean_title(self.master_confirmed_status):
             return ""
+        if (
+            len(parts) > MASTER_CONFIRMED_EXTENDED_TRAILING_FIELD_COUNT
+            and self._looks_like_master_code_field(parts[-4])
+            and self._looks_like_master_code_field(parts[-3])
+            and self._looks_like_master_advance_field(parts[-2])
+        ):
+            tail_count = MASTER_CONFIRMED_EXTENDED_TRAILING_FIELD_COUNT
         return "_".join(parts[:-tail_count]).strip()
 
     def clean_master_title(self, value: Any) -> str:

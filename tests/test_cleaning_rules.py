@@ -20,6 +20,8 @@ class CleaningRulesTest(unittest.TestCase):
             "재벌가 차남은 먼치킨_말리브해적_1003258_472_확정": "재벌가 차남은 먼치킨",
             "재벌가 차남은 먼치킨_말리브해적_1003258_미연결_확정": "재벌가 차남은 먼치킨",
             "재벌가 차남은 먼치킨_말리브해적_1003258_선인세없음_확정": "재벌가 차남은 먼치킨",
+            "성노예 코딩 어플_쉐도우스_4476960_1005458_선인세없음_확정": "성노예 코딩 어플",
+            "천재 작가는 어플로 꿀 빱니다_두루치기_4476954_1005450_1104_확정": "천재 작가는 어플로 꿀 빱니다",
             "너_그리고_나_홍길동_1001234_2002345_확정": "너_그리고_나",
         }
 
@@ -27,6 +29,7 @@ class CleaningRulesTest(unittest.TestCase):
             with self.subTest(raw=raw):
                 self.assertEqual(policy.extract_confirmed_master_title(raw), expected)
                 self.assertEqual(policy.extract_master_work_title(raw), expected)
+                self.assertEqual(policy.clean_title(raw), policy.clean_title(expected))
 
     def test_default_disabled_markers_drop_rows_before_mapping(self) -> None:
         policy = CleaningPolicy()
