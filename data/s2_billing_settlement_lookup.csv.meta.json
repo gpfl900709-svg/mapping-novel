@@ -1,7 +1,7 @@
 {
-  "manifest_id": "2026-07-01__s2_all__173227",
+  "manifest_id": "2026-07-02__s2_all__000010",
   "step": "reference_guards",
-  "path": "C:\\Users\\wjjo\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_billing_settlement_lookup.csv",
-  "sha256": "76d78c183ec4f2952d4413f5cc0aa087ba2e58a38459a4c3fde14c1b87f04d14",
-  "created_at": "2026-07-01T17:33:51"
+  "path": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_billing_settlement_lookup.csv",
+  "sha256": "8361a7014407f39bb7068945428d9b02ad717cfcfb45124dbd7bc5d51a44f9c1",
+  "created_at": "2026-07-02T00:01:56"
 }
