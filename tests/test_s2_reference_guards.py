@@ -298,7 +298,7 @@ class S2ReferenceGuardsTest(unittest.TestCase):
         self.assertEqual(row["S2_담당부서명"], "소설팀")
         self.assertEqual(row["S2_담당자_근거"], "콘텐츠마스터")
 
-    def test_no_match_rows_are_annotated_with_service_content_candidates(self) -> None:
+    def test_no_match_rows_are_promoted_with_single_service_content_candidate(self) -> None:
         guards = S2ReferenceGuards(
             missing=normalize_missing_rows([]),
             billing=normalize_billing_rows([]),
@@ -320,13 +320,78 @@ class S2ReferenceGuardsTest(unittest.TestCase):
         annotated = annotate_mapping_result(mapping, guards, sales_channel="현재채널")
         row = annotated.rows.iloc[0]
 
-        self.assertEqual(row["S2_매칭상태"], MATCH_NONE)
+        self.assertEqual(row["S2_매칭상태"], MATCH_OK)
+        self.assertEqual(row["S2_판매채널콘텐츠ID"], "SVC-1")
+        self.assertEqual(row["S2_콘텐츠ID"], "CID-SVC")
+        self.assertEqual(row["S2_콘텐츠명"], "서비스 작품")
         self.assertEqual(row["S2_판매채널콘텐츠_후보수"], "1")
         self.assertEqual(row["S2_판매채널콘텐츠_판매채널콘텐츠ID목록"], "SVC-1")
-        self.assertEqual(row["S2_미매핑상세사유"], "판매채널콘텐츠 있음 / 지급정산 없음")
-        self.assertIn("CID-SVC", row["S2_미매핑근거"])
-        self.assertIn("지급정산 생성/연결", row["S2_권장조치"])
+        self.assertEqual(row["S2_미매핑상세사유"], "")
+        self.assertEqual(row["검토필요(Y/N)"], "N")
         self.assertEqual(row["S2_담당자명"], "")
+
+    def test_multiple_service_content_candidates_stay_review_only(self) -> None:
+        guards = S2ReferenceGuards(
+            missing=normalize_missing_rows([]),
+            billing=normalize_billing_rows([]),
+            service_contents=normalize_service_content_rows(
+                [
+                    {
+                        "schnCtnsId": "SVC-1",
+                        "ctnsId": "CID-SVC-1",
+                        "ctnsNm": "서비스 작품",
+                        "schnNm": "현재채널",
+                    },
+                    {
+                        "schnCtnsId": "SVC-2",
+                        "ctnsId": "CID-SVC-2",
+                        "ctnsNm": "서비스 작품",
+                        "schnNm": "현재채널",
+                    },
+                ]
+            ),
+        )
+        s2 = pd.DataFrame(columns=["콘텐츠명", "판매채널콘텐츠ID", "판매채널명"])
+        settlement = pd.DataFrame({"작품명": ["서비스 작품"]})
+
+        mapping = build_mapping(s2, settlement, None)
+        annotated = annotate_mapping_result(mapping, guards, sales_channel="현재채널")
+        row = annotated.rows.iloc[0]
+
+        self.assertEqual(row["S2_매칭상태"], MATCH_NONE)
+        self.assertEqual(row["S2_판매채널콘텐츠ID"], "")
+        self.assertEqual(row["S2_판매채널콘텐츠_후보수"], "2")
+        self.assertIn("SVC-1", row["S2_판매채널콘텐츠_판매채널콘텐츠ID목록"])
+        self.assertIn("SVC-2", row["S2_판매채널콘텐츠_판매채널콘텐츠ID목록"])
+        self.assertEqual(row["S2_미매핑상세사유"], "판매채널콘텐츠 있음 / 지급정산 없음")
+        self.assertEqual(row["검토필요(Y/N)"], "Y")
+
+    def test_extended_confirmed_service_content_candidate_promotes_to_s2_id(self) -> None:
+        guards = S2ReferenceGuards(
+            missing=normalize_missing_rows([]),
+            billing=normalize_billing_rows([]),
+            service_contents=normalize_service_content_rows(
+                [
+                    {
+                        "schnCtnsId": "835143",
+                        "ctnsId": "308302",
+                        "ctnsNm": "성노예 코딩 어플_쉐도우스_4476960_1005458_선인세없음_확정",
+                        "schnNm": "웹소설 하이북",
+                    }
+                ]
+            ),
+        )
+        s2 = pd.DataFrame(columns=["콘텐츠명", "판매채널콘텐츠ID", "판매채널명"])
+        settlement = pd.DataFrame({"작품명": ["성노예 코딩 어플"]})
+
+        mapping = build_mapping(s2, settlement, None)
+        annotated = annotate_mapping_result(mapping, guards, sales_channel="웹소설 하이북")
+        row = annotated.rows.iloc[0]
+
+        self.assertEqual(row["S2_매칭상태"], MATCH_OK)
+        self.assertEqual(row["S2_판매채널콘텐츠ID"], "835143")
+        self.assertEqual(row["S2_콘텐츠ID"], "308302")
+        self.assertEqual(row["검토필요(Y/N)"], "N")
 
     def test_service_content_candidates_use_confirmed_master_title_key(self) -> None:
         service_contents = normalize_service_content_rows(
@@ -352,9 +417,11 @@ class S2ReferenceGuardsTest(unittest.TestCase):
         annotated = annotate_mapping_result(mapping, guards, sales_channel="Ridi")
         row = annotated.rows.iloc[0]
 
-        self.assertIn("843490", row[S2_DETAIL_EVIDENCE_COL])
-        self.assertIn("111006", row[S2_DETAIL_EVIDENCE_COL])
-        self.assertNotIn("후보 없음", row[S2_DETAIL_REASON_COL])
+        self.assertEqual(row["S2_매칭상태"], MATCH_OK)
+        self.assertEqual(row["S2_판매채널콘텐츠ID"], "843490")
+        self.assertEqual(row["S2_콘텐츠ID"], "111006")
+        self.assertEqual(row[S2_DETAIL_EVIDENCE_COL], "")
+        self.assertEqual(row[S2_DETAIL_REASON_COL], "")
 
     def test_master_candidates_use_confirmed_master_title_key(self) -> None:
         guards = S2ReferenceGuards(missing=normalize_missing_rows([]), billing=normalize_billing_rows([]))

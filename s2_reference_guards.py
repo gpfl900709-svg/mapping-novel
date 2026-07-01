@@ -23,6 +23,7 @@ from mapping_core import (
     S2_ASSIGNEE_NAME_COL,
     S2_ASSIGNEE_SOURCE_COL,
     MappingResult,
+    _review_reason_values,
 )
 
 
@@ -384,9 +385,29 @@ def annotate_mapping_result(
     service_counts: list[str] = []
     service_ids: list[str] = []
     service_content_ids: list[str] = []
+    final_statuses: list[str] = []
+    final_s2_ids: list[str] = []
+    final_content_ids: list[str] = []
+    final_titles: list[str] = []
 
-    for key_value, status_value, current_assignee, current_department in rows[
-        ["정제_상품명", "S2_매칭상태", S2_ASSIGNEE_NAME_COL, S2_ASSIGNEE_DEPARTMENT_COL]
+    for (
+        key_value,
+        status_value,
+        current_assignee,
+        current_department,
+        current_s2_id,
+        current_content_id,
+        current_title,
+    ) in rows[
+        [
+            "정제_상품명",
+            "S2_매칭상태",
+            S2_ASSIGNEE_NAME_COL,
+            S2_ASSIGNEE_DEPARTMENT_COL,
+            "S2_판매채널콘텐츠ID",
+            "S2_콘텐츠ID",
+            "S2_콘텐츠명",
+        ]
     ].itertuples(index=False, name=None):
         key = text(key_value)
         status = text(status_value)
@@ -410,9 +431,29 @@ def annotate_mapping_result(
         service_counts.append(str(service.get("_count", 0) if service else 0))
         service_ids.append(text(service.get("판매채널콘텐츠ID", "")) if service else "")
         service_content_ids.append(text(service.get("콘텐츠ID", "")) if service else "")
+        final_status = status
+        final_s2_id = text(current_s2_id)
+        final_content_id = text(current_content_id)
+        final_title = text(current_title)
+        if _should_promote_service_content_candidate(
+            status=status,
+            service=service,
+            missing=missing,
+            billing=billing,
+            other_payment=other_payment,
+            master=master,
+        ):
+            final_status = MATCH_OK
+            final_s2_id = text(service.get("판매채널콘텐츠ID"))
+            final_content_id = text(service.get("콘텐츠ID"))
+            final_title = text(service.get("콘텐츠명"))
+        final_statuses.append(final_status)
+        final_s2_ids.append(final_s2_id)
+        final_content_ids.append(final_content_id)
+        final_titles.append(final_title)
         split_reasons.append(" | ".join(reasons))
         detail = _missing_detail_for(
-            status=status,
+            status=final_status,
             key=key,
             missing=missing,
             billing=billing,
@@ -424,7 +465,7 @@ def annotate_mapping_result(
         detail_evidence.append(detail["evidence"])
         detail_actions.append(detail["action"])
         assignee = _assignee_for(
-            status=status,
+            status=final_status,
             current_assignee=text(current_assignee),
             current_department=text(current_department),
             missing=missing,
@@ -435,6 +476,10 @@ def annotate_mapping_result(
         assignee_departments.append(assignee["department"])
         assignee_sources.append(assignee["source"])
 
+    rows["S2_매칭상태"] = final_statuses
+    rows["S2_판매채널콘텐츠ID"] = final_s2_ids
+    rows["S2_콘텐츠ID"] = final_content_ids
+    rows["S2_콘텐츠명"] = final_titles
     rows["S2_정산정보누락_후보수"] = missing_counts
     rows["S2_정산정보누락_판매채널콘텐츠ID목록"] = missing_ids
     rows["S2_정산정보누락_콘텐츠ID목록"] = missing_content_ids
@@ -453,8 +498,13 @@ def annotate_mapping_result(
     rows[S2_ASSIGNEE_SOURCE_COL] = assignee_sources
 
     rows["검토필요사유"] = [
-        _append_reason(base, addition)
-        for base, addition in zip(rows["검토필요사유"], rows["S2_분리사유"])
+        _append_reason(_review_reason_values(cleaned_title, s2_status, ips_status), addition)
+        for cleaned_title, s2_status, ips_status, addition in zip(
+            rows["정제_상품명"],
+            rows["S2_매칭상태"],
+            rows["IPS_매칭상태"],
+            rows["S2_분리사유"],
+        )
     ]
     rows["검토필요(Y/N)"] = rows["검토필요사유"].map(lambda value: "Y" if text(value) else "N")
 
@@ -495,6 +545,24 @@ def annotate_mapping_result(
         duplicate_candidates=mapping.duplicate_candidates,
         input_validation=input_validation,
     )
+
+
+def _should_promote_service_content_candidate(
+    *,
+    status: str,
+    service: dict[str, str | int],
+    missing: dict[str, str | int],
+    billing: dict[str, str | int],
+    other_payment: dict[str, str | int],
+    master: dict[str, str | int],
+) -> bool:
+    if status != MATCH_NONE:
+        return False
+    if any((missing, billing, other_payment, master)):
+        return False
+    if not service or int(service.get("_count", 0) or 0) != 1:
+        return False
+    return bool(text(service.get("판매채널콘텐츠ID")))
 
 
 def _service_content_index_by_channel_and_key(frame: pd.DataFrame | None) -> dict[tuple[str, str], dict[str, str | int]]:
