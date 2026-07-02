@@ -1,0 +1,73 @@
+{
+  "generated_at": "2026-07-03T00:01:43+09:00",
+  "source_rows": 144444,
+  "cache_rows_before": 33054,
+  "cache_rows_after": 33281,
+  "s2_lookup_rows": 33281,
+  "s2_change_added": 235,
+  "s2_change_deleted": 8,
+  "s2_change_modified": 3,
+  "output_cache": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
+  "output_cache_parts": [],
+  "output_s2_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
+  "summary": {
+    "rows": 144444,
+    "columns": 14,
+    "content_shape_counts": {
+      "소설": 144444
+    },
+    "approval_status_counts": {
+      "승인": 127976,
+      "미승인": 16397,
+      "승인취소": 71
+    },
+    "payment_settlement_status_counts": {
+      "운영중": 143716,
+      "종료": 678,
+      "콘텐츠확인필요": 47,
+      "거래처확인필요": 3
+    },
+    "top_channel_counts": {
+      "교보문고(소설)": 14277,
+      "봄툰KR(1068149784)": 13089,
+      "원스토어(소설)": 10767,
+      "미스터블루(소설)": 10331,
+      "판무림": 10148,
+      "한아름(P000003716)": 7983,
+      "Yes24(서점)": 4246,
+      "인터파크": 4122,
+      "리디북스(이벤트)": 4033,
+      "네이버_일반": 3935,
+      "북큐브(소설)": 3752,
+      "웹소설 하이북": 3744,
+      "구글(소설)": 3648,
+      "한국이퍼브": 3240,
+      "네이버_장르(광고수익)": 3101,
+      "무툰(소설 서비스)": 3011,
+      "유페이퍼": 2966,
+      "누온": 2768,
+      "스토린랩(원스토어)": 2302,
+      "리디북스(소설)": 2133
+    },
+    "content_id_nonblank": 144444,
+    "content_id_unique": 27124,
+    "sales_channel_content_id_nonblank": 144290,
+    "sales_channel_content_id_unique": 127559,
+    "contract_id_column_present": true,
+    "contract_id_nonzero": 33779,
+    "contract_id_zero_or_blank": 110665,
+    "contract_linked_sales_channel_content_id_unique": 33281,
+    "registered_at_min": "2024-12-31T12:00:00",
+    "registered_at_max": "2026-07-02T18:17:23",
+    "sales_channel_content_id_duplicate_keys": 12263,
+    "sales_channel_content_id_multiple_titles": 1,
+    "sales_channel_content_id_multiple_master_ids": 12263,
+    "sales_channel_content_id_multiple_content_ids": 1,
+    "cache_mode": "lookup_only",
+    "s2_change_summary": {
+      "added": 235,
+      "deleted": 8,
+      "modified": 3
+    }
+  }
+}
