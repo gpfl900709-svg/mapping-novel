@@ -282,6 +282,22 @@ def current_app_commit_sha() -> str:
     return ""
 
 
+def current_app_updated_at() -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "log", "-1", "--format=%cI", "HEAD"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            timeout=5,
+        )
+        if completed.returncode == 0:
+            return format_update_timestamp(completed.stdout)
+    except Exception:
+        return ""
+    return ""
+
+
 def session_s2_login_values() -> dict[str, str]:
     return normalize_s2_login_values(
         st.session_state.get(S2_SESSION_USERNAME_KEY),
@@ -2172,6 +2188,31 @@ def inject_compact_layout_css() -> None:
             background: #fff7ed;
             color: #c2410c;
         }
+        .sidebar-status-meta {
+            display: grid;
+            gap: 0.28rem;
+            margin-top: 0.35rem;
+        }
+        .sidebar-status-meta-row {
+            align-items: baseline;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: space-between;
+        }
+        .sidebar-status-meta-label {
+            color: #6b7280;
+            font-size: 0.68rem;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .sidebar-status-meta-value {
+            color: #111827;
+            font-size: 0.78rem;
+            font-weight: 720;
+            line-height: 1.2;
+            text-align: right;
+            word-break: keep-all;
+        }
         div[data-testid="stFileUploader"] {
             min-width: 0;
         }
@@ -2286,15 +2327,30 @@ def render_sidebar_mini_notice(message: str, *, tone: str = "info") -> None:
     )
 
 
-def render_s2_status_card(updated_at: str, usage_label: str, usage_tone: str) -> None:
+def render_s2_status_card(
+    baseline_updated_at: str,
+    app_updated_at: str,
+    usage_label: str,
+    usage_tone: str,
+) -> None:
     badge_class = "sidebar-status-ok" if usage_tone == "ok" else "sidebar-status-warn"
-    timestamp = html.escape(updated_at or "확인 필요")
+    baseline_timestamp = html.escape(baseline_updated_at or "확인 필요")
+    app_timestamp = html.escape(app_updated_at or "확인 필요")
     st.markdown(
         f"""
         <div class="sidebar-status-card">
-          <div class="sidebar-status-label">S2 기준 업데이트</div>
-          <div class="sidebar-status-time">{timestamp}</div>
+          <div class="sidebar-status-label">S2 기준 상태</div>
           <span class="sidebar-status-badge {badge_class}">{html.escape(usage_label)}</span>
+          <div class="sidebar-status-meta">
+            <div class="sidebar-status-meta-row">
+              <span class="sidebar-status-meta-label">기준선 생성</span>
+              <span class="sidebar-status-meta-value">{baseline_timestamp}</span>
+            </div>
+            <div class="sidebar-status-meta-row">
+              <span class="sidebar-status-meta-label">Cloud 반영</span>
+              <span class="sidebar-status-meta-value">{app_timestamp}</span>
+            </div>
+          </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -2355,6 +2411,7 @@ with st.sidebar:
     current_cache = cache_metrics(S2_SOURCE_LOOKUP)
     repo_baseline = repo_s2_baseline_summary()
     baseline_updated_at = repo_s2_baseline_updated_at(repo_baseline) if repo_baseline else ""
+    app_updated_at = current_app_updated_at()
     usage_label, usage_tone = s2_usage_status(baseline_updated_at, current_cache["rows"])
     guard_summary = repo_refresh_summary(S2_GUARD_SUMMARY_NAME)
     service_content_summary = repo_refresh_summary(S2_SERVICE_CONTENT_SUMMARY_NAME)
@@ -2368,7 +2425,7 @@ with st.sidebar:
     billing_guard_rows = lookup_row_count(S2_BILLING_LOOKUP)
     service_content_rows = lookup_row_count(S2_SERVICE_CONTENTS_LOOKUP)
     notion_config = notion_task_config()
-    render_s2_status_card(baseline_updated_at, usage_label, usage_tone)
+    render_s2_status_card(baseline_updated_at, app_updated_at, usage_label, usage_tone)
     st.caption(f"*{S2_DAILY_REFRESH_TIME_LABEL} KST 정규 업데이트됩니다.")
 
     if usage_tone != "ok":
