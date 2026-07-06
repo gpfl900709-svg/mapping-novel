@@ -109,6 +109,143 @@ class SettlementAdapterRegistryTest(unittest.TestCase):
         self.assertEqual(adapter_blocking_messages(result), [])
         self.assertIn("parsed_sheet_rule_fallback", audit["status"].tolist())
 
+    def test_kakao_page_detail_report_row7_header_normalizes(self) -> None:
+        workbook = Workbook()
+        summary = workbook.active
+        summary.title = "2026-06 정산 요약"
+        summary.append(["안내"])
+        detail = workbook.create_sheet("2026-06 정산 상세 리포트")
+        for _ in range(5):
+            detail.append([])
+        detail.append(["", "기초정보", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "캐시거래액", "", "", "", "", "", "", "원화거래액", "", "", "", "", "", "", "순매출액 (정산대상금액)", "", "", "", "", "", "", "정산율(%)", "", "", "", "정산금액"])
+        detail.append(
+            [
+                "",
+                "특별/일반",
+                "소싱구분",
+                "플랫폼명",
+                "거래처명",
+                "사업자번호",
+                "발행자명",
+                "정산 유형",
+                "당월신규계약여부",
+                "계약UID",
+                "소진ID",
+                "계약명",
+                "과/면세",
+                "역할구분",
+                "콘텐츠유형",
+                "플랫폼작품ID",
+                "플랫폼 작품명",
+                "판매시작일",
+                "판매종료일",
+                "판매상태",
+                "제품코드 (발행자가 부여하는 코드)",
+                "레이블",
+                "작가명",
+                "ISBN(유/무)",
+                "이용권 종류",
+                "BM유형",
+                "ANDROID-캐시",
+                "WEB-캐시",
+                "IOS-캐시",
+                "EVENT-캐시",
+                "유상캐시-캐시",
+                "무상캐시-캐시",
+                "총합계-캐시",
+                "ANDROID-원화",
+                "WEB-원화",
+                "IOS-원화",
+                "EVENT-원화",
+                "유상캐시-원화",
+                "무상캐시-원화",
+                "총합계-원화",
+                "ANDROID-순매출",
+                "WEB-순매출",
+                "IOS-순매출",
+                "EVENT-순매출",
+                "유상캐시-순매출",
+                "무상캐시-순매출",
+                "총합계-순매출",
+                "ANDROID 정산율(%)",
+                "WEB 정산율(%)",
+                "IOS 정산율(%)",
+                "EVENT 정산율(%)",
+                "공급가액",
+            ]
+        )
+        detail.append(
+            [
+                "",
+                "특별",
+                "카카오페이지",
+                "카카오페이지",
+                "주식회사 키다리스튜디오",
+                1068149784,
+                "포텐",
+                "공급 특별 (선투자)",
+                "N",
+                2952,
+                2765,
+                "키다리_뤼케시온 작가",
+                "면세",
+                "CP",
+                "소설/웹소설",
+                57720297,
+                "꿈꾸는 스타 메이커",
+                "2021-08-26",
+                "",
+                "판매중",
+                "",
+                "",
+                "뤼케시온",
+                "",
+                "소장",
+                "일반",
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1000,
+                0,
+                0,
+                0,
+                1000,
+                0,
+                1000,
+                900,
+                0,
+                0,
+                0,
+                900,
+                0,
+                900,
+                70,
+                70,
+                70,
+                70,
+                630,
+            ]
+        )
+        payload = io.BytesIO()
+        workbook.save(payload)
+        payload.seek(0)
+
+        result = normalize_settlement(payload, source_name="2026년 6월 카카오페이지(선투자) 정산상세.xlsx")
+        feed = result.to_mapping_feed()
+        audit = adapter_audit_dataframe(result)
+
+        self.assertEqual(adapter_blocking_messages(result), [])
+        self.assertEqual(feed["상품명"].tolist(), ["꿈꾸는 스타 메이커"])
+        self.assertEqual(feed["작가명"].tolist(), ["뤼케시온"])
+        self.assertEqual(feed["외부콘텐츠ID"].tolist(), ["57720297"])
+        self.assertEqual(feed["판매금액_후보"].tolist(), [1000])
+        self.assertEqual(feed["정산기준액_후보"].tolist(), [630])
+        self.assertEqual(audit.loc[audit["sheet"].eq("2026-06 정산 상세 리포트"), "header_row"].iloc[0], "7")
+
     def test_hana_areum_summary_rows_are_excluded(self) -> None:
         workbook = Workbook()
         sheet = workbook.active
