@@ -1,7 +1,7 @@
 {
-  "manifest_id": "2026-07-08__s2_all__120005",
+  "manifest_id": "2026-07-09__s2_all__000009",
   "step": "sales_channel_contents",
   "path": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_sales_channel_content_lookup.csv",
-  "sha256": "71f482bd51a142b0562e923b5495052e2618bd4017ac168ad5cde349a1f3ec5e",
-  "created_at": "2026-07-08T12:07:53"
+  "sha256": "c4cae9852121e9b49c3264bd45b5d96e74522d461aa5b6a70ec7d40b3952e766",
+  "created_at": "2026-07-09T00:07:39"
 }
