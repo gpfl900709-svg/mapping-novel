@@ -1,7 +1,7 @@
 {
-  "manifest_id": "2026-07-08__s2_all__000008",
+  "manifest_id": "2026-07-08__s2_all__120005",
   "step": "payment_settlement",
   "path": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
-  "sha256": "22d6c161c452dadb7e5c6175704976f6f04d7d4a2b551f0307af3d16806440c3",
-  "created_at": "2026-07-08T00:07:44"
+  "sha256": "ee2742cfe55f9967a162867ab7c3e32d31b8b6ff60fbc855219c63f051fb1eed",
+  "created_at": "2026-07-08T12:07:53"
 }
