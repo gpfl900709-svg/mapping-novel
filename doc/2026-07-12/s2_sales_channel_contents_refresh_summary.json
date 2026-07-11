@@ -1,0 +1,38 @@
+{
+  "created_at": "2026-07-12",
+  "finished_at": "2026-07-12T00:07:43+09:00",
+  "content_style_code": "102",
+  "target_channels": 53,
+  "target_missing_channels": 0,
+  "fetch_failures": 0,
+  "raw_rows": 395608,
+  "lookup_rows": 395608,
+  "sales_channel_counts": {
+    "교보문고(소설)": 19118,
+    "원스토어(소설)": 16357,
+    "미스터블루(소설)": 16011,
+    "판무림": 15739,
+    "한아름(P000003716)": 13932,
+    "Yes24(서점)": 10758,
+    "북큐브(소설)": 10440,
+    "웹소설 하이북": 10368,
+    "구글(소설)": 10335,
+    "네이버_일반": 10247,
+    "무툰(소설 서비스)": 9947,
+    "리디북스(소설)": 9276,
+    "누온": 9199,
+    "네이버_장르": 8925,
+    "스토린랩(원스토어)": 8893,
+    "피플앤스토리 (P2P 웹소설 서비스)": 8563,
+    "카카오페이지(소설)": 8405,
+    "알라딘(소설)(1068659313)": 8240,
+    "네이버_연재": 8163,
+    "조아라(소설)": 8159
+  },
+  "content_shape_counts": {
+    "소설": 395597,
+    "웹툰": 11
+  },
+  "output": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_sales_channel_content_lookup.csv",
+  "audit": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\doc\\2026-07-12\\s2_sales_channel_contents_refresh_audit.csv"
+}
