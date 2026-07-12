@@ -1,0 +1,73 @@
+{
+  "generated_at": "2026-07-13T00:07:23+09:00",
+  "source_rows": 380356,
+  "cache_rows_before": 318656,
+  "cache_rows_after": 319020,
+  "s2_lookup_rows": 319020,
+  "s2_change_added": 1371,
+  "s2_change_deleted": 1007,
+  "s2_change_modified": 0,
+  "output_cache": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
+  "output_cache_parts": [],
+  "output_s2_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
+  "summary": {
+    "rows": 380356,
+    "columns": 14,
+    "content_shape_counts": {
+      "소설": 380356
+    },
+    "approval_status_counts": {
+      "미승인": 302652,
+      "승인": 77634,
+      "승인취소": 70
+    },
+    "payment_settlement_status_counts": {
+      "운영중": 379669,
+      "종료": 667,
+      "콘텐츠확인필요": 17,
+      "거래처확인필요": 3
+    },
+    "top_channel_counts": {
+      "교보문고(소설)": 13382,
+      "봄툰KR(1068149784)": 13070,
+      "원스토어(소설)": 12228,
+      "미스터블루(소설)": 12201,
+      "판무림": 11605,
+      "한아름(P000003716)": 10906,
+      "Yes24(서점)": 9015,
+      "웹소설 하이북": 8922,
+      "구글(소설)": 8864,
+      "리디북스(소설)": 8700,
+      "북큐브(소설)": 8615,
+      "네이버_장르": 8545,
+      "무툰(소설 서비스)": 8449,
+      "네이버_일반": 8404,
+      "누온": 8105,
+      "스토린랩(원스토어)": 8031,
+      "카카오페이지(소설)": 7943,
+      "피플앤스토리 (P2P 웹소설 서비스)": 7770,
+      "알라딘(소설)(1068659313)": 7757,
+      "네이버_연재": 7707
+    },
+    "content_id_nonblank": 380356,
+    "content_id_unique": 27173,
+    "sales_channel_content_id_nonblank": 380215,
+    "sales_channel_content_id_unique": 368858,
+    "contract_id_column_present": true,
+    "contract_id_nonzero": 319628,
+    "contract_id_zero_or_blank": 60728,
+    "contract_linked_sales_channel_content_id_unique": 319020,
+    "registered_at_min": "2024-12-31T12:00:00",
+    "registered_at_max": "2026-07-12T22:59:58",
+    "sales_channel_content_id_duplicate_keys": 8084,
+    "sales_channel_content_id_multiple_titles": 1,
+    "sales_channel_content_id_multiple_master_ids": 8084,
+    "sales_channel_content_id_multiple_content_ids": 1,
+    "cache_mode": "lookup_only",
+    "s2_change_summary": {
+      "added": 1371,
+      "deleted": 1007,
+      "modified": 0
+    }
+  }
+}
