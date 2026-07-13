@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-07-13T00:07:23+09:00",
+  "generated_at": "2026-07-13T12:07:36+09:00",
   "source_rows": 380356,
-  "cache_rows_before": 318656,
+  "cache_rows_before": 319020,
   "cache_rows_after": 319020,
   "s2_lookup_rows": 319020,
-  "s2_change_added": 1371,
-  "s2_change_deleted": 1007,
+  "s2_change_added": 0,
+  "s2_change_deleted": 0,
   "s2_change_modified": 0,
   "output_cache": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "output_cache_parts": [],
@@ -65,8 +65,8 @@
     "sales_channel_content_id_multiple_content_ids": 1,
     "cache_mode": "lookup_only",
     "s2_change_summary": {
-      "added": 1371,
-      "deleted": 1007,
+      "added": 0,
+      "deleted": 0,
       "modified": 0
     }
   }
