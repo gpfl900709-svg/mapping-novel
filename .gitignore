@@ -5,6 +5,7 @@ __pycache__/
 !.streamlit/secrets.example.toml
 .venv/
 venv/
+.codex_tmp/
 *.log
 .env
 .env.*
