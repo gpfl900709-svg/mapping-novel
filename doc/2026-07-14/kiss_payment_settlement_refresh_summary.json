@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-07-14T00:07:37+09:00",
+  "generated_at": "2026-07-14T12:07:24+09:00",
   "source_rows": 380356,
   "cache_rows_before": 319020,
   "cache_rows_after": 319020,
   "s2_lookup_rows": 319020,
   "s2_change_added": 0,
   "s2_change_deleted": 0,
-  "s2_change_modified": 0,
+  "s2_change_modified": 213922,
   "output_cache": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "output_cache_parts": [],
   "output_s2_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
@@ -67,7 +67,7 @@
     "s2_change_summary": {
       "added": 0,
       "deleted": 0,
-      "modified": 0
+      "modified": 213922
     }
   }
 }
