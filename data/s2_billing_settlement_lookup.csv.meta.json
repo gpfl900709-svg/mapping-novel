@@ -1,7 +1,7 @@
 {
-  "manifest_id": "2026-07-15__s2_all__000012",
+  "manifest_id": "2026-07-16__s2_all__000008",
   "step": "reference_guards",
   "path": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_billing_settlement_lookup.csv",
   "sha256": "f6746024a402250cca699c22c6bd3512d82af60b87f4a715d10f07081c9431fe",
-  "created_at": "2026-07-15T00:08:09"
+  "created_at": "2026-07-16T00:08:13"
 }
