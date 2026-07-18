@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-07-19T00:08:57",
+  "as_of": "2026-07-19",
+  "api_total_rows": 68921,
+  "fetched_rows": 68921,
+  "fetched_pages": 2,
+  "source_rows": 68921,
+  "all_rows": 68921,
+  "novel_rows": 35655,
+  "webtoon_rows": 32850,
+  "content_style_code": "",
+  "content_status_code": "001",
+  "reversion_company_code": "1000",
+  "outputs": [
+    "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\all_contents.xlsx",
+    "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kidari_contents.xlsx",
+    "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kidari_webtoon.xlsx"
+  ]
+}
