@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-07-20T00:07:26+09:00",
-  "source_rows": 380419,
+  "generated_at": "2026-07-20T12:08:33+09:00",
+  "source_rows": 380420,
   "cache_rows_before": 319082,
   "cache_rows_after": 319082,
   "s2_lookup_rows": 319082,
@@ -11,25 +11,25 @@
   "output_cache_parts": [],
   "output_s2_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "summary": {
-    "rows": 380419,
+    "rows": 380420,
     "columns": 14,
     "content_shape_counts": {
-      "소설": 380419
+      "소설": 380420
     },
     "approval_status_counts": {
       "미승인": 302779,
-      "승인": 77635,
+      "승인": 77636,
       "승인취소": 5
     },
     "payment_settlement_status_counts": {
-      "운영중": 379732,
+      "운영중": 379733,
       "종료": 667,
       "콘텐츠확인필요": 17,
       "거래처확인필요": 3
     },
     "top_channel_counts": {
       "교보문고(소설)": 13384,
-      "봄툰KR(1068149784)": 13071,
+      "봄툰KR(1068149784)": 13072,
       "원스토어(소설)": 12229,
       "미스터블루(소설)": 12202,
       "판무림": 11606,
@@ -49,16 +49,16 @@
       "알라딘(소설)(1068659313)": 7758,
       "네이버_연재": 7708
     },
-    "content_id_nonblank": 380419,
-    "content_id_unique": 27176,
+    "content_id_nonblank": 380420,
+    "content_id_unique": 27177,
     "sales_channel_content_id_nonblank": 380277,
     "sales_channel_content_id_unique": 368920,
     "contract_id_column_present": true,
-    "contract_id_nonzero": 319691,
+    "contract_id_nonzero": 319692,
     "contract_id_zero_or_blank": 60728,
     "contract_linked_sales_channel_content_id_unique": 319082,
     "registered_at_min": "2024-12-31T12:00:00",
-    "registered_at_max": "2026-07-15T16:33:33",
+    "registered_at_max": "2026-07-20T10:30:53",
     "sales_channel_content_id_duplicate_keys": 8084,
     "sales_channel_content_id_multiple_titles": 1,
     "sales_channel_content_id_multiple_master_ids": 8084,
