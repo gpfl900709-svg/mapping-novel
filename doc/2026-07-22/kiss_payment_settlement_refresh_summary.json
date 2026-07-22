@@ -1,36 +1,36 @@
 {
-  "generated_at": "2026-07-22T00:07:33+09:00",
-  "source_rows": 380467,
-  "cache_rows_before": 319105,
-  "cache_rows_after": 319127,
-  "s2_lookup_rows": 319127,
-  "s2_change_added": 23,
-  "s2_change_deleted": 1,
-  "s2_change_modified": 1,
+  "generated_at": "2026-07-22T12:07:42+09:00",
+  "source_rows": 380489,
+  "cache_rows_before": 319127,
+  "cache_rows_after": 319148,
+  "s2_lookup_rows": 319148,
+  "s2_change_added": 21,
+  "s2_change_deleted": 0,
+  "s2_change_modified": 0,
   "output_cache": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "output_cache_parts": [],
   "output_s2_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv",
   "summary": {
-    "rows": 380467,
+    "rows": 380489,
     "columns": 14,
     "content_shape_counts": {
-      "소설": 380467
+      "소설": 380489
     },
     "approval_status_counts": {
-      "미승인": 302826,
+      "미승인": 302848,
       "승인": 77636,
       "승인취소": 5
     },
     "payment_settlement_status_counts": {
-      "운영중": 379780,
+      "운영중": 379802,
       "종료": 667,
       "콘텐츠확인필요": 17,
       "거래처확인필요": 3
     },
     "top_channel_counts": {
       "교보문고(소설)": 13384,
-      "봄툰KR(1068149784)": 13072,
-      "원스토어(소설)": 12263,
+      "봄툰KR(1068149784)": 13073,
+      "원스토어(소설)": 12270,
       "미스터블루(소설)": 12202,
       "판무림": 11606,
       "한아름(P000003716)": 10907,
@@ -49,25 +49,25 @@
       "알라딘(소설)(1068659313)": 7758,
       "네이버_연재": 7708
     },
-    "content_id_nonblank": 380467,
-    "content_id_unique": 27182,
-    "sales_channel_content_id_nonblank": 380324,
-    "sales_channel_content_id_unique": 368965,
+    "content_id_nonblank": 380489,
+    "content_id_unique": 27185,
+    "sales_channel_content_id_nonblank": 380345,
+    "sales_channel_content_id_unique": 368986,
     "contract_id_column_present": true,
-    "contract_id_nonzero": 319739,
+    "contract_id_nonzero": 319761,
     "contract_id_zero_or_blank": 60728,
-    "contract_linked_sales_channel_content_id_unique": 319127,
+    "contract_linked_sales_channel_content_id_unique": 319148,
     "registered_at_min": "2024-12-31T12:00:00",
-    "registered_at_max": "2026-07-21T17:17:30",
+    "registered_at_max": "2026-07-22T10:15:25",
     "sales_channel_content_id_duplicate_keys": 8086,
     "sales_channel_content_id_multiple_titles": 1,
     "sales_channel_content_id_multiple_master_ids": 8086,
     "sales_channel_content_id_multiple_content_ids": 1,
     "cache_mode": "lookup_only",
     "s2_change_summary": {
-      "added": 23,
-      "deleted": 1,
-      "modified": 1
+      "added": 21,
+      "deleted": 0,
+      "modified": 0
     }
   }
 }
