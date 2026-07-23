@@ -1,0 +1,50 @@
+{
+  "created_at": "2026-07-24",
+  "finished_at": "2026-07-24T00:08:13+09:00",
+  "content_style_code": "102",
+  "missing_platform_code": "",
+  "missing_rows_raw": 2327,
+  "missing_lookup_rows": 2327,
+  "missing_sales_channel_counts": {
+    "레진KR(1148700708)": 1511,
+    "봄툰KR(1068149784)": 816
+  },
+  "missing_content_shape_counts": {
+    "소설": 2327
+  },
+  "missing_settlement_start_counts": {
+    "N": 2298,
+    "Y": 29
+  },
+  "missing_overlap_with_s2_lookup": 0,
+  "missing_platform_comparisons": [],
+  "billing_api_total_rows": 1047,
+  "billing_rows_raw": 1047,
+  "billing_pages": 1,
+  "billing_lookup_rows": 1047,
+  "billing_sales_channel_counts": {
+    "벨툰JP(봄툰B2BC)(F000000019)": 164,
+    "레진JP(봄툰B2BC)(F000000019)": 163,
+    "카카오페이지(선투자)": 118,
+    "스튜디오지니": 60,
+    "블라이스 셀렉트": 52,
+    "대만-네이버": 40,
+    "레진JP(레진엔터테인먼트)": 29,
+    "레진JP-서드파티(레진엔터테인먼트)": 28,
+    "스토리위즈": 28,
+    "벨툰JP(레진엔터테인먼트)": 18,
+    "태국-네이버": 17,
+    "씨제이이엔엠(방영권)": 17,
+    "인도네시아-네이버": 15,
+    "대만-렌타(봄툰B2BC)": 13,
+    "대만-렌타": 13,
+    "프랑스-오노(봄툰B2BC)": 12,
+    "네이버_연재": 11,
+    "밀리의 서재": 11,
+    "독일-페이퍼툰즈": 10,
+    "MBN": 10
+  },
+  "missing_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_payment_missing_lookup.csv",
+  "billing_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\s2_billing_settlement_lookup.csv",
+  "s2_lookup": "C:\\Users\\User\\Desktop\\work_hq\\edge_repos\\mapping-novel\\data\\kiss_payment_settlement_s2_lookup.csv"
+}
