@@ -13,9 +13,6 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from cleaning_rules import clean_master_title, clean_title, drop_disabled_rows, extract_master_work_title, text
-from work_order_reports import build_pd_work_order_frame_from_mapping_rows
-
-
 S2_TITLE_COL_CAND = ["콘텐츠명", "콘텐츠 제목", "Title", "ContentName", "제목"]
 S2_ID_COL_CAND = [
     "판매채널콘텐츠ID",
@@ -739,6 +736,8 @@ def export_mapping(
     s2_sales_channel: str = "",
     platform: str = "",
 ) -> bytes:
+    from work_order_reports import build_pd_work_order_frame_from_mapping_rows
+
     buffer = io.BytesIO()
     width_sample_rows = _export_width_sample_rows()
     work_order = build_pd_work_order_frame_from_mapping_rows(

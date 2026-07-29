@@ -1,11 +1,11 @@
 # mapping-novel
 
-S2 지급정산 기준으로 플랫폼 정산서를 매핑하고, S2/IPS/admin/account 보조 조사를 운영하기 위한 Streamlit + operator repo입니다.
+공개 안전 매핑 앱과 내부 운영 앱을 분리해, S2 지급정산 기준으로 플랫폼 정산서를 매핑하고 S2/IPS/admin/account 보조 조사를 운영하는 Streamlit + operator repo입니다.
 
 ## What This Does
 
-- 정산서 업로드 → S2 지급정산 기준 매핑
-- 검토필요/PD 작업지시 리포트 생성
+- 공개 앱: 정산서 업로드 → 개인정보 없는 S2 제목/채널 기준 매핑
+- 내부 앱: 검토필요/PD 작업지시 리포트 생성
 - S2 기준, 누락 guard, 청구 guard, 판매채널콘텐츠 lookup 최신화
 - IPS 콘텐츠 보조자료 최신화
 - `ops/` 아래에 IPS/admin/account 운영 스크립트 보관
@@ -15,6 +15,12 @@ S2 지급정산 기준으로 플랫폼 정산서를 매핑하고, S2/IPS/admin/a
 ```powershell
 pip install -r requirements.txt
 streamlit run app.py
+```
+
+기존 전체 운영 UI는 내부 전용 entrypoint로 실행합니다.
+
+```powershell
+streamlit run internal_app.py --server.address 127.0.0.1
 ```
 
 운영용 live 작업까지 할 때:
@@ -28,7 +34,9 @@ Copy-Item "ops\SIAAN Project\.env.example" "ops\SIAAN Project\.env"
 ## Main Paths
 
 ```text
-app.py                         Streamlit 앱
+app.py                         공개 안전 Streamlit 앱
+internal_app.py                내부 운영 전용 Streamlit 앱
+public_mapping.py              공개 reference/result/export 보안 경계
 batch_reports.py               복수 정산서/PD 작업지시 리포트
 mapping_core.py                핵심 매핑 로직
 cleaning_rules.py              제목 정제 규칙
@@ -103,11 +111,12 @@ live write 도구는 기본적으로 dry-run/preview 우선으로 보정되어 �
 
 ```powershell
 python -m unittest discover -s tests -v
-python -m py_compile app.py mapping_core.py matching_rules.py parallel_mapping.py
+python -m py_compile app.py internal_app.py public_mapping.py mapping_core.py matching_rules.py parallel_mapping.py
 ```
 
 ## Notes
 
 - 실제 `.env`와 local 작업 산출물은 git에 올리지 않습니다.
+- 공개/내부 배포 경계와 reference 갱신 절차는 [doc/PUBLIC_INTERNAL_BOUNDARY.md](doc/PUBLIC_INTERNAL_BOUNDARY.md)를 따릅니다.
 - 상세 운영 히스토리는 [doc/OPERATIONS.md](doc/OPERATIONS.md)에 보존했습니다.
 - 과거 조사/증거 파일은 아직 repo에 남아 있으나, 신규 운영자는 위 `Main Paths`와 `ops/` 문서를 우선 보면 됩니다.
